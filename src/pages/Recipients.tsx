@@ -391,13 +391,13 @@ export function Recipients() {
                 </div>
 
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => navigate(`/survey/${recipient.recipient_code}`)}
+                  <a
+                    href={`/survey/${recipient.recipient_code}`}
                     className="flex items-center justify-center gap-2 px-3 py-2 bg-green-600 rounded-lg text-sm font-medium text-white hover:bg-green-700 transition-colors"
                     title="Открыть форму"
                   >
                     <ExternalLink className="w-4 h-4" strokeWidth={2} />
-                  </button>
+                  </a>
                   <button
                     onClick={() => copyLink(recipient.recipient_code, recipient.id)}
                     className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#F8F9FA] rounded-lg text-sm font-medium text-[#1F1F1F] hover:bg-[#E8EAED] transition-colors"
