@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { supabase } from '../lib/supabase';
-import { Save, AlertCircle, CheckCircle } from 'lucide-react';
+import { Save, AlertCircle, CheckCircle, Mail, ExternalLink } from 'lucide-react';
 
 interface SystemSettings {
   id: string;
@@ -209,6 +209,52 @@ export function AdminSettings() {
                     </p>
                   </div>
                 </label>
+              </div>
+
+              {/* Email Service Configuration */}
+              <div className="pt-6 border-t border-[#E8EAED]">
+                <div className="flex items-center gap-2 mb-4">
+                  <Mail className="w-5 h-5 text-[#1A73E8]" strokeWidth={2} />
+                  <h3 className="text-lg font-medium text-[#1F1F1F]">Настройка отправки Email</h3>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-[#1F1F1F] font-medium mb-2">
+                    Для автоматической отправки email настройте Resend API Key
+                  </p>
+                  <p className="text-sm text-[#5F6368] mb-3">
+                    Resend - бесплатный сервис для отправки email (до 100 писем/день)
+                  </p>
+                  <ol className="text-sm text-[#5F6368] space-y-2 list-decimal ml-4">
+                    <li>
+                      Зарегистрируйтесь на{' '}
+                      <a
+                        href="https://resend.com/signup"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#1A73E8] hover:underline inline-flex items-center gap-1"
+                      >
+                        resend.com
+                        <ExternalLink className="w-3 h-3" strokeWidth={2} />
+                      </a>
+                    </li>
+                    <li>Создайте API Key в разделе API Keys</li>
+                    <li>Откройте настройки проекта в Supabase Dashboard</li>
+                    <li>
+                      Перейдите в Edge Functions → Secrets
+                    </li>
+                    <li>
+                      Добавьте секрет: <code className="bg-white px-2 py-0.5 rounded">RESEND_API_KEY</code> с вашим API ключом
+                    </li>
+                    <li>После настройки кнопка "Отправить Email" будет работать автоматически</li>
+                  </ol>
+                </div>
+
+                <div className="bg-gray-50 border border-[#E8EAED] rounded-lg p-4">
+                  <p className="text-sm text-[#5F6368]">
+                    <strong>Без настройки:</strong> Кнопка "Отправить Email" будет открывать ваш почтовый клиент для ручной отправки.
+                  </p>
+                </div>
               </div>
 
               <div className="pt-6 border-t border-[#E8EAED] flex gap-3">

@@ -127,16 +127,86 @@ export function Recipients() {
 
   const sendEmail = async (email: string, code: string, recipientId: string) => {
     const link = `${window.location.origin}/survey/${code}`;
-    const subject = encodeURIComponent(survey?.title || 'Опрос');
-    const body = encodeURIComponent(`Здравствуйте!\n\nПожалуйста, заполните наш опрос:\n${link}`);
-    window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank');
+    const subject = survey?.title || 'Опрос';
 
-    await supabase
-      .from('survey_recipients')
-      .update({ sent_at: new Date().toISOString(), sent_via: 'email' })
-      .eq('id', recipientId);
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #1F1F1F; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #1A73E8 0%, #0D47A1 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center; }
+            .header h1 { color: white; margin: 0; font-size: 24px; }
+            .content { background: white; padding: 30px; border: 1px solid #E8EAED; border-top: none; border-radius: 0 0 12px 12px; }
+            .button { display: inline-block; background: #1A73E8; color: white; padding: 14px 32px; text-decoration: none; border-radius: 24px; font-weight: 500; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #5F6368; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${subject}</h1>
+            </div>
+            <div class="content">
+              <p>Здравствуйте!</p>
+              <p>Мы будем благодарны, если вы уделите несколько минут для заполнения нашего опроса.</p>
+              <p style="text-align: center;">
+                <a href="${link}" class="button">Перейти к опросу</a>
+              </p>
+              <p style="color: #5F6368; font-size: 14px;">Или скопируйте эту ссылку в браузер:<br>${link}</p>
+            </div>
+            <div class="footer">
+              Это письмо отправлено автоматически, пожалуйста, не отвечайте на него.
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
 
-    loadData();
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`;
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: email,
+          subject: subject,
+          html: html,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 503) {
+          alert('Сервис отправки email не настроен. Используйте почтовый клиент.');
+          const mailtoSubject = encodeURIComponent(subject);
+          const mailtoBody = encodeURIComponent(`Здравствуйте!\n\nПожалуйста, заполните наш опрос:\n${link}`);
+          window.open(`mailto:${email}?subject=${mailtoSubject}&body=${mailtoBody}`, '_blank');
+        } else {
+          throw new Error(result.error || 'Ошибка отправки email');
+        }
+      } else {
+        alert('Email успешно отправлен!');
+      }
+
+      await supabase
+        .from('survey_recipients')
+        .update({ sent_at: new Date().toISOString(), sent_via: 'email' })
+        .eq('id', recipientId);
+
+      loadData();
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert('Ошибка при отправке email. Попробуйте позже.');
+    }
   };
 
   const getStatusIcon = (recipient: SurveyRecipient) => {
