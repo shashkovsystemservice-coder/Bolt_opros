@@ -83,6 +83,7 @@ function PasswordResetModal({ onClose }: { onClose: () => void }) {
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
             <input
               type="email"
+              id="reset-email"
               name="email"
               value={resetEmail}
               onChange={(e) => {
@@ -253,6 +254,7 @@ export function Auth() {
                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
                   <input
                     type="text"
+                    id="company"
                     name="company"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
@@ -279,6 +281,7 @@ export function Auth() {
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
                 <input
                   type="email"
+                  id="email"
                   name="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -304,6 +307,7 @@ export function Auth() {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  id="password"
                   name="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -345,6 +349,7 @@ export function Auth() {
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
                   <input
                     type={showConfirm ? 'text' : 'password'}
+                    id="confirm-password"
                     name="confirm-password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
