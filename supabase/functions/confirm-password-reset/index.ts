@@ -25,7 +25,7 @@ Deno.serve(async (req: Request) => {
 
     if (!token || !newPassword) {
       return new Response(
-        JSON.stringify({ error: "Токен и новый пароль обязательны" }),
+        JSON.stringify({ error: "Неверные параметры" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -43,22 +43,19 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find reset token
-    const { data: resetData, error: findError } = await supabase
+    const { data: resetData, error: resetError } = await supabase
       .from('password_resets')
       .select('*')
       .eq('reset_token', token)
-      .is('used_at', null)
-      .single();
+      .maybeSingle();
 
-    if (findError || !resetData) {
+    if (resetError || !resetData) {
       return new Response(
-        JSON.stringify({ error: "Неверный или использованный токен" }),
+        JSON.stringify({ error: "Неверная или истекшая ссылка" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -66,11 +63,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Check if token is expired
-    const expiresAt = new Date(resetData.expires_at);
-    if (expiresAt < new Date()) {
+    if (resetData.used_at) {
       return new Response(
-        JSON.stringify({ error: "Токен истек. Запросите новое восстановление пароля" }),
+        JSON.stringify({ error: "Эта ссылка уже была использована" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -78,7 +73,16 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Update user password
+    if (new Date(resetData.expires_at) < new Date()) {
+      return new Response(
+        JSON.stringify({ error: "Ссылка истекла. Запросите новую" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     const { error: updateError } = await supabase.auth.admin.updateUserById(
       resetData.user_id,
       { password: newPassword }
@@ -95,16 +99,19 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Mark token as used
-    await supabase
+    const { error: markUsedError } = await supabase
       .from('password_resets')
       .update({ used_at: new Date().toISOString() })
       .eq('reset_token', token);
 
+    if (markUsedError) {
+      console.error("Error marking token as used:", markUsedError);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Пароль успешно изменен. Теперь вы можете войти с новым паролем"
+        message: "Пароль успешно изменен"
       }),
       {
         status: 200,

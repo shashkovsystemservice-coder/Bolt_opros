@@ -32,12 +32,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if user exists
     const { data: users, error: userError } = await supabase.auth.admin.listUsers();
 
     if (userError) {
@@ -54,7 +52,6 @@ Deno.serve(async (req: Request) => {
     const user = users.users.find(u => u.email === email);
 
     if (!user) {
-      // Don't reveal if user exists or not for security
       return new Response(
         JSON.stringify({
           success: true,
@@ -67,11 +64,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Generate password reset token (valid for 1 hour)
     const resetToken = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
-    // Store reset token in database
     const { error: insertError } = await supabase
       .from('password_resets')
       .insert({
@@ -92,7 +87,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Get Resend API key
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
     if (!resendApiKey) {
@@ -106,10 +100,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Create reset link
     const resetLink = `${req.headers.get('origin')}/reset-password?token=${resetToken}`;
 
-    // Send email using Resend
     const emailHtml = `
       <!DOCTYPE html>
       <html>
