@@ -92,23 +92,24 @@ export function SurveyForm() {
     }
 
     try {
-      const { data: submission, error: submissionError } = await supabase
+      const submissionId = crypto.randomUUID();
+
+      const { error: submissionError } = await supabase
         .from('survey_submissions')
         .insert({
+          id: submissionId,
           survey_template_id: survey!.id,
           recipient_id: recipient?.id || null,
           respondent_email: respondentEmail.trim(),
           survey_title: survey!.title,
           survey_description: survey!.description,
           submitted_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+        });
 
       if (submissionError) throw submissionError;
 
       const answersInserts = questions.map((q) => ({
-        submission_id: submission.id,
+        submission_id: submissionId,
         question_template_id: q.id,
         question_text: q.question_text,
         answer_text: q.question_type === 'number' ? null : answers[q.id] || null,
