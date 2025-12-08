@@ -12,6 +12,7 @@ import { Responses } from './pages/Responses';
 import { Settings } from './pages/Settings';
 import { AdminCompanies } from './pages/AdminCompanies';
 import { AdminStats } from './pages/AdminStats';
+import { AdminSecurity } from './pages/AdminSecurity';
 import { AdminSettings } from './pages/AdminSettings';
 
 function App() {
@@ -74,6 +75,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminStats />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/security"
+            element={
+              <AdminRoute>
+                <AdminSecurity />
               </AdminRoute>
             }
           />

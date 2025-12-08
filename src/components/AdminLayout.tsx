@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, BarChart3, Settings, LogOut, Menu, X } from 'lucide-react';
+import { Users, BarChart3, Settings, LogOut, Menu, X, Shield } from 'lucide-react';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -15,6 +15,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const menuItems = [
     { path: '/admin/companies', label: 'Все компании', icon: Users },
     { path: '/admin/stats', label: 'Статистика', icon: BarChart3 },
+    { path: '/admin/security', label: 'Безопасность', icon: Shield },
     { path: '/admin/settings', label: 'Настройки', icon: Settings },
   ];
 
