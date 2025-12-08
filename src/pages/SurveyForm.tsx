@@ -244,6 +244,12 @@ export function SurveyForm() {
               <Download className="w-5 h-5" strokeWidth={2} />
               Скачать Excel с моими ответами
             </button>
+            <button
+              onClick={() => window.close()}
+              className="w-full h-12 text-[#5F6368] rounded-full font-medium hover:bg-[#F8F9FA] transition-colors mt-4"
+            >
+              Закрыть
+            </button>
           </div>
         </div>
       </div>
