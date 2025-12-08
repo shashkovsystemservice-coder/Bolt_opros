@@ -88,6 +88,7 @@ function PasswordResetModal({ onClose }: { onClose: () => void }) {
                 setResetEmail(e.target.value);
                 setError('');
               }}
+              autoComplete="email"
               className={`w-full h-12 pl-12 pr-4 border rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors ${
                 resetEmail && !validateEmail(resetEmail)
                   ? 'border-red-300 bg-red-50'
@@ -253,6 +254,7 @@ export function Auth() {
                     type="text"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
+                    autoComplete="organization"
                     className={`w-full h-12 pl-12 pr-4 border rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors ${
                       !isSignIn && companyName && companyName.length < 2
                         ? 'border-red-300 bg-red-50'
@@ -277,6 +279,7 @@ export function Auth() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
                   className={`w-full h-12 pl-12 pr-4 border rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors ${
                     email && !validateEmail(email)
                       ? 'border-red-300 bg-red-50'
@@ -300,6 +303,7 @@ export function Auth() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete={isSignIn ? 'current-password' : 'new-password'}
                   className={`w-full h-12 pl-12 pr-12 border rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors ${
                     password && password.length < 6
                       ? 'border-red-300 bg-red-50'
@@ -339,6 +343,7 @@ export function Auth() {
                     type={showConfirm ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    autoComplete="new-password"
                     className={`w-full h-12 pl-12 pr-12 border rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors ${
                       confirmPassword && password !== confirmPassword
                         ? 'border-red-300 bg-red-50'
