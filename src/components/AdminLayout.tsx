@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, BarChart3, Settings, LogOut, Menu, X, Shield } from 'lucide-react';
+import { Users, BarChart3, Settings, LogOut, Menu, X, Shield, LayoutDashboard } from 'lucide-react';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -11,6 +11,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const menuItems = [
     { path: '/admin/companies', label: 'Все компании', icon: Users },
@@ -57,7 +58,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           })}
         </nav>
 
-        <div className="p-4 border-t border-[#E8EAED]">
+        <div className="p-4 border-t border-[#E8EAED] space-y-2">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-[#1A73E8] hover:bg-[#E8F0FE] transition-colors"
+          >
+            <LayoutDashboard className="w-5 h-5" strokeWidth={2} />
+            <span className="font-medium">Мои опросы</span>
+          </button>
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors"

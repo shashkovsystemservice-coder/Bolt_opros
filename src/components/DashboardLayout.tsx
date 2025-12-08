@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-const SUPER_ADMIN_EMAIL = 'shashkov75@inbox.ru';
+const SUPER_ADMIN_EMAIL = 'shashkov.systemservice@gmail.com';
 
 interface DashboardLayoutProps {
   children: ReactNode;
