@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Mail, Key, Download, RefreshCw, AlertTriangle, Check, Eye, EyeOff, Clock } from 'lucide-react';
+import { Shield, Mail, Key, Download, RefreshCw, AlertTriangle, Check, Eye, EyeOff, Clock, Settings, CheckCircle2, Circle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -19,6 +19,15 @@ interface AuditLogEntry {
   created_at: string;
 }
 
+interface IntegrationSettings {
+  email_enabled: boolean;
+  email_provider?: string;
+  email_configured?: boolean;
+  sms_enabled: boolean;
+  sms_provider?: string;
+  sms_configured?: boolean;
+}
+
 export function AdminSecurity() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -29,6 +38,13 @@ export function AdminSecurity() {
   const [showCodes, setShowCodes] = useState(false);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showIntegrations, setShowIntegrations] = useState(false);
+  const [integrations, setIntegrations] = useState<IntegrationSettings>({
+    email_enabled: false,
+    email_configured: false,
+    sms_enabled: false,
+    sms_configured: false,
+  });
 
   useEffect(() => {
     loadSecuritySettings();
@@ -164,6 +180,28 @@ export function AdminSecurity() {
 
   const unusedCodesCount = backupCodes.filter((c) => !c.used).length;
 
+  const StatusBadge = ({ enabled }: { enabled: boolean }) => (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${
+        enabled
+          ? 'bg-green-100 text-green-700'
+          : 'bg-gray-100 text-gray-600'
+      }`}
+    >
+      {enabled ? (
+        <>
+          <CheckCircle2 className="w-3 h-3" />
+          Работает
+        </>
+      ) : (
+        <>
+          <Circle className="w-3 h-3" />
+          Опционально
+        </>
+      )}
+    </span>
+  );
+
   return (
     <div className="p-8 max-w-5xl">
       <div className="mb-8">
@@ -171,6 +209,21 @@ export function AdminSecurity() {
         <p className="text-[#5F6368]">
           Управление настройками безопасности и восстановления доступа
         </p>
+      </div>
+
+      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex items-start gap-3">
+          <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-800">
+            <p className="font-medium mb-2">Базовые функции работают без настройки</p>
+            <ul className="list-disc list-inside space-y-1 text-blue-700">
+              <li>Резервные коды можно скачать и хранить локально</li>
+              <li>Секретный вопрос работает для проверки личности</li>
+              <li>Журнал действий ведется автоматически</li>
+              <li>Email и SMS-уведомления можно подключить позже</li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       {message && (
@@ -187,16 +240,19 @@ export function AdminSecurity() {
 
       <div className="space-y-6">
         <div className="bg-white rounded-xl border border-[#E8EAED] p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Mail className="w-5 h-5 text-blue-600" />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Mail className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-[#1F1F1F]">Резервный Email</h2>
+                <p className="text-sm text-[#5F6368]">
+                  Для восстановления доступа в случае потери основного email
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-[#1F1F1F]">Резервный Email</h2>
-              <p className="text-sm text-[#5F6368]">
-                Для восстановления доступа в случае потери основного email
-              </p>
-            </div>
+            <StatusBadge enabled={true} />
           </div>
 
           <div className="space-y-4">
@@ -211,21 +267,29 @@ export function AdminSecurity() {
                 className="w-full h-11 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]"
                 placeholder="recovery@example.com"
               />
+              <p className="mt-2 text-xs text-[#5F6368]">
+                {integrations.email_configured
+                  ? '✓ Email-уведомления настроены'
+                  : '⚠️ Email сохранится, но автоматические уведомления требуют настройки SMTP'}
+              </p>
             </div>
           </div>
         </div>
 
         <div className="bg-white rounded-xl border border-[#E8EAED] p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <Shield className="w-5 h-5 text-green-600" />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <Shield className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-[#1F1F1F]">Секретный вопрос</h2>
+                <p className="text-sm text-[#5F6368]">
+                  Дополнительный способ подтверждения личности
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-[#1F1F1F]">Секретный вопрос</h2>
-              <p className="text-sm text-[#5F6368]">
-                Дополнительный способ подтверждения личности
-              </p>
-            </div>
+            <StatusBadge enabled={true} />
           </div>
 
           <div className="space-y-4">
@@ -276,8 +340,11 @@ export function AdminSecurity() {
               <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
                 <Key className="w-5 h-5 text-amber-600" />
               </div>
-              <div>
-                <h2 className="text-lg font-semibold text-[#1F1F1F]">Резервные коды</h2>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-lg font-semibold text-[#1F1F1F]">Резервные коды</h2>
+                  <StatusBadge enabled={true} />
+                </div>
                 <p className="text-sm text-[#5F6368]">
                   Одноразовые коды для восстановления доступа
                 </p>
@@ -370,16 +437,19 @@ export function AdminSecurity() {
         </div>
 
         <div className="bg-white rounded-xl border border-[#E8EAED] p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Clock className="w-5 h-5 text-purple-600" />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                <Clock className="w-5 h-5 text-slate-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-[#1F1F1F]">Журнал действий</h2>
+                <p className="text-sm text-[#5F6368]">
+                  История всех критических действий администраторов
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-[#1F1F1F]">Журнал действий</h2>
-              <p className="text-sm text-[#5F6368]">
-                История всех критических действий администраторов
-              </p>
-            </div>
+            <StatusBadge enabled={true} />
           </div>
 
           <div className="space-y-3">
@@ -413,6 +483,71 @@ export function AdminSecurity() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[#E8EAED] p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Settings className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-[#1F1F1F]">Дополнительные интеграции</h2>
+                <p className="text-sm text-[#5F6368]">
+                  Опциональные платные сервисы для расширенных возможностей
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowIntegrations(!showIntegrations)}
+              className="text-sm text-[#1A73E8] hover:underline"
+            >
+              {showIntegrations ? 'Скрыть' : 'Настроить'}
+            </button>
+          </div>
+
+          {showIntegrations && (
+            <div className="space-y-4 pt-4 border-t border-[#E8EAED]">
+              <div className="p-4 bg-[#F8F9FA] rounded-lg">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="font-medium text-[#1F1F1F] mb-1">Email-уведомления</h3>
+                    <p className="text-sm text-[#5F6368]">
+                      Автоматическая отправка писем для восстановления доступа
+                    </p>
+                  </div>
+                  <StatusBadge enabled={integrations.email_configured || false} />
+                </div>
+                <div className="text-xs text-[#5F6368] space-y-1">
+                  <p>Требуется: SMTP-сервер (Gmail, SendGrid, Resend)</p>
+                  <p className="text-amber-700">💡 Без настройки коды можно скачать вручную</p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-[#F8F9FA] rounded-lg">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="font-medium text-[#1F1F1F] mb-1">SMS-уведомления</h3>
+                    <p className="text-sm text-[#5F6368]">
+                      Отправка кодов восстановления по SMS
+                    </p>
+                  </div>
+                  <StatusBadge enabled={integrations.sms_configured || false} />
+                </div>
+                <div className="text-xs text-[#5F6368] space-y-1">
+                  <p>Требуется: Twilio или аналогичный SMS-провайдер</p>
+                  <p className="text-amber-700">💡 Опционально для дополнительной защиты</p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Совет:</strong> Начните с базовых функций (резервные коды + секретный вопрос).
+                  Платные интеграции можно подключить позже, когда понадобится автоматизация.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
