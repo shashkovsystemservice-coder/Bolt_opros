@@ -83,6 +83,7 @@ function PasswordResetModal({ onClose }: { onClose: () => void }) {
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
             <input
               type="email"
+              name="email"
               value={resetEmail}
               onChange={(e) => {
                 setResetEmail(e.target.value);
@@ -252,6 +253,7 @@ export function Auth() {
                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
                   <input
                     type="text"
+                    name="company"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     autoComplete="organization"
@@ -277,6 +279,7 @@ export function Auth() {
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
                 <input
                   type="email"
+                  name="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
@@ -301,6 +304,7 @@ export function Auth() {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  name="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete={isSignIn ? 'current-password' : 'new-password'}
@@ -341,6 +345,7 @@ export function Auth() {
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
                   <input
                     type={showConfirm ? 'text' : 'password'}
+                    name="confirm-password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     autoComplete="new-password"
