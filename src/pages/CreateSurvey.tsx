@@ -68,10 +68,11 @@ export function CreateSurvey() {
     const instructionsData = [
       ['ИНСТРУКЦИЯ ПО ЗАПОЛНЕНИЮ ШАБЛОНА ОПРОСА'],
       [''],
-      ['Шаг 1: Перейдите на лист "Вопросы"'],
-      ['Шаг 2: Заполните таблицу своими вопросами'],
-      ['Шаг 3: Сохраните файл'],
-      ['Шаг 4: Загрузите файл через кнопку "Импорт из Excel"'],
+      ['🎯 БЫСТРЫЙ СТАРТ:'],
+      ['1. Откройте лист "Вопросы" (первая вкладка внизу)'],
+      ['2. Удалите примеры и добавьте свои вопросы'],
+      ['3. Сохраните файл'],
+      ['4. Загрузите через кнопку "Импорт из Excel"'],
       [''],
       ['ОПИСАНИЕ СТОЛБЦОВ:'],
       [''],
@@ -127,17 +128,17 @@ export function CreateSurvey() {
 
     const wb = XLSX.utils.book_new();
 
-    // Добавляем лист с инструкциями
-    const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
-    // Устанавливаем ширину столбцов
-    wsInstructions['!cols'] = [{ wch: 80 }];
-    XLSX.utils.book_append_sheet(wb, wsInstructions, 'Инструкция');
-
-    // Добавляем лист с вопросами
+    // Добавляем лист с вопросами ПЕРВЫМ (основной лист для работы)
     const wsQuestions = XLSX.utils.aoa_to_sheet(templateData);
     // Устанавливаем ширину столбцов
     wsQuestions['!cols'] = [{ wch: 40 }, { wch: 25 }, { wch: 15 }, { wch: 50 }];
     XLSX.utils.book_append_sheet(wb, wsQuestions, 'Вопросы');
+
+    // Добавляем лист с инструкциями вторым
+    const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
+    // Устанавливаем ширину столбцов
+    wsInstructions['!cols'] = [{ wch: 80 }];
+    XLSX.utils.book_append_sheet(wb, wsInstructions, 'Инструкция');
 
     XLSX.writeFile(wb, 'шаблон_опроса.xlsx');
   };
@@ -151,15 +152,29 @@ export function CreateSurvey() {
       try {
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        // Ищем лист "Вопросы", если нет - берем первый лист
+        const sheetName = workbook.SheetNames.find(name => name === 'Вопросы') || workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
         const imported: Question[] = [];
+        let skippedRows = 0;
+
         for (let i = 1; i < jsonData.length; i++) {
           const row = jsonData[i];
+
+          // Пропускаем пустые строки и строки с подсказками
           if (!row[0] || !row[1]) continue;
 
           const questionText = String(row[0]).trim();
+
+          // Пропускаем строки с примерами и подсказками
+          if (questionText.includes('👆') || questionText.includes('ВАЖНО:') || questionText.includes('УДАЛИТЕ')) {
+            skippedRows++;
+            continue;
+          }
+
           const typeRaw = String(row[1]).toLowerCase().trim();
           const requiredRaw = String(row[2] || '').toLowerCase().trim();
           const optionsRaw = String(row[3] || '').trim();
@@ -169,15 +184,23 @@ export function CreateSurvey() {
           const required = ['да', 'yes', '1', 'true'].includes(requiredRaw);
           const options = type === 'choice' ? optionsRaw.split(',').map((o) => o.trim()).filter(Boolean) : [];
 
-          if (type === 'choice' && options.length === 0) continue;
+          if (type === 'choice' && options.length === 0) {
+            skippedRows++;
+            continue;
+          }
 
           imported.push({ text: questionText, type, required, options });
+        }
+
+        if (imported.length === 0) {
+          setError('В файле не найдено валидных вопросов. Проверьте лист "Вопросы" и удалите примеры.');
+          return;
         }
 
         setPreviewQuestions(imported);
         setShowImportModal(true);
       } catch (err) {
-        setError('Ошибка при чтении файла. Проверьте формат.');
+        setError('Ошибка при чтении файла. Убедитесь что файл содержит лист "Вопросы" с правильной структурой.');
       }
     };
     reader.readAsArrayBuffer(file);
