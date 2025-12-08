@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { SurveyTemplate, QuestionTemplate, SurveyRecipient } from '../types/database';
-import { ClipboardList, CheckCircle2, Download } from 'lucide-react';
-import jsPDF from 'jspdf';
+import { ClipboardList, CheckCircle2, Download, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export function SurveyForm() {
@@ -145,46 +144,87 @@ export function SurveyForm() {
     }
   };
 
-  const downloadPDF = () => {
+  const printAnswers = () => {
     if (!submittedData) return;
 
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    let yPos = 20;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
 
-    doc.setFontSize(18);
-    doc.text('Ваши ответы на опрос', pageWidth / 2, yPos, { align: 'center' });
-    yPos += 10;
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Ответы на опрос - ${submittedData.surveyTitle}</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #1F1F1F;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+          }
+          h1 {
+            color: #1A73E8;
+            text-align: center;
+            margin-bottom: 10px;
+          }
+          h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: 400;
+            color: #5F6368;
+          }
+          .info {
+            background: #F8F9FA;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+          }
+          .question {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+          }
+          .question-text {
+            font-weight: 600;
+            color: #1F1F1F;
+            margin-bottom: 8px;
+          }
+          .answer-text {
+            color: #5F6368;
+            padding-left: 20px;
+          }
+          @media print {
+            body {
+              margin: 20px;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Ваши ответы на опрос</h1>
+        <h2>${submittedData.surveyTitle}</h2>
+        <div class="info">
+          <p><strong>Email:</strong> ${submittedData.email}</p>
+          <p><strong>Дата:</strong> ${submittedData.date}</p>
+        </div>
+        ${submittedData.questions.map((item: any, idx: number) => `
+          <div class="question">
+            <div class="question-text">${idx + 1}. ${item.text}</div>
+            <div class="answer-text">Ответ: ${item.answer}</div>
+          </div>
+        `).join('')}
+      </body>
+      </html>
+    `;
 
-    doc.setFontSize(14);
-    doc.text(submittedData.surveyTitle, pageWidth / 2, yPos, { align: 'center' });
-    yPos += 15;
-
-    doc.setFontSize(10);
-    doc.text(`Email: ${submittedData.email}`, 20, yPos);
-    yPos += 7;
-    doc.text(`Дата: ${submittedData.date}`, 20, yPos);
-    yPos += 15;
-
-    doc.setFontSize(12);
-    submittedData.questions.forEach((item: any, idx: number) => {
-      if (yPos > 270) {
-        doc.addPage();
-        yPos = 20;
-      }
-
-      doc.setFont(undefined, 'bold');
-      const questionLines = doc.splitTextToSize(`${idx + 1}. ${item.text}`, pageWidth - 40);
-      doc.text(questionLines, 20, yPos);
-      yPos += questionLines.length * 7;
-
-      doc.setFont(undefined, 'normal');
-      const answerLines = doc.splitTextToSize(`Ответ: ${item.answer}`, pageWidth - 40);
-      doc.text(answerLines, 20, yPos);
-      yPos += answerLines.length * 7 + 5;
-    });
-
-    doc.save(`ответы_${Date.now()}.pdf`);
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
   };
 
   const downloadExcel = () => {
@@ -231,18 +271,18 @@ export function SurveyForm() {
 
           <div className="space-y-3">
             <button
-              onClick={downloadPDF}
+              onClick={downloadExcel}
               className="w-full flex items-center justify-center gap-2 h-12 bg-[#1A73E8] text-white rounded-full font-medium hover:bg-[#1557B0] transition-colors"
             >
               <Download className="w-5 h-5" strokeWidth={2} />
-              Скачать PDF с моими ответами
+              Скачать Excel с моими ответами
             </button>
             <button
-              onClick={downloadExcel}
+              onClick={printAnswers}
               className="w-full flex items-center justify-center gap-2 h-12 border border-[#E8EAED] text-[#1F1F1F] rounded-full font-medium hover:bg-[#F8F9FA] transition-colors"
             >
-              <Download className="w-5 h-5" strokeWidth={2} />
-              Скачать Excel с моими ответами
+              <Printer className="w-5 h-5" strokeWidth={2} />
+              Распечатать / Сохранить в PDF
             </button>
             <button
               onClick={() => window.close()}
