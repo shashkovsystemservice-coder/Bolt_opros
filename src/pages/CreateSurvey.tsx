@@ -208,7 +208,15 @@ export function CreateSurvey() {
   };
 
   const applyImport = () => {
-    setQuestions([...questions, ...previewQuestions]);
+    // Если есть только один пустой вопрос, заменяем его импортированными
+    const hasOnlyEmptyQuestion = questions.length === 1 && !questions[0].text.trim();
+
+    if (hasOnlyEmptyQuestion) {
+      setQuestions(previewQuestions);
+    } else {
+      setQuestions([...questions, ...previewQuestions]);
+    }
+
     setShowImportModal(false);
     setPreviewQuestions([]);
   };
