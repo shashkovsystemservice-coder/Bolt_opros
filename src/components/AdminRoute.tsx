@@ -12,6 +12,23 @@ interface AdminRouteProps {
 export function AdminRoute({ children }: AdminRouteProps) {
   const { session } = useAuth();
   const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null);
+  const [isPasswordAuthenticated, setIsPasswordAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const checkAuthentication = () => {
+      const authenticated = sessionStorage.getItem('admin_authenticated') === 'true';
+      setIsPasswordAuthenticated(authenticated);
+    };
+
+    checkAuthentication();
+
+    const handleStorageChange = () => {
+      checkAuthentication();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   useEffect(() => {
     const checkSuperAdmin = async () => {
@@ -20,13 +37,11 @@ export function AdminRoute({ children }: AdminRouteProps) {
         return;
       }
 
-      // Check if user is super admin by email
       if (session.user.email === SUPER_ADMIN_EMAIL) {
         setIsSuperAdmin(true);
         return;
       }
 
-      // Fallback: check database
       try {
         const { data } = await supabase
           .from('companies')
@@ -59,6 +74,10 @@ export function AdminRoute({ children }: AdminRouteProps) {
   }
 
   if (!isSuperAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (!isPasswordAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
 

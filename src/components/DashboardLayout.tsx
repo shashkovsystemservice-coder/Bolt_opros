@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { AdminPasswordModal } from './AdminPasswordModal';
 
 const SUPER_ADMIN_EMAIL = 'shashkov.systemservice@gmail.com';
 
@@ -17,6 +18,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [companyName, setCompanyName] = useState('');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [pendingAdminPath, setPendingAdminPath] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -43,7 +46,30 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const handleSignOut = async () => {
     await signOut();
+    sessionStorage.removeItem('admin_authenticated');
     navigate('/auth');
+  };
+
+  const handleNavigation = (path: string) => {
+    const isAdminPath = path.startsWith('/admin');
+
+    if (isAdminPath && !sessionStorage.getItem('admin_authenticated')) {
+      setPendingAdminPath(path);
+      setShowPasswordModal(true);
+      return;
+    }
+
+    navigate(path);
+    setMobileMenuOpen(false);
+  };
+
+  const handlePasswordSuccess = () => {
+    setShowPasswordModal(false);
+    if (pendingAdminPath) {
+      navigate(pendingAdminPath);
+      setPendingAdminPath('');
+      setMobileMenuOpen(false);
+    }
   };
 
   const menuItems = [
@@ -103,10 +129,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               return (
                 <button
                   key={item.path}
-                  onClick={() => {
-                    navigate(item.path);
-                    setMobileMenuOpen(false);
-                  }}
+                  onClick={() => handleNavigation(item.path)}
                   className={`
                     w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all
                     ${
@@ -145,6 +168,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           className="fixed inset-0 bg-black/20 z-20 lg:hidden"
         />
       )}
+
+      <AdminPasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => {
+          setShowPasswordModal(false);
+          setPendingAdminPath('');
+        }}
+        onSuccess={handlePasswordSuccess}
+      />
     </div>
   );
 }
