@@ -1,18 +1,44 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ClipboardList, Mail, Lock, Building2 } from 'lucide-react';
+import { ClipboardList, Mail, Lock, Building2, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export function Auth() {
   const [isSignIn, setIsSignIn] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successEmail, setSuccessEmail] = useState('');
 
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+
+  const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  const getPasswordStrength = (pwd: string) => {
+    if (pwd.length < 6) return { level: 'weak', label: 'Слабый', color: 'text-red-500' };
+    if (pwd.length < 10 || !/[0-9]/.test(pwd) || !/[!@#$%^&*]/.test(pwd)) return { level: 'medium', label: 'Средний', color: 'text-yellow-500' };
+    return { level: 'strong', label: 'Сильный', color: 'text-green-500' };
+  };
+
+  const isFormValid = () => {
+    if (!validateEmail(email)) return false;
+    if (password.length < 6) return false;
+    if (!isSignIn) {
+      if (companyName.trim().length < 2) return false;
+      if (password !== confirmPassword) return false;
+    }
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,21 +48,47 @@ export function Auth() {
     try {
       if (isSignIn) {
         await signIn(email, password);
+        navigate('/dashboard');
       } else {
         if (!companyName.trim()) {
           setError('Введите название компании');
           setLoading(false);
           return;
         }
+        if (password !== confirmPassword) {
+          setError('Пароли не совпадают');
+          setLoading(false);
+          return;
+        }
         await signUp(email, password, companyName);
+        setSuccessEmail(email);
+        setShowSuccessModal(true);
       }
-      navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Произошла ошибка');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleResetPassword = async () => {
+    if (!validateEmail(resetEmail)) {
+      setError('Введите корректный email');
+      return;
+    }
+
+    try {
+      await supabase.auth.resetPasswordForEmail(resetEmail);
+      setShowResetModal(false);
+      setResetEmail('');
+      setError('');
+      alert('Ссылка для восстановления отправлена на email');
+    } catch (err: any) {
+      setError(err.message || 'Ошибка отправки');
+    }
+  };
+
+  const strength = getPasswordStrength(password);
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center px-4">
@@ -53,7 +105,10 @@ export function Auth() {
           <div className="flex gap-2 mb-8 bg-[#F8F9FA] rounded-full p-1">
             <button
               type="button"
-              onClick={() => setIsSignIn(true)}
+              onClick={() => {
+                setIsSignIn(true);
+                setError('');
+              }}
               className={`flex-1 py-2.5 rounded-full font-medium transition-all ${
                 isSignIn
                   ? 'bg-white text-[#1F1F1F] shadow-sm'
@@ -64,7 +119,10 @@ export function Auth() {
             </button>
             <button
               type="button"
-              onClick={() => setIsSignIn(false)}
+              onClick={() => {
+                setIsSignIn(false);
+                setError('');
+              }}
               className={`flex-1 py-2.5 rounded-full font-medium transition-all ${
                 !isSignIn
                   ? 'bg-white text-[#1F1F1F] shadow-sm'
@@ -75,7 +133,7 @@ export function Auth() {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {!isSignIn && (
               <div>
                 <label className="block text-sm font-medium text-[#1F1F1F] mb-2">
@@ -87,65 +145,215 @@ export function Auth() {
                     type="text"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
-                    className="w-full h-12 pl-12 pr-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors"
+                    className={`w-full h-12 pl-12 pr-4 border rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors ${
+                      !isSignIn && companyName && companyName.length < 2
+                        ? 'border-red-300 bg-red-50'
+                        : 'border-[#E8EAED]'
+                    }`}
                     placeholder="ООО Компания"
-                    required={!isSignIn}
                   />
                 </div>
+                {!isSignIn && companyName && companyName.length < 2 && (
+                  <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" /> Минимум 2 символа
+                  </p>
+                )}
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-[#1F1F1F] mb-2">
-                Email
-              </label>
+              <label className="block text-sm font-medium text-[#1F1F1F] mb-2">Email</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-12 pl-12 pr-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors"
+                  className={`w-full h-12 pl-12 pr-4 border rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors ${
+                    email && !validateEmail(email)
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-[#E8EAED]'
+                  }`}
                   placeholder="your@email.com"
-                  required
                 />
               </div>
+              {email && !validateEmail(email) && (
+                <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" /> Введите корректный email
+                </p>
+              )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[#1F1F1F] mb-2">
-                Пароль
-              </label>
+              <label className="block text-sm font-medium text-[#1F1F1F] mb-2">Пароль</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-12 pl-12 pr-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors"
+                  className={`w-full h-12 pl-12 pr-12 border rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors ${
+                    password && password.length < 6
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-[#E8EAED]'
+                  }`}
                   placeholder="••••••••"
-                  required
-                  minLength={6}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#5F6368] hover:text-[#1F1F1F]"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
+              {password && password.length < 6 && (
+                <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" /> Минимум 6 символов
+                </p>
+              )}
+              {!isSignIn && password && (
+                <div className="mt-2 flex items-center gap-2">
+                  <div className={`h-1 w-16 rounded-full ${strength.color.replace('text', 'bg')}`}></div>
+                  <span className={`text-sm font-medium ${strength.color}`}>{strength.label}</span>
+                </div>
+              )}
             </div>
 
+            {!isSignIn && (
+              <div>
+                <label className="block text-sm font-medium text-[#1F1F1F] mb-2">
+                  Подтвердите пароль
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
+                  <input
+                    type={showConfirm ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={`w-full h-12 pl-12 pr-12 border rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors ${
+                      confirmPassword && password !== confirmPassword
+                        ? 'border-red-300 bg-red-50'
+                        : 'border-[#E8EAED]'
+                    }`}
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#5F6368] hover:text-[#1F1F1F]"
+                  >
+                    {showConfirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                {confirmPassword && password !== confirmPassword && (
+                  <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" /> Пароли не совпадают
+                  </p>
+                )}
+              </div>
+            )}
+
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 {error}
               </div>
             )}
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={!isFormValid() || loading}
               className="w-full h-12 bg-[#1A73E8] text-white rounded-full font-medium hover:bg-[#1557B0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Загрузка...' : isSignIn ? 'Войти' : 'Зарегистрироваться'}
             </button>
+
+            {isSignIn && (
+              <button
+                type="button"
+                onClick={() => setShowResetModal(true)}
+                className="w-full text-center text-sm text-[#1A73E8] hover:text-[#1557B0] transition-colors py-2"
+              >
+                Забыли пароль?
+              </button>
+            )}
           </form>
         </div>
       </div>
+
+      {showResetModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center px-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
+            <h3 className="text-lg font-semibold text-[#1F1F1F] mb-4">Восстановление пароля</h3>
+            <input
+              type="email"
+              value={resetEmail}
+              onChange={(e) => setResetEmail(e.target.value)}
+              placeholder="Ваш email"
+              className="w-full h-12 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8] mb-4"
+            />
+            <p className="text-sm text-[#5F6368] mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+              Функция в разработке. Обратитесь к администратору: support@surveypo.com
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowResetModal(false)}
+                className="flex-1 h-11 border border-[#E8EAED] rounded-full font-medium text-[#1F1F1F] hover:bg-[#F8F9FA] transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleResetPassword}
+                disabled={!validateEmail(resetEmail)}
+                className="flex-1 h-11 bg-[#1A73E8] text-white rounded-full font-medium hover:bg-[#1557B0] transition-colors disabled:opacity-50"
+              >
+                Отправить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center px-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center">
+            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" strokeWidth={2} />
+            <h3 className="text-xl font-semibold text-[#1F1F1F] mb-2">Регистрация успешна!</h3>
+            <p className="text-[#5F6368] mb-2">Письмо с подтверждением отправлено на</p>
+            <p className="font-medium text-[#1F1F1F] mb-4">{successEmail}</p>
+            <p className="text-sm text-[#5F6368] bg-blue-50 p-3 rounded-lg border border-blue-200 mb-4">
+              Функция email подтверждения в разработке. Сейчас вы можете войти без подтверждения.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setIsSignIn(true);
+                  setEmail('');
+                  setPassword('');
+                  setConfirmPassword('');
+                  setCompanyName('');
+                }}
+                className="flex-1 h-11 border border-[#E8EAED] rounded-full font-medium text-[#1F1F1F] hover:bg-[#F8F9FA] transition-colors"
+              >
+                Понятно
+              </button>
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setIsSignIn(true);
+                  setEmail(successEmail);
+                  setPassword('');
+                }}
+                className="flex-1 h-11 bg-[#1A73E8] text-white rounded-full font-medium hover:bg-[#1557B0] transition-colors"
+              >
+                Войти
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

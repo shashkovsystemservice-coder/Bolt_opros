@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminRoute } from './components/AdminRoute';
 import { Landing } from './pages/Landing';
 import { Auth } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
@@ -9,6 +10,9 @@ import { Recipients } from './pages/Recipients';
 import { SurveyForm } from './pages/SurveyForm';
 import { Responses } from './pages/Responses';
 import { Settings } from './pages/Settings';
+import { AdminCompanies } from './pages/AdminCompanies';
+import { AdminStats } from './pages/AdminStats';
+import { AdminSettings } from './pages/AdminSettings';
 
 function App() {
   return (
@@ -55,6 +59,30 @@ function App() {
               <ProtectedRoute>
                 <Settings />
               </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/companies"
+            element={
+              <AdminRoute>
+                <AdminCompanies />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/stats"
+            element={
+              <AdminRoute>
+                <AdminStats />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <AdminRoute>
+                <AdminSettings />
+              </AdminRoute>
             }
           />
           <Route path="/survey/:code" element={<SurveyForm />} />
