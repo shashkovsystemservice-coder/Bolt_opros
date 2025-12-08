@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { DashboardLayout } from '../components/DashboardLayout';
@@ -20,11 +20,13 @@ import {
   FileText,
   X,
   Link as LinkIcon,
+  ExternalLink,
 } from 'lucide-react';
 
 export function Recipients() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [survey, setSurvey] = useState<SurveyTemplate | null>(null);
   const [recipients, setRecipients] = useState<SurveyRecipient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -256,7 +258,7 @@ export function Recipients() {
         <div className="bg-white rounded-2xl border border-[#E8EAED] p-6 mb-6">
           <div className="flex items-center gap-2 text-sm text-[#5F6368] mb-3">
             <LinkIcon className="w-4 h-4" strokeWidth={2} />
-            Общая ссылка на опрос
+            Общая ссылка на опрос (для тестирования)
           </div>
           <div className="flex gap-2">
             <input
@@ -265,6 +267,13 @@ export function Recipients() {
               readOnly
               className="flex-1 h-12 px-4 border border-[#E8EAED] rounded-lg bg-[#F8F9FA] text-[#1F1F1F]"
             />
+            <button
+              onClick={() => navigate(`/survey/${survey?.unique_code}`)}
+              className="flex items-center gap-2 px-6 h-12 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors font-medium"
+            >
+              <ExternalLink className="w-4 h-4" strokeWidth={2} />
+              Открыть форму
+            </button>
             <button
               onClick={() => {
                 navigator.clipboard.writeText(
@@ -405,6 +414,13 @@ export function Recipients() {
                 </div>
 
                 <div className="flex gap-2">
+                  <button
+                    onClick={() => navigate(`/survey/${recipient.recipient_code}`)}
+                    className="flex items-center justify-center gap-2 px-3 py-2 bg-green-600 rounded-lg text-sm font-medium text-white hover:bg-green-700 transition-colors"
+                    title="Открыть форму"
+                  >
+                    <ExternalLink className="w-4 h-4" strokeWidth={2} />
+                  </button>
                   <button
                     onClick={() => copyLink(recipient.recipient_code, recipient.id)}
                     className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#F8F9FA] rounded-lg text-sm font-medium text-[#1F1F1F] hover:bg-[#E8EAED] transition-colors"

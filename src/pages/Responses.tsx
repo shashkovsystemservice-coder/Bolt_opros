@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { SurveyTemplate, SurveySubmission, SubmissionAnswer, SurveyRecipient } from '../types/database';
-import { Download, Search, ChevronDown, ChevronUp, Building2, Mail, Calendar } from 'lucide-react';
+import { Download, Search, ChevronDown, ChevronUp, Building2, Mail, Calendar, Maximize2, Minimize2 } from 'lucide-react';
 
 interface SubmissionWithDetails extends SurveySubmission {
   answers: SubmissionAnswer[];
@@ -83,6 +83,8 @@ export function Responses() {
 
       setSubmissions(submissionsWithDetails);
       setFilteredSubmissions(submissionsWithDetails);
+
+      setExpandedIds(new Set(submissionsWithDetails.map(s => s.id)));
     }
 
     setLoading(false);
@@ -96,6 +98,14 @@ export function Responses() {
       newExpanded.add(submissionId);
     }
     setExpandedIds(newExpanded);
+  };
+
+  const toggleAllExpanded = () => {
+    if (expandedIds.size === filteredSubmissions.length) {
+      setExpandedIds(new Set());
+    } else {
+      setExpandedIds(new Set(filteredSubmissions.map(s => s.id)));
+    }
   };
 
   const exportCSV = () => {
@@ -172,6 +182,23 @@ export function Responses() {
               className="w-full h-12 pl-12 pr-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors bg-white"
             />
           </div>
+          <button
+            onClick={toggleAllExpanded}
+            disabled={filteredSubmissions.length === 0}
+            className="flex items-center justify-center gap-2 px-6 h-12 border border-[#E8EAED] bg-white text-[#1F1F1F] rounded-full font-medium hover:bg-[#F8F9FA] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {expandedIds.size === filteredSubmissions.length ? (
+              <>
+                <Minimize2 className="w-5 h-5" strokeWidth={2} />
+                Свернуть все
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-5 h-5" strokeWidth={2} />
+                Развернуть все
+              </>
+            )}
+          </button>
           <button
             onClick={exportCSV}
             disabled={submissions.length === 0}
