@@ -4,11 +4,6 @@ export function getBaseUrl(): string {
     return import.meta.env.VITE_APP_URL;
   }
 
-  // Для локальной разработки используем localhost
-  if (window.location.hostname.includes('local') || window.location.hostname === 'localhost') {
-    return 'http://localhost:5173';
-  }
-
-  // Для production используем текущий origin
+  // Всегда используем текущий origin (правильный протокол, хост и порт)
   return window.location.origin;
 }
