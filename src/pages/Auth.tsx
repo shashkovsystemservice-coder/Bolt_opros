@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ClipboardList, Mail, Lock, Building2, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 
 export function Auth() {
   const [isSignIn, setIsSignIn] = useState(true);
@@ -15,7 +14,6 @@ export function Auth() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successEmail, setSuccessEmail] = useState('');
 
@@ -68,23 +66,6 @@ export function Auth() {
       setError(err.message || 'Произошла ошибка');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResetPassword = async () => {
-    if (!validateEmail(resetEmail)) {
-      setError('Введите корректный email');
-      return;
-    }
-
-    try {
-      await supabase.auth.resetPasswordForEmail(resetEmail);
-      setShowResetModal(false);
-      setResetEmail('');
-      setError('');
-      alert('Ссылка для восстановления отправлена на email');
-    } catch (err: any) {
-      setError(err.message || 'Ошибка отправки');
     }
   };
 
@@ -286,31 +267,35 @@ export function Auth() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center px-4 z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
             <h3 className="text-lg font-semibold text-[#1F1F1F] mb-4">Восстановление пароля</h3>
-            <input
-              type="email"
-              value={resetEmail}
-              onChange={(e) => setResetEmail(e.target.value)}
-              placeholder="Ваш email"
-              className="w-full h-12 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8] mb-4"
-            />
-            <p className="text-sm text-[#5F6368] mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-              Функция в разработке. Обратитесь к администратору: support@surveypo.com
+            <p className="text-sm text-[#5F6368] mb-4">
+              Для восстановления пароля обратитесь к администратору платформы:
             </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowResetModal(false)}
-                className="flex-1 h-11 border border-[#E8EAED] rounded-full font-medium text-[#1F1F1F] hover:bg-[#F8F9FA] transition-colors"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleResetPassword}
-                disabled={!validateEmail(resetEmail)}
-                className="flex-1 h-11 bg-[#1A73E8] text-white rounded-full font-medium hover:bg-[#1557B0] transition-colors disabled:opacity-50"
-              >
-                Отправить
-              </button>
+            <div className="bg-[#F8F9FA] rounded-lg p-4 mb-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Mail className="w-5 h-5 text-[#1A73E8]" strokeWidth={2} />
+                <a
+                  href="mailto:shashkov75@inbox.ru"
+                  className="text-[#1A73E8] hover:underline font-medium"
+                >
+                  shashkov75@inbox.ru
+                </a>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">💬</span>
+                <a
+                  href="tel:+79213012296"
+                  className="text-[#1A73E8] hover:underline font-medium"
+                >
+                  8 921 301 22 96
+                </a>
+              </div>
             </div>
+            <button
+              onClick={() => setShowResetModal(false)}
+              className="w-full h-11 bg-[#1A73E8] text-white rounded-full font-medium hover:bg-[#1557B0] transition-colors"
+            >
+              Понятно
+            </button>
           </div>
         </div>
       )}
