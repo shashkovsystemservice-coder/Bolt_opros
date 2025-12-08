@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { SurveyTemplate, SurveyRecipient } from '../types/database';
 import { generateCode } from '../utils/generateCode';
+import { getBaseUrl } from '../utils/urls';
 import {
   Plus,
   Copy,
@@ -101,7 +102,7 @@ export function Recipients() {
   };
 
   const copyLink = async (code: string, recipientId: string) => {
-    const link = `${window.location.origin}/survey/${code}`;
+    const link = `${getBaseUrl()}/survey/${code}`;
     await navigator.clipboard.writeText(link);
 
     await supabase
@@ -113,7 +114,7 @@ export function Recipients() {
   };
 
   const sendWhatsApp = async (phone: string, code: string, recipientId: string) => {
-    const link = `${window.location.origin}/survey/${code}`;
+    const link = `${getBaseUrl()}/survey/${code}`;
     const message = `Здравствуйте! Пожалуйста, заполните наш опрос: ${link}`;
     window.open(`https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
 
@@ -126,7 +127,7 @@ export function Recipients() {
   };
 
   const sendEmail = async (email: string, code: string, recipientId: string) => {
-    const link = `${window.location.origin}/survey/${code}`;
+    const link = `${getBaseUrl()}/survey/${code}`;
     const subject = survey?.title || 'Опрос';
 
     const html = `
@@ -260,14 +261,14 @@ export function Recipients() {
           <div className="flex gap-2">
             <input
               type="text"
-              value={`${window.location.origin}/survey/${survey?.unique_code}`}
+              value={`${getBaseUrl()}/survey/${survey?.unique_code}`}
               readOnly
               className="flex-1 h-12 px-4 border border-[#E8EAED] rounded-lg bg-[#F8F9FA] text-[#1F1F1F]"
             />
             <button
               onClick={() => {
                 navigator.clipboard.writeText(
-                  `${window.location.origin}/survey/${survey?.unique_code}`
+                  `${getBaseUrl()}/survey/${survey?.unique_code}`
                 );
               }}
               className="flex items-center gap-2 px-6 h-12 bg-[#1A73E8] text-white rounded-full hover:bg-[#1557B0] transition-colors font-medium"
@@ -400,7 +401,7 @@ export function Recipients() {
                 )}
 
                 <div className="text-xs text-[#5F6368] mb-3 font-mono bg-[#F8F9FA] px-3 py-2 rounded-lg">
-                  {window.location.origin}/survey/{recipient.recipient_code}
+                  {getBaseUrl()}/survey/{recipient.recipient_code}
                 </div>
 
                 <div className="flex gap-2">
