@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Shield, Mail, Key, Download, RefreshCw, AlertTriangle, Check, Eye, EyeOff, Clock, Settings, CheckCircle2, Circle } from 'lucide-react';
+import { AdminLayout } from '../components/AdminLayout';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -203,13 +204,14 @@ export function AdminSecurity() {
   );
 
   return (
-    <div className="p-8 max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-[#1F1F1F] mb-2">Безопасность</h1>
-        <p className="text-[#5F6368]">
-          Управление настройками безопасности и восстановления доступа
-        </p>
-      </div>
+    <AdminLayout>
+      <div className="max-w-5xl">
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold text-[#1F1F1F] mb-2">Безопасность</h1>
+          <p className="text-[#5F6368]">
+            Управление настройками безопасности и восстановления доступа
+          </p>
+        </div>
 
       <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <div className="flex items-start gap-3">
@@ -551,5 +553,6 @@ export function AdminSecurity() {
         </div>
       </div>
     </div>
+    </AdminLayout>
   );
 }
