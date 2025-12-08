@@ -1,8 +1,10 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X } from 'lucide-react';
+import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+
+const SUPER_ADMIN_EMAIL = 'shashkov75@inbox.ru';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -14,16 +16,27 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [companyName, setCompanyName] = useState('');
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
     if (user) {
+      // Check if super admin
+      if (user.email === SUPER_ADMIN_EMAIL) {
+        setIsSuperAdmin(true);
+      }
+
       supabase
         .from('companies')
-        .select('name')
+        .select('name, is_super_admin')
         .eq('id', user.id)
         .maybeSingle()
         .then(({ data }) => {
-          if (data) setCompanyName(data.name);
+          if (data) {
+            setCompanyName(data.name);
+            if (data.is_super_admin) {
+              setIsSuperAdmin(true);
+            }
+          }
         });
     }
   }, [user]);
@@ -37,6 +50,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { icon: LayoutDashboard, label: 'Опросы', path: '/dashboard' },
     { icon: Settings, label: 'Настройки', path: '/settings' },
   ];
+
+  if (isSuperAdmin) {
+    menuItems.push({
+      icon: Shield,
+      label: 'Админ-панель',
+      path: '/admin/companies',
+    });
+  }
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -77,26 +98,31 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           `}
         >
           <nav className="p-4 space-y-1">
-            {menuItems.map((item) => (
-              <button
-                key={item.path}
-                onClick={() => {
-                  navigate(item.path);
-                  setMobileMenuOpen(false);
-                }}
-                className={`
-                  w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all
-                  ${
-                    isActive(item.path)
-                      ? 'bg-white text-[#1A73E8] shadow-sm'
-                      : 'text-[#5F6368] hover:bg-white hover:text-[#1F1F1F]'
-                  }
-                `}
-              >
-                <item.icon className="w-5 h-5" strokeWidth={2} />
-                <span className="font-medium">{item.label}</span>
-              </button>
-            ))}
+            {menuItems.map((item) => {
+              const isAdminPanel = item.path === '/admin/companies';
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => {
+                    navigate(item.path);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`
+                    w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all
+                    ${
+                      isAdminPanel
+                        ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md hover:shadow-lg'
+                        : isActive(item.path)
+                        ? 'bg-white text-[#1A73E8] shadow-sm'
+                        : 'text-[#5F6368] hover:bg-white hover:text-[#1F1F1F]'
+                    }
+                  `}
+                >
+                  <item.icon className="w-5 h-5" strokeWidth={2} />
+                  <span className="font-medium">{item.label}</span>
+                </button>
+              );
+            })}
 
             <button
               onClick={handleSignOut}
