@@ -255,37 +255,14 @@ export function Recipients() {
           <p className="text-[#5F6368]">Управление получателями опроса</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-[#E8EAED] p-6 mb-6">
-          <div className="flex items-center gap-2 text-sm text-[#5F6368] mb-3">
+        <div className="bg-blue-50 rounded-2xl border border-blue-200 p-6 mb-6">
+          <div className="flex items-center gap-2 text-sm font-medium text-blue-900 mb-2">
             <LinkIcon className="w-4 h-4" strokeWidth={2} />
-            Общая ссылка на опрос (для тестирования)
+            Как протестировать опрос
           </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={`${getBaseUrl()}/survey/${survey?.unique_code}`}
-              readOnly
-              className="flex-1 h-12 px-4 border border-[#E8EAED] rounded-lg bg-[#F8F9FA] text-[#1F1F1F]"
-            />
-            <button
-              onClick={() => navigate(`/survey/${survey?.unique_code}`)}
-              className="flex items-center gap-2 px-6 h-12 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors font-medium"
-            >
-              <ExternalLink className="w-4 h-4" strokeWidth={2} />
-              Открыть форму
-            </button>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(
-                  `${getBaseUrl()}/survey/${survey?.unique_code}`
-                );
-              }}
-              className="flex items-center gap-2 px-6 h-12 bg-[#1A73E8] text-white rounded-full hover:bg-[#1557B0] transition-colors font-medium"
-            >
-              <Copy className="w-4 h-4" strokeWidth={2} />
-              Копировать
-            </button>
-          </div>
+          <p className="text-sm text-blue-700">
+            Для тестирования создайте получателя с названием "Тестовая компания" и используйте его персональную ссылку. Так вы увидите форму точно такой, какой её увидят реальные клиенты.
+          </p>
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

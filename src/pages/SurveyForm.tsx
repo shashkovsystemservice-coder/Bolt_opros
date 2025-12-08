@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { SurveyTemplate, QuestionTemplate, SurveyRecipient } from '../types/database';
 import { ClipboardList, CheckCircle2, Download } from 'lucide-react';
@@ -8,8 +8,6 @@ import * as XLSX from 'xlsx';
 
 export function SurveyForm() {
   const { code } = useParams<{ code: string }>();
-  const [searchParams] = useSearchParams();
-  const recipientCode = searchParams.get('r');
 
   const [survey, setSurvey] = useState<SurveyTemplate | null>(null);
   const [questions, setQuestions] = useState<QuestionTemplate[]>([]);
@@ -24,15 +22,37 @@ export function SurveyForm() {
 
   useEffect(() => {
     loadSurvey();
-  }, [code, recipientCode]);
+  }, [code]);
 
   const loadSurvey = async () => {
     if (!code) return;
 
+    const { data: recipientData, error: recipientError } = await supabase
+      .from('survey_recipients')
+      .select('*')
+      .eq('recipient_code', code)
+      .maybeSingle();
+
+    if (recipientError || !recipientData) {
+      setError('Ссылка недействительна или получатель не найден');
+      setLoading(false);
+      return;
+    }
+
+    setRecipient(recipientData);
+    if (recipientData.email) setRespondentEmail(recipientData.email);
+
+    if (!recipientData.opened_at) {
+      await supabase
+        .from('survey_recipients')
+        .update({ opened_at: new Date().toISOString() })
+        .eq('id', recipientData.id);
+    }
+
     const { data: surveyData, error: surveyError } = await supabase
       .from('survey_templates')
       .select('*')
-      .eq('unique_code', code)
+      .eq('id', recipientData.survey_template_id)
       .eq('is_active', true)
       .maybeSingle();
 
@@ -51,26 +71,6 @@ export function SurveyForm() {
       .order('question_order');
 
     if (questionsData) setQuestions(questionsData);
-
-    if (recipientCode) {
-      const { data: recipientData } = await supabase
-        .from('survey_recipients')
-        .select('*')
-        .eq('recipient_code', recipientCode)
-        .maybeSingle();
-
-      if (recipientData) {
-        setRecipient(recipientData);
-        if (recipientData.email) setRespondentEmail(recipientData.email);
-
-        if (!recipientData.opened_at) {
-          await supabase
-            .from('survey_recipients')
-            .update({ opened_at: new Date().toISOString() })
-            .eq('id', recipientData.id);
-        }
-      }
-    }
 
     setLoading(false);
   };
