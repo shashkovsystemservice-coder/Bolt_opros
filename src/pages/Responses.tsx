@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { SurveyTemplate, SurveySubmission, SubmissionAnswer, SurveyRecipient } from '../types/database';
-import { Download, Search, ChevronDown, ChevronUp, Building2, Mail, Calendar, Maximize2, Minimize2 } from 'lucide-react';
+import { Download, Search, ChevronDown, ChevronUp, Building2, Mail, Calendar, Maximize2, Minimize2, List, Table2, BarChart3 } from 'lucide-react';
 
 interface SubmissionWithDetails extends SurveySubmission {
   answers: SubmissionAnswer[];
@@ -20,6 +20,7 @@ export function Responses() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'list' | 'table' | 'analytics'>('list');
 
   useEffect(() => {
     loadData();
@@ -153,6 +154,38 @@ export function Responses() {
     });
   };
 
+  const getQuestionStats = () => {
+    const allQuestions = Array.from(
+      new Set(submissions.flatMap((sub) => sub.answers.map((a) => a.question_text)))
+    );
+
+    return allQuestions.map((question) => {
+      const answers = submissions.flatMap((sub) =>
+        sub.answers.filter((a) => a.question_text === question)
+      );
+
+      const isNumeric = answers.every((a) => a.answer_number !== null);
+
+      if (isNumeric) {
+        const numbers = answers.map((a) => a.answer_number!).filter((n) => n !== null);
+        const avg = numbers.reduce((sum, n) => sum + n, 0) / numbers.length;
+        const min = Math.min(...numbers);
+        const max = Math.max(...numbers);
+
+        return { question, type: 'numeric', avg, min, max, total: numbers.length };
+      } else {
+        const textAnswers = answers.map((a) => a.answer_text || '').filter((t) => t);
+        const uniqueAnswers = Array.from(new Set(textAnswers));
+        const counts = uniqueAnswers.map((answer) => ({
+          answer,
+          count: textAnswers.filter((a) => a === answer).length,
+        })).sort((a, b) => b.count - a.count);
+
+        return { question, type: 'text', answers: counts, total: textAnswers.length };
+      }
+    });
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -171,34 +204,74 @@ export function Responses() {
           <p className="text-[#5F6368]">Просмотр ответов респондентов</p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Поиск по email или компании"
-              className="w-full h-12 pl-12 pr-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors bg-white"
-            />
-          </div>
+        <div className="bg-white rounded-2xl border border-[#E8EAED] p-2 mb-6 inline-flex gap-1">
           <button
-            onClick={toggleAllExpanded}
-            disabled={filteredSubmissions.length === 0}
-            className="flex items-center justify-center gap-2 px-6 h-12 border border-[#E8EAED] bg-white text-[#1F1F1F] rounded-full font-medium hover:bg-[#F8F9FA] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => setViewMode('list')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              viewMode === 'list'
+                ? 'bg-[#E8F0FE] text-[#1A73E8]'
+                : 'text-[#5F6368] hover:bg-[#F8F9FA]'
+            }`}
           >
-            {expandedIds.size === filteredSubmissions.length ? (
-              <>
-                <Minimize2 className="w-5 h-5" strokeWidth={2} />
-                Свернуть все
-              </>
-            ) : (
-              <>
-                <Maximize2 className="w-5 h-5" strokeWidth={2} />
-                Развернуть все
-              </>
-            )}
+            <List className="w-5 h-5" strokeWidth={2} />
+            Список
           </button>
+          <button
+            onClick={() => setViewMode('table')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              viewMode === 'table'
+                ? 'bg-[#E8F0FE] text-[#1A73E8]'
+                : 'text-[#5F6368] hover:bg-[#F8F9FA]'
+            }`}
+          >
+            <Table2 className="w-5 h-5" strokeWidth={2} />
+            Таблица
+          </button>
+          <button
+            onClick={() => setViewMode('analytics')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              viewMode === 'analytics'
+                ? 'bg-[#E8F0FE] text-[#1A73E8]'
+                : 'text-[#5F6368] hover:bg-[#F8F9FA]'
+            }`}
+          >
+            <BarChart3 className="w-5 h-5" strokeWidth={2} />
+            Аналитика
+          </button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          {viewMode !== 'analytics' && (
+            <div className="flex-1 relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Поиск по email или компании"
+                className="w-full h-12 pl-12 pr-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors bg-white"
+              />
+            </div>
+          )}
+          {viewMode === 'list' && (
+            <button
+              onClick={toggleAllExpanded}
+              disabled={filteredSubmissions.length === 0}
+              className="flex items-center justify-center gap-2 px-6 h-12 border border-[#E8EAED] bg-white text-[#1F1F1F] rounded-full font-medium hover:bg-[#F8F9FA] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {expandedIds.size === filteredSubmissions.length ? (
+                <>
+                  <Minimize2 className="w-5 h-5" strokeWidth={2} />
+                  Свернуть все
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-5 h-5" strokeWidth={2} />
+                  Развернуть все
+                </>
+              )}
+            </button>
+          )}
           <button
             onClick={exportCSV}
             disabled={submissions.length === 0}
@@ -216,73 +289,181 @@ export function Responses() {
           </div>
         </div>
 
-        {filteredSubmissions.length === 0 ? (
+        {submissions.length === 0 ? (
           <div className="bg-white rounded-2xl border border-[#E8EAED] p-12 text-center">
-            <div className="text-lg font-medium text-[#1F1F1F] mb-2">
-              {searchTerm ? 'Ничего не найдено' : 'Нет ответов'}
-            </div>
-            <p className="text-[#5F6368]">
-              {searchTerm
-                ? 'Попробуйте изменить параметры поиска'
-                : 'Ответы появятся здесь после заполнения опроса'}
-            </p>
+            <div className="text-lg font-medium text-[#1F1F1F] mb-2">Нет ответов</div>
+            <p className="text-[#5F6368]">Ответы появятся здесь после заполнения опроса</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredSubmissions.map((submission) => {
-              const isExpanded = expandedIds.has(submission.id);
+          <>
+            {viewMode === 'list' && (
+              <>
+                {filteredSubmissions.length === 0 ? (
+                  <div className="bg-white rounded-2xl border border-[#E8EAED] p-12 text-center">
+                    <div className="text-lg font-medium text-[#1F1F1F] mb-2">Ничего не найдено</div>
+                    <p className="text-[#5F6368]">Попробуйте изменить параметры поиска</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredSubmissions.map((submission) => {
+                      const isExpanded = expandedIds.has(submission.id);
 
-              return (
-                <div key={submission.id} className="bg-white rounded-2xl border border-[#E8EAED] overflow-hidden">
-                  <button
-                    onClick={() => toggleExpanded(submission.id)}
-                    className="w-full p-6 flex items-center justify-between hover:bg-[#F8F9FA] transition-colors"
-                  >
-                    <div className="flex items-center gap-4 flex-1 text-left">
-                      {submission.recipient?.company_name && (
-                        <div className="flex items-center gap-2">
-                          <Building2 className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
-                          <span className="font-medium text-[#1F1F1F]">
-                            {submission.recipient.company_name}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
-                        <span className="text-[#5F6368]">{submission.respondent_email}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
-                        <span className="text-sm text-[#5F6368]">
-                          {formatDate(submission.submitted_at)}
-                        </span>
-                      </div>
-                    </div>
-                    {isExpanded ? (
-                      <ChevronUp className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
-                    ) : (
-                      <ChevronDown className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
-                    )}
-                  </button>
+                      return (
+                        <div key={submission.id} className="bg-white rounded-2xl border border-[#E8EAED] overflow-hidden">
+                          <button
+                            onClick={() => toggleExpanded(submission.id)}
+                            className="w-full p-6 flex items-center justify-between hover:bg-[#F8F9FA] transition-colors"
+                          >
+                            <div className="flex items-center gap-4 flex-1 text-left">
+                              {submission.recipient?.company_name && (
+                                <div className="flex items-center gap-2">
+                                  <Building2 className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
+                                  <span className="font-medium text-[#1F1F1F]">
+                                    {submission.recipient.company_name}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <Mail className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
+                                <span className="text-[#5F6368]">{submission.respondent_email}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
+                                <span className="text-sm text-[#5F6368]">
+                                  {formatDate(submission.submitted_at)}
+                                </span>
+                              </div>
+                            </div>
+                            {isExpanded ? (
+                              <ChevronUp className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
+                            ) : (
+                              <ChevronDown className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
+                            )}
+                          </button>
 
-                  {isExpanded && (
-                    <div className="px-6 pb-6 space-y-4 border-t border-[#E8EAED] pt-6">
-                      {submission.answers.map((answer) => (
-                        <div key={answer.id} className="bg-[#F8F9FA] rounded-xl p-4">
-                          <div className="text-sm font-medium text-[#1F1F1F] mb-2">
-                            {answer.question_text}
-                          </div>
-                          <div className="text-[#5F6368]">
-                            {answer.answer_text || answer.answer_number || '—'}
-                          </div>
+                          {isExpanded && (
+                            <div className="px-6 pb-6 space-y-4 border-t border-[#E8EAED] pt-6">
+                              {submission.answers.map((answer) => (
+                                <div key={answer.id} className="bg-[#F8F9FA] rounded-xl p-4">
+                                  <div className="text-sm font-medium text-[#1F1F1F] mb-2">
+                                    {answer.question_text}
+                                  </div>
+                                  <div className="text-[#5F6368]">
+                                    {answer.answer_text || answer.answer_number || '—'}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {viewMode === 'table' && (
+              <div className="bg-white rounded-2xl border border-[#E8EAED] overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-[#F8F9FA] border-b border-[#E8EAED]">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-[#5F6368]">Дата</th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-[#5F6368]">Email</th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-[#5F6368]">Компания</th>
+                        {Array.from(new Set(submissions.flatMap(s => s.answers.map(a => a.question_text)))).map((question, idx) => (
+                          <th key={idx} className="px-6 py-4 text-left text-sm font-medium text-[#5F6368] min-w-[200px]">
+                            {question}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E8EAED]">
+                      {filteredSubmissions.map((submission) => (
+                        <tr key={submission.id} className="hover:bg-[#F8F9FA] transition-colors">
+                          <td className="px-6 py-4 text-sm text-[#5F6368] whitespace-nowrap">
+                            {formatDate(submission.submitted_at)}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-[#1F1F1F]">
+                            {submission.respondent_email}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-[#5F6368]">
+                            {submission.recipient?.company_name || '—'}
+                          </td>
+                          {Array.from(new Set(submissions.flatMap(s => s.answers.map(a => a.question_text)))).map((question, idx) => {
+                            const answer = submission.answers.find(a => a.question_text === question);
+                            return (
+                              <td key={idx} className="px-6 py-4 text-sm text-[#1F1F1F]">
+                                {answer?.answer_text || answer?.answer_number || '—'}
+                              </td>
+                            );
+                          })}
+                        </tr>
                       ))}
-                    </div>
-                  )}
+                    </tbody>
+                  </table>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            )}
+
+            {viewMode === 'analytics' && (
+              <div className="space-y-6">
+                {getQuestionStats().map((stat, idx) => (
+                  <div key={idx} className="bg-white rounded-2xl border border-[#E8EAED] p-6">
+                    <h3 className="text-lg font-medium text-[#1F1F1F] mb-4">{stat.question}</h3>
+
+                    {stat.type === 'numeric' ? (
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="bg-[#E8F0FE] rounded-xl p-4">
+                          <div className="text-sm text-[#1A73E8] mb-1">Всего ответов</div>
+                          <div className="text-2xl font-medium text-[#1F1F1F]">{stat.total}</div>
+                        </div>
+                        <div className="bg-[#E8F0FE] rounded-xl p-4">
+                          <div className="text-sm text-[#1A73E8] mb-1">Среднее</div>
+                          <div className="text-2xl font-medium text-[#1F1F1F]">{stat.avg.toFixed(1)}</div>
+                        </div>
+                        <div className="bg-[#E8F0FE] rounded-xl p-4">
+                          <div className="text-sm text-[#1A73E8] mb-1">Минимум</div>
+                          <div className="text-2xl font-medium text-[#1F1F1F]">{stat.min}</div>
+                        </div>
+                        <div className="bg-[#E8F0FE] rounded-xl p-4">
+                          <div className="text-sm text-[#1A73E8] mb-1">Максимум</div>
+                          <div className="text-2xl font-medium text-[#1F1F1F]">{stat.max}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="text-sm text-[#5F6368] mb-2">Всего ответов: {stat.total}</div>
+                        {stat.answers.slice(0, 10).map((item, i) => {
+                          const percentage = (item.count / stat.total) * 100;
+                          return (
+                            <div key={i}>
+                              <div className="flex justify-between text-sm mb-1">
+                                <span className="text-[#1F1F1F] font-medium">{item.answer}</span>
+                                <span className="text-[#5F6368]">{item.count} ({percentage.toFixed(0)}%)</span>
+                              </div>
+                              <div className="h-2 bg-[#E8EAED] rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-[#1A73E8] rounded-full transition-all"
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {stat.answers.length > 10 && (
+                          <div className="text-sm text-[#5F6368] italic">
+                            И еще {stat.answers.length - 10} вариантов ответа...
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </DashboardLayout>
