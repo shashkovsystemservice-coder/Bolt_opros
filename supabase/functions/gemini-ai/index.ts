@@ -1,11 +1,37 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.21.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
+
+async function callGemini(prompt: string, apiKey: string) {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Gemini API error: ${error}`);
+  }
+
+  const data = await response.json();
+  return data.candidates[0].content.parts[0].text;
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -17,14 +43,11 @@ Deno.serve(async (req: Request) => {
 
   try {
     const { action, data } = await req.json();
-    
+
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY not configured");
     }
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
     let result;
 
@@ -37,17 +60,16 @@ Deno.serve(async (req: Request) => {
 - "options": массив вариантов ответа (только для типов "radio" и "checkbox"), может быть пустым массивом для типа "text"
 
 Используй разные типы вопросов. Вопросы должны быть релевантными, профессиональными и помогать получить полезную информацию по теме. Верни только JSON без дополнительного текста.`;
-        
-        const response = await model.generateContent(prompt);
-        const text = response.response.text();
-        
+
+        const text = await callGemini(prompt, apiKey);
+
         let jsonText = text.trim();
         if (jsonText.startsWith('```json')) {
           jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
         } else if (jsonText.startsWith('```')) {
           jsonText = jsonText.replace(/```\n?/g, '');
         }
-        
+
         result = { questions: JSON.parse(jsonText) };
         break;
       }
@@ -65,9 +87,9 @@ Deno.serve(async (req: Request) => {
 4. Сделать текст читабельным и грамотным
 
 Верни только очищенный и отформатированный ответ, без дополнительных комментариев.`;
-        
-        const response = await model.generateContent(prompt);
-        result = { cleanedAnswer: response.response.text().trim() };
+
+        const text = await callGemini(prompt, apiKey);
+        result = { cleanedAnswer: text.trim() };
         break;
       }
 
@@ -89,17 +111,17 @@ ${JSON.stringify({ questions, responses }, null, 2)}
 - "insights": массив ключевых инсайтов
 - "statistics": объект со статистикой по вопросам
 - "recommendations": массив рекомендаций`;
-        
-        const response = await model.generateContent(prompt);
-        let text = response.response.text().trim();
-        
-        if (text.startsWith('```json')) {
-          text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-        } else if (text.startsWith('```')) {
-          text = text.replace(/```\n?/g, '');
+
+        const text = await callGemini(prompt, apiKey);
+        let cleanText = text.trim();
+
+        if (cleanText.startsWith('```json')) {
+          cleanText = cleanText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+        } else if (cleanText.startsWith('```')) {
+          cleanText = cleanText.replace(/```\n?/g, '');
         }
-        
-        result = { analysis: JSON.parse(text) };
+
+        result = { analysis: JSON.parse(cleanText) };
         break;
       }
 
