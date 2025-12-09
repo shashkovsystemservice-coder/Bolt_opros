@@ -41,7 +41,6 @@ Deno.serve(async (req: Request) => {
         const response = await model.generateContent(prompt);
         const text = response.response.text();
         
-        // Extract JSON from response (remove markdown code blocks if present)
         let jsonText = text.trim();
         if (jsonText.startsWith('```json')) {
           jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
@@ -94,7 +93,6 @@ ${JSON.stringify({ questions, responses }, null, 2)}
         const response = await model.generateContent(prompt);
         let text = response.response.text().trim();
         
-        // Extract JSON from response
         if (text.startsWith('```json')) {
           text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '');
         } else if (text.startsWith('```')) {

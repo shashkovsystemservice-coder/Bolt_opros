@@ -52,10 +52,16 @@ export function AiSurveyModal({ onClose, onGenerate }: AiSurveyModalProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Ошибка при генерации опроса');
+        const errorData = await response.json().catch(() => null);
+        const errorMessage = errorData?.error || `Ошибка ${response.status}: ${response.statusText}`;
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
+
+      if (!result.questions || !Array.isArray(result.questions)) {
+        throw new Error('Некорректный формат ответа от API');
+      }
 
       const questions: Question[] = result.questions.map((q: any) => {
         let type: Question['type'] = 'text';
