@@ -6,31 +6,35 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-async function callGemini(prompt: string, apiKey: string) {
+async function callAlibabaAI(prompt: string, apiKey: string) {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
+        model: "qwen-plus",
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
       }),
     }
   );
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Gemini API error: ${error}`);
+    throw new Error(`Alibaba AI API error: ${error}`);
   }
 
   const data = await response.json();
-  return data.candidates[0].content.parts[0].text;
+  return data.choices[0].message.content;
 }
 
 Deno.serve(async (req: Request) => {
@@ -44,9 +48,9 @@ Deno.serve(async (req: Request) => {
   try {
     const { action, data } = await req.json();
 
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
+    const apiKey = Deno.env.get("ALIBABA_API_KEY");
     if (!apiKey) {
-      throw new Error("GEMINI_API_KEY not configured");
+      throw new Error("ALIBABA_API_KEY not configured");
     }
 
     let result;
@@ -61,7 +65,7 @@ Deno.serve(async (req: Request) => {
 
 Используй разные типы вопросов. Вопросы должны быть релевантными, профессиональными и помогать получить полезную информацию по теме. Верни только JSON без дополнительного текста.`;
 
-        const text = await callGemini(prompt, apiKey);
+        const text = await callAlibabaAI(prompt, apiKey);
 
         let jsonText = text.trim();
         if (jsonText.startsWith('```json')) {
@@ -88,7 +92,7 @@ Deno.serve(async (req: Request) => {
 
 Верни только очищенный и отформатированный ответ, без дополнительных комментариев.`;
 
-        const text = await callGemini(prompt, apiKey);
+        const text = await callAlibabaAI(prompt, apiKey);
         result = { cleanedAnswer: text.trim() };
         break;
       }
@@ -112,7 +116,7 @@ ${JSON.stringify({ questions, responses }, null, 2)}
 - "statistics": объект со статистикой по вопросам
 - "recommendations": массив рекомендаций`;
 
-        const text = await callGemini(prompt, apiKey);
+        const text = await callAlibabaAI(prompt, apiKey);
         let cleanText = text.trim();
 
         if (cleanText.startsWith('```json')) {
