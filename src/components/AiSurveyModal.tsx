@@ -57,12 +57,18 @@ export function AiSurveyModal({ onClose, onGenerate }: AiSurveyModalProps) {
 
       const result = await response.json();
 
-      const questions: Question[] = result.questions.map((q: any) => ({
-        text: q.question,
-        type: q.type,
-        required: false,
-        options: q.options || [],
-      }));
+      const questions: Question[] = result.questions.map((q: any) => {
+        let type: Question['type'] = 'text';
+        if (q.type === 'radio') type = 'choice';
+        if (q.type === 'checkbox') type = 'choice';
+
+        return {
+          text: q.question,
+          type,
+          required: false,
+          options: q.options || [],
+        };
+      });
 
       onGenerate(questions, topic.trim(), isInteractive);
     } catch (err: any) {
