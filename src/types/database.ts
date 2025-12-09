@@ -11,6 +11,9 @@ export interface SurveyTemplate {
   description: string | null;
   unique_code: string;
   is_active: boolean;
+  is_ai_generated: boolean;
+  is_interactive: boolean;
+  ai_generation_topic: string | null;
   created_at: string;
   updated_at: string;
 }

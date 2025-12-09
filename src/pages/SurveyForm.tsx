@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { SurveyTemplate, QuestionTemplate, SurveyRecipient } from '../types/database';
+import { InteractiveSurveyChat } from '../components/InteractiveSurveyChat';
 import { ClipboardList, CheckCircle2, Download, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -293,6 +294,17 @@ export function SurveyForm() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (survey?.is_interactive && recipient) {
+    return (
+      <InteractiveSurveyChat
+        survey={survey}
+        questions={questions}
+        recipient={recipient}
+        respondentEmail={respondentEmail}
+      />
     );
   }
 

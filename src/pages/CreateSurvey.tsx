@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { AiSurveyModal } from '../components/AiSurveyModal';
 import { generateCode } from '../utils/generateCode';
-import { Plus, Trash2, ChevronUp, ChevronDown, Download, Upload, X } from 'lucide-react';
+import { Plus, Trash2, ChevronUp, ChevronDown, Download, Upload, X, Sparkles } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface Question {
@@ -25,7 +26,11 @@ export function CreateSurvey() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
   const [previewQuestions, setPreviewQuestions] = useState<Question[]>([]);
+  const [isAiGenerated, setIsAiGenerated] = useState(false);
+  const [isInteractive, setIsInteractive] = useState(false);
+  const [aiGenerationTopic, setAiGenerationTopic] = useState<string | null>(null);
 
   const addQuestion = () => {
     setQuestions([...questions, { text: '', type: 'text', required: false, options: [] }]);
@@ -208,7 +213,6 @@ export function CreateSurvey() {
   };
 
   const applyImport = () => {
-    // Если есть только один пустой вопрос, заменяем его импортированными
     const hasOnlyEmptyQuestion = questions.length === 1 && !questions[0].text.trim();
 
     if (hasOnlyEmptyQuestion) {
@@ -219,6 +223,15 @@ export function CreateSurvey() {
 
     setShowImportModal(false);
     setPreviewQuestions([]);
+  };
+
+  const handleAiGenerate = (generatedQuestions: Question[], topic: string, interactive: boolean) => {
+    setQuestions(generatedQuestions);
+    setIsAiGenerated(true);
+    setIsInteractive(interactive);
+    setAiGenerationTopic(topic);
+    setTitle(`Опрос: ${topic}`);
+    setShowAiModal(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -256,6 +269,9 @@ export function CreateSurvey() {
           description: description.trim() || null,
           unique_code: uniqueCode,
           is_active: true,
+          is_ai_generated: isAiGenerated,
+          is_interactive: isInteractive,
+          ai_generation_topic: aiGenerationTopic,
         })
         .select()
         .single();
@@ -327,18 +343,26 @@ export function CreateSurvey() {
 
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-medium text-[#1F1F1F]">Вопросы</h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAiModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1A73E8] to-[#4285F4] text-white rounded-full hover:shadow-lg transition-all text-sm font-medium"
+              >
+                <Sparkles className="w-4 h-4" strokeWidth={2} />
+                Создать с AI
+              </button>
               <button
                 type="button"
                 onClick={downloadTemplate}
                 className="flex items-center gap-2 px-4 py-2 border border-[#E8EAED] text-[#1F1F1F] rounded-full hover:bg-[#F8F9FA] transition-colors text-sm font-medium"
               >
                 <Download className="w-4 h-4" strokeWidth={2} />
-                Скачать шаблон
+                Шаблон
               </button>
               <label className="flex items-center gap-2 px-4 py-2 bg-[#E8F0FE] text-[#1A73E8] rounded-full hover:bg-[#D2E3FC] transition-colors cursor-pointer text-sm font-medium">
                 <Upload className="w-4 h-4" strokeWidth={2} />
-                Импорт из Excel
+                Импорт
                 <input type="file" accept=".xlsx,.xls" onChange={handleFileImport} className="hidden" />
               </label>
             </div>
@@ -460,6 +484,13 @@ export function CreateSurvey() {
           </div>
         </form>
       </div>
+
+      {showAiModal && (
+        <AiSurveyModal
+          onClose={() => setShowAiModal(false)}
+          onGenerate={handleAiGenerate}
+        />
+      )}
 
       {showImportModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">

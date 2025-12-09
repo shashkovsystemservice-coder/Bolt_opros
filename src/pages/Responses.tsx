@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { SurveyTemplate, SurveySubmission, SubmissionAnswer, SurveyRecipient } from '../types/database';
-import { Download, Search, ChevronDown, ChevronUp, Building2, Mail, Calendar, Maximize2, Minimize2, List, Table2, BarChart3 } from 'lucide-react';
+import { Download, Search, ChevronDown, ChevronUp, Building2, Mail, Calendar, Maximize2, Minimize2, List, Table2, BarChart3, Sparkles, Loader2 } from 'lucide-react';
 
 interface SubmissionWithDetails extends SurveySubmission {
   answers: SubmissionAnswer[];
@@ -21,6 +21,9 @@ export function Responses() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'list' | 'table' | 'analytics'>('list');
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [loadingAiAnalysis, setLoadingAiAnalysis] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   useEffect(() => {
     loadData();
@@ -152,6 +155,57 @@ export function Responses() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const generateAiAnalysis = async () => {
+    if (submissions.length === 0) return;
+
+    setLoadingAiAnalysis(true);
+    setAiError('');
+
+    try {
+      const allQuestions = Array.from(
+        new Set(submissions.flatMap((sub) => sub.answers.map((a) => a.question_text)))
+      );
+
+      const responses = submissions.map((sub) => ({
+        email: sub.respondent_email,
+        company: sub.recipient?.company_name || 'Не указано',
+        date: sub.submitted_at,
+        answers: sub.answers.map((a) => ({
+          question: a.question_text,
+          answer: a.answer_text || a.answer_number?.toString() || '',
+        })),
+      }));
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gemini-ai`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'analyze-responses',
+          data: {
+            surveyTitle: survey?.title || 'Опрос',
+            questions: allQuestions,
+            responses,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка при анализе данных');
+      }
+
+      const result = await response.json();
+      setAiAnalysis(result.analysis);
+    } catch (error: any) {
+      setAiError(error.message || 'Ошибка при анализе данных');
+    } finally {
+      setLoadingAiAnalysis(false);
+    }
   };
 
   const getQuestionStats = () => {
@@ -409,6 +463,81 @@ export function Responses() {
 
             {viewMode === 'analytics' && (
               <div className="space-y-6">
+                <div className="bg-white rounded-2xl border border-[#E8EAED] p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-medium text-[#1F1F1F] mb-1">AI Анализ</h3>
+                      <p className="text-sm text-[#5F6368]">Получите детальный анализ ответов с помощью искусственного интеллекта</p>
+                    </div>
+                    <button
+                      onClick={generateAiAnalysis}
+                      disabled={loadingAiAnalysis || submissions.length === 0}
+                      className="flex items-center gap-2 px-6 h-12 bg-gradient-to-r from-[#1A73E8] to-[#4285F4] text-white rounded-full font-medium hover:shadow-lg transition-all disabled:opacity-50"
+                    >
+                      {loadingAiAnalysis ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" strokeWidth={2} />
+                          Анализирую...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-5 h-5" strokeWidth={2} />
+                          Анализировать с AI
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {aiError && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+                      {aiError}
+                    </div>
+                  )}
+
+                  {aiAnalysis && (
+                    <div className="space-y-6 mt-6">
+                      <div className="bg-gradient-to-r from-[#E8F0FE] to-[#F8F9FA] rounded-xl p-6">
+                        <h4 className="text-sm font-medium text-[#1A73E8] mb-3">Краткое резюме</h4>
+                        <p className="text-[#1F1F1F] leading-relaxed">{aiAnalysis.summary}</p>
+                      </div>
+
+                      {aiAnalysis.insights && aiAnalysis.insights.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium text-[#1F1F1F] mb-3">Ключевые инсайты</h4>
+                          <div className="space-y-3">
+                            {aiAnalysis.insights.map((insight: string, idx: number) => (
+                              <div key={idx} className="flex gap-3 p-4 bg-[#F8F9FA] rounded-xl">
+                                <div className="flex-shrink-0 w-6 h-6 bg-[#1A73E8] text-white rounded-full flex items-center justify-center text-sm font-medium">
+                                  {idx + 1}
+                                </div>
+                                <p className="text-[#1F1F1F] flex-1">{insight}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {aiAnalysis.recommendations && aiAnalysis.recommendations.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium text-[#1F1F1F] mb-3">Рекомендации</h4>
+                          <div className="space-y-2">
+                            {aiAnalysis.recommendations.map((rec: string, idx: number) => (
+                              <div key={idx} className="flex gap-3 p-4 bg-green-50 rounded-xl">
+                                <Sparkles className="w-5 h-5 text-green-600 flex-shrink-0" strokeWidth={2} />
+                                <p className="text-[#1F1F1F] flex-1">{rec}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-[#E8EAED] pt-6">
+                  <h3 className="text-lg font-medium text-[#1F1F1F] mb-6">Статистика по вопросам</h3>
+                </div>
+
                 {getQuestionStats().map((stat, idx) => (
                   <div key={idx} className="bg-white rounded-2xl border border-[#E8EAED] p-6">
                     <h3 className="text-lg font-medium text-[#1F1F1F] mb-4">{stat.question}</h3>
