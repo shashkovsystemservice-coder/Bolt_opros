@@ -6,7 +6,7 @@ import { Landing } from './pages/Landing';
 import { Auth } from './pages/Auth';
 import { ResetPassword } from './pages/ResetPassword';
 import { Dashboard } from './pages/Dashboard';
-import { CreateSurvey } from './pages/CreateSurvey';
+import CreateSurvey from './pages/CreateSurvey';
 import { Recipients } from './pages/Recipients';
 import { SurveyForm } from './pages/SurveyForm';
 import { Responses } from './pages/Responses';
@@ -96,7 +96,7 @@ function App() {
               </AdminRoute>
             }
           />
-          <Route path="/survey/:code" element={<SurveyForm />} />
+          <Route path="/survey/:id" element={<SurveyForm />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
