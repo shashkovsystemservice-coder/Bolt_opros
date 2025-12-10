@@ -41,16 +41,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, companyName: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          company_name: companyName,
+        },
+      },
+    });
+
     if (error) throw error;
-
-    if (data.user) {
-      const { error: companyError } = await supabase
-        .from('companies')
-        .insert({ id: data.user.id, name: companyName });
-
-      if (companyError) throw companyError;
-    }
   };
 
   const signOut = async () => {

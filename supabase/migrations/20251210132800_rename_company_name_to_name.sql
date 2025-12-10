@@ -1,0 +1,1 @@
+ALTER TABLE public.companies RENAME COLUMN company_name TO name;

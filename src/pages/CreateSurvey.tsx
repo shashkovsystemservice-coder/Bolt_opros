@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -31,6 +32,27 @@ export function CreateSurvey() {
   const [isAiGenerated, setIsAiGenerated] = useState(false);
   const [isInteractive, setIsInteractive] = useState(false);
   const [aiGenerationTopic, setAiGenerationTopic] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      const fetchProfile = async () => {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('company_id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching profile:', error);
+          setError('Не удалось получить информацию о компании. Пожалуйста, попробуйте перезайти.');
+        } else if (profile) {
+          setCompanyId(profile.company_id);
+        }
+      };
+      fetchProfile();
+    }
+  }, [user]);
 
   const addQuestion = () => {
     setQuestions([...questions, { text: '', type: 'text', required: false, options: [] }]);
@@ -69,7 +91,6 @@ export function CreateSurvey() {
   };
 
   const downloadTemplate = () => {
-    // Лист с инструкциями
     const instructionsData = [
       ['ИНСТРУКЦИЯ ПО ЗАПОЛНЕНИЮ ШАБЛОНА ОПРОСА'],
       [''],
@@ -113,7 +134,6 @@ export function CreateSurvey() {
       ['Примеры смотрите на листе "Вопросы"'],
     ];
 
-    // Лист с примерами вопросов
     const templateData = [
       ['Текст вопроса', 'Тип вопроса', 'Обязательный', 'Варианты ответа'],
       ['Как вас зовут?', 'text', 'да', ''],
@@ -133,15 +153,11 @@ export function CreateSurvey() {
 
     const wb = XLSX.utils.book_new();
 
-    // Добавляем лист с вопросами ПЕРВЫМ (основной лист для работы)
     const wsQuestions = XLSX.utils.aoa_to_sheet(templateData);
-    // Устанавливаем ширину столбцов
     wsQuestions['!cols'] = [{ wch: 40 }, { wch: 25 }, { wch: 15 }, { wch: 50 }];
     XLSX.utils.book_append_sheet(wb, wsQuestions, 'Вопросы');
 
-    // Добавляем лист с инструкциями вторым
     const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
-    // Устанавливаем ширину столбцов
     wsInstructions['!cols'] = [{ wch: 80 }];
     XLSX.utils.book_append_sheet(wb, wsInstructions, 'Инструкция');
 
@@ -158,7 +174,6 @@ export function CreateSurvey() {
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
 
-        // Ищем лист "Вопросы", если нет - берем первый лист
         const sheetName = workbook.SheetNames.find(name => name === 'Вопросы') || workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
@@ -169,12 +184,10 @@ export function CreateSurvey() {
         for (let i = 1; i < jsonData.length; i++) {
           const row = jsonData[i];
 
-          // Пропускаем пустые строки и строки с подсказками
           if (!row[0] || !row[1]) continue;
 
           const questionText = String(row[0]).trim();
 
-          // Пропускаем строки с примерами и подсказками
           if (questionText.includes('👆') || questionText.includes('ВАЖНО:') || questionText.includes('УДАЛИТЕ')) {
             skippedRows++;
             continue;
@@ -238,6 +251,11 @@ export function CreateSurvey() {
     e.preventDefault();
     setError('');
 
+    if (!companyId) {
+      setError('Информация о компании не загружена. Пожалуйста, подождите или перезагрузите страницу.');
+      return;
+    }
+
     if (!title.trim()) {
       setError('Введите название опроса');
       return;
@@ -264,7 +282,7 @@ export function CreateSurvey() {
       const { data: survey, error: surveyError } = await supabase
         .from('survey_templates')
         .insert({
-          company_id: user!.id,
+          company_id: companyId, // Corrected: use fetched companyId
           title: title.trim(),
           description: description.trim() || null,
           unique_code: uniqueCode,
@@ -476,7 +494,7 @@ export function CreateSurvey() {
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !companyId}
               className="flex-1 h-12 bg-[#1A73E8] text-white rounded-full font-medium hover:bg-[#1557B0] transition-colors disabled:opacity-50"
             >
               {loading ? 'Создание...' : 'Создать опрос'}

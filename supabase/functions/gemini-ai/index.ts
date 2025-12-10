@@ -6,35 +6,50 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-async function callAlibabaAI(prompt: string, apiKey: string) {
+// Final, stable version of the function to call Google Gemini API
+async function callGeminiAI(prompt: string, apiKey: string) {
+  // Using the model name that is ACTUALLY available to the user's project
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
+  
   const response = await fetch(
-    "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    url,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "qwen-plus",
-        messages: [
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
+        contents: [{
+          parts: [{
+            text: prompt,
+          }],
+        }],
+        generationConfig: {
+          temperature: 0.7,
+        }
       }),
     }
   );
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Alibaba AI API error: ${error}`);
+    throw new Error(`Google Gemini API error: ${error}`);
   }
 
   const data = await response.json();
-  return data.choices[0].message.content;
+  // Robust parsing of the response from the Gemini API
+  if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
+    let text = data.candidates[0].content.parts[0].text;
+    // The API often returns the JSON wrapped in markdown ` (```json ... ```)`
+    // This code cleans it up before parsing.
+    if (text.startsWith("```json")) {
+      text = text.substring(7, text.length - 3).trim();
+    } else if (text.startsWith("```")) {
+      text = text.substring(3, text.length - 3).trim();
+    }
+    return text;
+  }
+  throw new Error("Invalid or empty response structure from Gemini API");
 }
 
 Deno.serve(async (req: Request) => {
@@ -48,9 +63,9 @@ Deno.serve(async (req: Request) => {
   try {
     const { action, data } = await req.json();
 
-    const apiKey = Deno.env.get("ALIBABA_API_KEY");
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) {
-      throw new Error("ALIBABA_API_KEY not configured");
+      throw new Error("GEMINI_API_KEY not configured in Supabase");
     }
 
     let result;
@@ -58,74 +73,28 @@ Deno.serve(async (req: Request) => {
     switch (action) {
       case "generate-survey": {
         const { topic, questionCount } = data;
-        const prompt = `Создай опрос на тему "${topic}" с ${questionCount} вопросами. Верни ответ строго в формате JSON массива объектов, где каждый объект имеет поля:
-- "question": текст вопроса
-- "type": тип вопроса ("text" для открытых вопросов, "radio" для выбора одного варианта, "checkbox" для множественного выбора)
-- "options": массив вариантов ответа (только для типов "radio" и "checkbox"), может быть пустым массивом для типа "text"
+        const prompt = `Создай опрос на тему "${topic}" с ${questionCount} вопросами. Верни ответ строго в формате JSON массива объектов, где каждый объект имеет поля:\n- "question": текст вопроса\n- "type": тип вопроса ("text" для открытых вопросов, "radio" для выбора одного варианта, "checkbox" для множественного выбора)\n- "options": массив вариантов ответа (только для типов "radio" и "checkbox"), может быть пустым массивом для типа "text"\n\nИспользуй разные типы вопросов. Вопросы должны быть релевантными, профессиональными и помогать получить полезную информацию по теме. Верни только JSON без дополнительного текста.`;
 
-Используй разные типы вопросов. Вопросы должны быть релевантными, профессиональными и помогать получить полезную информацию по теме. Верни только JSON без дополнительного текста.`;
-
-        const text = await callAlibabaAI(prompt, apiKey);
-
-        let jsonText = text.trim();
-        if (jsonText.startsWith('```json')) {
-          jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-        } else if (jsonText.startsWith('```')) {
-          jsonText = jsonText.replace(/```\n?/g, '');
-        }
-
-        result = { questions: JSON.parse(jsonText) };
+        const rawJson = await callGeminiAI(prompt, apiKey);
+        result = { questions: JSON.parse(rawJson) };
         break;
       }
 
       case "clean-answer": {
         const { question, rawAnswer } = data;
-        const prompt = `Пользователь отвечал на вопрос: "${question}"
+        const prompt = `Пользователь отвечал на вопрос: "${question}"\n\nОтвет пользователя (может содержать паразитные слова, повторы, быть неструктурированным): "${rawAnswer}"\n\nТвоя задача:\n1. Убрать паразитные слова (эээ, ммм, ну, короче и т.д.)\n2. Исправить очевидные ошибки транскрипции\n3. Структурировать ответ, сохраняя смысл\n4. Сделать текст читабельным и грамотным\n\nВерни только очищенный и отформатированный ответ, без дополнительных комментариев.`;
 
-Ответ пользователя (может содержать паразитные слова, повторы, быть неструктурированным): "${rawAnswer}"
-
-Твоя задача:
-1. Убрать паразитные слова (эээ, ммм, ну, короче и т.д.)
-2. Исправить очевидные ошибки транскрипции
-3. Структурировать ответ, сохраняя смысл
-4. Сделать текст читабельным и грамотным
-
-Верни только очищенный и отформатированный ответ, без дополнительных комментариев.`;
-
-        const text = await callAlibabaAI(prompt, apiKey);
-        result = { cleanedAnswer: text.trim() };
+        const cleanedText = await callGeminiAI(prompt, apiKey);
+        result = { cleanedAnswer: cleanedText.trim() };
         break;
       }
 
       case "analyze-responses": {
         const { surveyTitle, questions, responses } = data;
-        const prompt = `Проанализируй результаты опроса "${surveyTitle}".
+        const prompt = `Проанализируй результаты опроса "${surveyTitle}".\n\nВопросы и ответы:\n${JSON.stringify({ questions, responses }, null, 2)}\n\nПредоставь:\n1. Краткое резюме (2-3 предложения)\n2. Ключевые инсайты и паттерны в ответах\n3. Статистику по каждому вопросу\n4. Рекомендации на основе полученных данных\n\nВерни ответ в формате JSON с полями:\n- "summary": краткое резюме\n- "insights": массив ключевых инсайтов\n- "statistics": объект со статистикой по вопросам\n- "recommendations": массив рекомендаций`;
 
-Вопросы и ответы:
-${JSON.stringify({ questions, responses }, null, 2)}
-
-Предоставь:
-1. Краткое резюме (2-3 предложения)
-2. Ключевые инсайты и паттерны в ответах
-3. Статистику по каждому вопросу
-4. Рекомендации на основе полученных данных
-
-Верни ответ в формате JSON с полями:
-- "summary": краткое резюме
-- "insights": массив ключевых инсайтов
-- "statistics": объект со статистикой по вопросам
-- "recommendations": массив рекомендаций`;
-
-        const text = await callAlibabaAI(prompt, apiKey);
-        let cleanText = text.trim();
-
-        if (cleanText.startsWith('```json')) {
-          cleanText = cleanText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-        } else if (cleanText.startsWith('```')) {
-          cleanText = cleanText.replace(/```\n?/g, '');
-        }
-
-        result = { analysis: JSON.parse(cleanText) };
+        const rawJson = await callGeminiAI(prompt, apiKey);
+        result = { analysis: JSON.parse(rawJson) };
         break;
       }
 
@@ -140,9 +109,9 @@ ${JSON.stringify({ questions, responses }, null, 2)}
       },
     });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Function Error:', error.message);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: `Server-side error: ${error.message}` }),
       {
         status: 500,
         headers: {
