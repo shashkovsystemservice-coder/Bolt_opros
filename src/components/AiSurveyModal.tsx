@@ -14,15 +14,15 @@ interface AiSurveyModalProps {
 }
 
 export function AiSurveyModal({ onClose, onGenerate }: AiSurveyModalProps) {
-  const [topic, setTopic] = useState('');
+  const [prompt, setPrompt] = useState('');
   const [questionCount, setQuestionCount] = useState(5);
   const [isInteractive, setIsInteractive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleGenerate = async () => {
-    if (!topic.trim()) {
-      setError('Введите тему опроса');
+    if (!prompt.trim()) {
+      setError('Опишите подробно, о чем должен быть опрос');
       return;
     }
 
@@ -45,7 +45,7 @@ export function AiSurveyModal({ onClose, onGenerate }: AiSurveyModalProps) {
         body: JSON.stringify({
           action: 'generate-survey',
           data: {
-            topic: topic.trim(),
+            topic: prompt.trim(), // We still call it 'topic' for the backend
             questionCount,
           },
         }),
@@ -65,18 +65,27 @@ export function AiSurveyModal({ onClose, onGenerate }: AiSurveyModalProps) {
 
       const questions: Question[] = result.questions.map((q: any) => {
         let type: Question['type'] = 'text';
-        if (q.type === 'radio') type = 'choice';
-        if (q.type === 'checkbox') type = 'choice';
+        // A more robust type mapping
+        if (['radio', 'checkbox', 'choice'].includes(q.type)) {
+          type = 'choice';
+        } else if (['rating', 'scale'].includes(q.type)) {
+          type = 'rating';
+        } else if (q.type === 'number') {
+          type = 'number';
+        } else if (q.type === 'email') {
+            type = 'email';
+        }
 
         return {
           text: q.question,
           type,
-          required: false,
+          required: false, // Defaulting to false, can be changed by user later
           options: q.options || [],
         };
       });
 
-      onGenerate(questions, topic.trim(), isInteractive);
+      // Pass the original prompt back to the parent to use as a title if needed
+      onGenerate(questions, prompt.trim(), isInteractive);
     } catch (err: any) {
       setError(err.message || 'Ошибка при генерации опроса');
     } finally {
@@ -103,14 +112,14 @@ export function AiSurveyModal({ onClose, onGenerate }: AiSurveyModalProps) {
         <div className="p-6 space-y-5">
           <div>
             <label className="block text-sm font-medium text-[#1F1F1F] mb-2">
-              Тема опроса *
+              Подробный промпт для AI *
             </label>
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              className="w-full h-12 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors"
-              placeholder="Например: удовлетворенность клиентов"
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              className="w-full px-4 py-3 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors resize-none"
+              rows={4}
+              placeholder="Опишите подробно, о чем должен быть опрос. Например: 'Создай опрос для IT-компании, чтобы оценить удовлетворенность сотрудников работой. Включи вопросы про рабочую атмосферу, баланс работы и личной жизни, и возможности для карьерного роста.'"
               disabled={loading}
             />
           </div>

@@ -1,71 +1,116 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
 
+import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import { supabase } from '../lib/supabase'; // Исправленный путь
+import { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
+
+// Define the shape of the context value
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, companyName: string) => Promise<void>;
+  signIn: (email, password) => Promise<void>;
+  signUp: (email, password, companyName) => Promise<void>; // Add companyName here
   signOut: () => Promise<void>;
 }
 
+// Create the context with a default undefined value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+// Define the props for the provider
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-    });
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
+    getInitialSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
         setSession(session);
         setUser(session?.user ?? null);
-      })();
-    });
+        if (_event === 'INITIAL_SESSION') {
+          setLoading(false);
+        }
+      }
+    );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+  // Sign in user
+  const signIn = async (email, password) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    });
+    if (error) throw new Error(`Ошибка входа: ${error.message}`);
   };
 
-  const signUp = async (email: string, password: string, companyName: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
+  // =================================================================
+  // THIS IS THE CORRECTED SIGN UP FUNCTION
+  // =================================================================
+  const signUp = async (email, password, companyName) => {
+    const { data, error } = await supabase.auth.signUp({
+      email: email,
+      password: password,
       options: {
         data: {
-          company_name: companyName,
-        },
-      },
+          company_name: companyName, // This line sends the company name to Supabase
+        }
+      }
     });
 
-    if (error) throw error;
+    if (error) {
+      // Provide a more user-friendly error message
+      if (error.message.includes('User already registered')) {
+        throw new Error('Пользователь с таким email уже существует.');
+      }
+      throw new Error(`Ошибка регистрации: ${error.message}`);
+    }
+    
+    // Although Supabase sends a confirmation email, for this app, we might
+    // not require it, but the user is created. The trigger will handle the company creation.
+    return data;
   };
+  // =================================================================
 
+  // Sign out user
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (error) throw new Error(`Ошибка выхода: ${error.message}`);
+  };
+
+  const value = {
+    user,
+    session,
+    loading,
+    signIn,
+    signUp,
+    signOut,
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 }
 
+// Custom hook to use the auth context
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
