@@ -7,6 +7,7 @@ import { Auth } from './pages/Auth';
 import { ResetPassword } from './pages/ResetPassword';
 import { Dashboard } from './pages/Dashboard';
 import CreateSurvey from './pages/CreateSurvey';
+import EditSurvey from './pages/EditSurvey'; // Import the new EditSurvey page
 import { Recipients } from './pages/Recipients';
 import { SurveyForm } from './pages/SurveyForm';
 import { Responses } from './pages/Responses';
@@ -37,6 +38,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <CreateSurvey />
+              </ProtectedRoute>
+            }
+          />
+          {/* This is the new route for editing a survey */}
+          <Route
+            path="/survey/:id/edit"
+            element={
+              <ProtectedRoute>
+                <EditSurvey />
               </ProtectedRoute>
             }
           />

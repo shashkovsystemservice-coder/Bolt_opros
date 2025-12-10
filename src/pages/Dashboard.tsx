@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { SurveyTemplate } from '../types/database';
-import { Plus, Users, FileText, Calendar } from 'lucide-react';
+import { Plus, Users, FileText, Calendar, Edit3 } from 'lucide-react';
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -82,33 +82,44 @@ export function Dashboard() {
             {surveys.map((survey) => (
               <div
                 key={survey.id}
-                className="bg-white rounded-2xl border border-[#E8EAED] p-6 hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => navigate(`/survey/${survey.id}/recipients`)}
+                className="bg-white rounded-2xl border border-[#E8EAED] p-6 flex flex-col justify-between hover:shadow-lg transition-shadow"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="font-medium text-[#1F1F1F] mb-1 line-clamp-2">{survey.title}</h3>
-                    {survey.description && (
-                      <p className="text-sm text-[#5F6368] line-clamp-2">{survey.description}</p>
-                    )}
-                  </div>
-                  <div className={`ml-3 px-2 py-1 rounded-md text-xs font-medium ${
-                    survey.is_active
-                      ? 'bg-green-50 text-green-700'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    {survey.is_active ? 'Активен' : 'Архив'}
-                  </div>
-                </div>
+                <div>
+                    <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                        <h3 className="font-medium text-[#1F1F1F] mb-1 line-clamp-2">{survey.title}</h3>
+                        {survey.description && (
+                            <p className="text-sm text-[#5F6368] line-clamp-2">{survey.description}</p>
+                        )}
+                        </div>
+                        <div className={`ml-3 px-2 py-1 rounded-md text-xs font-medium ${
+                        survey.is_active
+                            ? 'bg-green-50 text-green-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                        {survey.is_active ? 'Активен' : 'Архив'}
+                        </div>
+                    </div>
 
-                <div className="flex items-center gap-4 text-sm text-[#5F6368] mb-4">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" strokeWidth={2} />
-                    {formatDate(survey.created_at)}
-                  </div>
+                    <div className="flex items-center gap-4 text-sm text-[#5F6368] mb-4">
+                        <div className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" strokeWidth={2} />
+                        {formatDate(survey.created_at)}
+                        </div>
+                    </div>
                 </div>
 
                 <div className="flex gap-2 pt-4 border-t border-[#E8EAED]">
+                   <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/survey/${survey.id}/edit`);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors"
+                  >
+                    <Edit3 className="w-4 h-4" strokeWidth={2} />
+                    Редактор
+                  </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
