@@ -1,16 +1,15 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { AiSurveyModal } from '../components/AiSurveyModal';
-import { Plus, Trash2, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Download, UploadCloud } from 'lucide-react';
+import ExcelJS from 'exceljs';
 
-// This interface is used both here and in AiSurveyModal.tsx
-// It defines the local state structure for a question before it's saved.
 export interface LocalQuestion {
-  id: string; // A temporary unique ID for React keys
+  id: string; 
   text: string;
   type: 'text' | 'number' | 'email' | 'rating' | 'choice';
   required: boolean;
@@ -20,20 +19,18 @@ export interface LocalQuestion {
 const CreateSurvey = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // State for survey details
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isInteractive, setIsInteractive] = useState(false);
   const [questions, setQuestions] = useState<LocalQuestion[]>([]);
   
-  // State for loading, errors, and company info
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
-  // Fetch the user's company ID on component mount
   useEffect(() => {
     const fetchCompany = async () => {
       if (user) {
@@ -59,10 +56,8 @@ const CreateSurvey = () => {
     fetchCompany();
   }, [user]);
 
-  // --- Functions to handle AI generation ---
   const handleOpenAiModal = () => setIsAiModalOpen(true);
 
-  // This function now POPULATES the form instead of saving directly
   const handleAcceptAiSurvey = (aiQuestions: Omit<LocalQuestion, 'id'>[], topic: string, interactive: boolean, desc: string) => {
     setTitle(topic);
     setDescription(desc);
@@ -71,7 +66,6 @@ const CreateSurvey = () => {
     setIsAiModalOpen(false);
   };
 
-  // --- Functions for manual question manipulation ---
   const addQuestion = () => {
     const newQuestion: LocalQuestion = {
       id: crypto.randomUUID(),
@@ -88,7 +82,7 @@ const CreateSurvey = () => {
   };
   
   const updateQuestion = (id: string, field: keyof LocalQuestion, value: any) => {
-    setQuestions(questions.map(q => q.id === id ? { ...q, [field]: value } : q));
+    setQuestions(questions.map(q => (q.id === id ? { ...q, [field]: value } : q)));
   };
   
   const addOption = (questionId: string) => {
@@ -121,8 +115,148 @@ const CreateSurvey = () => {
       }));
   }
 
+  const handleDownloadTemplate = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Шаблон для вопросов');
 
-  // --- Main Save Function ---
+    const headers = [
+      { header: 'Текст вопроса', key: 'text', width: 70 },
+      { header: 'Тип вопроса', key: 'type', width: 25 },
+      { header: 'Обязательный?', key: 'required', width: 20 },
+      { header: 'Варианты ответа (для типа "Один вариант")', key: 'options', width: 50 },
+    ];
+    worksheet.columns = headers;
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1A73E8' },
+      };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    });
+    headerRow.height = 30;
+
+    const questionTypes = ['Текст', 'Число', 'Рейтинг (1-10)', 'Один вариант'];
+    const requiredOptions = ['Да', 'Нет'];
+    
+    for (let i = 2; i <= 101; i++) {
+        worksheet.getCell(`B${i}`).dataValidation = {
+            type: 'list',
+            allowBlank: false,
+            formulae: [`"${questionTypes.join(',')}"`],
+            showErrorMessage: true,
+            errorTitle: 'Неверный тип',
+            error: 'Пожалуйста, выберите тип из выпадающего списка.',
+        };
+        worksheet.getCell(`C${i}`).dataValidation = {
+            type: 'list',
+            allowBlank: false,
+            formulae: [`"${requiredOptions.join(',')}"`],
+            showErrorMessage: true,
+            errorTitle: 'Неверное значение',
+            error: 'Пожалуйста, выберите "Да" или "Нет".',
+        };
+    }
+
+    worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+    worksheet.mergeCells('E1:G1');
+    const instructionTitle = worksheet.getCell('E1');
+    instructionTitle.value = 'ИНСТРУКЦИЯ';
+    instructionTitle.font = { bold: true, color: { argb: 'FF1A73E8' }, size: 14 };
+    instructionTitle.alignment = { horizontal: 'center' };
+
+    worksheet.getCell('E2').value = '1. Текст вопроса: Просто напишите ваш вопрос.';
+    worksheet.getCell('E3').value = '2. Тип вопроса: Выберите из выпадающего списка.';
+    worksheet.getCell('E4').value = '3. Обязательный?: Выберите "Да" или "Нет".';
+    worksheet.getCell('E5').value = '4. Варианты ответа: Если выбрали тип "Один вариант", перечислите варианты через запятую ( , ).';
+    
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'survey_template.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    URL.revokeObjectURL(link.href);
+    document.body.removeChild(link);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const buffer = e.target?.result;
+        if (!buffer) return;
+        
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer as ArrayBuffer);
+        
+        const worksheet = workbook.getWorksheet(1);
+        if (!worksheet) {
+            throw new Error("Не удалось найти лист в файле Excel.");
+        }
+        
+        const newQuestions: LocalQuestion[] = [];
+        const headerMap: Record<string, number> = {};
+        worksheet.getRow(1).eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            headerMap[cell.value as string] = colNumber;
+        });
+
+        const textCol = headerMap['Текст вопроса'];
+        const typeCol = headerMap['Тип вопроса'];
+        const requiredCol = headerMap['Обязательный?'];
+        const optionsCol = headerMap['Варианты ответа (для типа "Один вариант")'];
+
+        if (!textCol || !typeCol || !requiredCol) {
+            throw new Error('Не удалось найти обязательные колонки: "Текст вопроса", "Тип вопроса", "Обязательный?". Пожалуйста, используйте скачанный шаблон.');
+        }
+
+        const typeMap: Record<string, LocalQuestion['type']> = {
+            'Текст': 'text',
+            'Число': 'number',
+            'Рейтинг (1-10)': 'rating',
+            'Один вариант': 'choice'
+        };
+
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber > 1) { 
+            const text = row.getCell(textCol).value as string || '';
+            const userType = row.getCell(typeCol).value as string || 'Текст';
+            const userRequired = row.getCell(requiredCol).value as string || 'Нет';
+            const optionsRaw = (optionsCol ? row.getCell(optionsCol).value : '') as string || '';
+            
+            const type = typeMap[userType] || 'text';
+            const required = userRequired === 'Да';
+            const options = type === 'choice' ? optionsRaw.split(',').map(o => o.trim()).filter(o => o) : [];
+
+            if (text) {
+              newQuestions.push({ id: crypto.randomUUID(), text, type, required, options });
+            }
+          }
+        });
+
+        setQuestions(newQuestions);
+        setError(null);
+
+      } catch (err: any) {
+        console.error("Ошибка при обработке файла:", err);
+        setError(`Ошибка при обработке файла: ${err.message}`);
+      } finally {
+        if(fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   const handleSaveSurvey = async () => {
     if (!title.trim()) {
       setError('Название опроса не может быть пустым.');
@@ -141,16 +275,9 @@ const CreateSurvey = () => {
     setError(null);
 
     try {
-      // 1. Insert the Survey Template
       const { data: surveyData, error: surveyError } = await supabase
         .from('survey_templates')
-        .insert([{
-          title,
-          description,
-          company_id: companyId,
-          is_interactive: isInteractive,
-          unique_code: `${Date.now()}${Math.random().toString(36).substring(2, 9)}`
-        }])
+        .insert([{'title': title, 'description': description, 'company_id': companyId, 'is_interactive': isInteractive, 'unique_code': `${Date.now()}${Math.random().toString(36).substring(2, 9)}`}])
         .select()
         .single();
 
@@ -159,7 +286,6 @@ const CreateSurvey = () => {
 
       const surveyId = surveyData.id;
 
-      // 2. Prepare and Insert all Questions
       const questionsToInsert = questions.map((q, index) => ({
         survey_template_id: surveyId,
         question_text: q.text,
@@ -174,12 +300,10 @@ const CreateSurvey = () => {
         .insert(questionsToInsert);
 
       if (questionsError) {
-        // Attempt to clean up the created survey template if questions fail
         await supabase.from('survey_templates').delete().eq('id', surveyId);
         throw questionsError;
       }
 
-      // 3. Success and Redirect
       navigate('/dashboard');
 
     } catch (err: any) {
@@ -194,7 +318,6 @@ const CreateSurvey = () => {
     <DashboardLayout>
       <main className="flex-grow container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6">
             <h1 className="text-3xl font-bold text-[#1F1F1F]">Создать опрос</h1>
             <div className="flex gap-2 mt-4 sm:mt-0">
@@ -222,7 +345,6 @@ const CreateSurvey = () => {
             </div>
           )}
 
-          {/* Survey Details Form */}
           <div className="bg-white p-8 rounded-2xl border border-[#E8EAED] shadow-sm mb-6">
             <div className="mb-6">
               <label htmlFor="surveyTitle" className="block text-lg font-medium text-[#1F1F1F] mb-2">Название</label>
@@ -260,7 +382,36 @@ const CreateSurvey = () => {
             </div>
           </div>
           
-          {/* Questions Editor */}
+          <div className="bg-white p-6 rounded-2xl border border-[#E8EAED] shadow-sm mb-6">
+              <h3 className="text-lg font-medium text-[#1F1F1F] mb-4">Массовое добавление вопросов</h3>
+              <div className="grid sm:grid-cols-2 gap-4">
+                  <button
+                      onClick={handleDownloadTemplate}
+                      className="flex items-center justify-center gap-2 h-11 px-4 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                      <Download size={18} />
+                      Скачать шаблон Excel
+                  </button>
+                  <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center justify-center gap-2 h-11 px-4 bg-blue-50 text-blue-700 font-medium rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                      <UploadCloud size={18} />
+                      Загрузить из Excel
+                  </button>
+                  <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      accept=".xlsx, .xls"
+                  />
+              </div>
+               <p className="text-xs text-gray-500 mt-3 text-center">
+                  Скачайте шаблон, заполните его и загрузите для быстрого создания опроса.
+              </p>
+          </div>
+
           <div className='space-y-4'>
             {questions.map((q, qIndex) => (
                 <div key={q.id} className="bg-white p-6 rounded-2xl border border-[#E8EAED] shadow-sm relative">
@@ -328,7 +479,6 @@ const CreateSurvey = () => {
             ))}
           </div>
           
-          {/* Add Question Button */}
           <div className="mt-6 text-center">
             <button
               onClick={addQuestion}
@@ -341,7 +491,6 @@ const CreateSurvey = () => {
         </div>
       </main>
 
-      {/* AI Modal */}
       {isAiModalOpen && companyId && (
         <AiSurveyModal
           onClose={() => setIsAiModalOpen(false)}

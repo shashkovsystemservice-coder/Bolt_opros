@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { SurveyTemplate, QuestionTemplate, SurveyRecipient } from '../types/database';
 import { InteractiveSurveyChat } from '../components/InteractiveSurveyChat';
 import { ClipboardList, CheckCircle2, Download, Printer, Eye } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 export function SurveyForm() {
   const { id } = useParams<{ id: string }>();
@@ -256,18 +256,40 @@ export function SurveyForm() {
     }, 250);
   };
 
-  const downloadExcel = () => {
+  const downloadExcel = async () => {
     if (!submittedData) return;
 
-    const data = submittedData.questions.map((item: any) => ({
-      Вопрос: item.text,
-      Ответ: item.answer,
-    }));
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Мои ответы');
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Мои ответы');
-    XLSX.writeFile(wb, `ответы_${Date.now()}.xlsx`);
+    // Add headers and specify column widths
+    worksheet.columns = [
+      { header: 'Вопрос', key: 'question', width: 70 },
+      { header: 'Ответ', key: 'answer', width: 50 },
+    ];
+
+    // Style the header
+    worksheet.getRow(1).font = { bold: true };
+
+    // Add row data
+    submittedData.questions.forEach((item: any) => {
+      worksheet.addRow({ question: item.text, answer: item.answer });
+    });
+
+    // Generate buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    // Create a Blob and trigger the download
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `ответы_${Date.now()}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+
+    // Clean up
+    URL.revokeObjectURL(link.href);
+    document.body.removeChild(link);
   };
 
   if (loading) {

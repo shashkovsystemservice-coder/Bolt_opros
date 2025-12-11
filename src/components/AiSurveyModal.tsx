@@ -1,10 +1,12 @@
+
 import { useState } from 'react';
 import { X, Sparkles } from 'lucide-react';
-import { LocalQuestion } from '../pages/CreateSurvey'; // Import the type from the parent
+import { LocalQuestion } from '../pages/CreateSurvey';
+// Import the new AI service
+import { generateSurveyWithAI } from '../lib/aiService'; 
 
 interface AiSurveyModalProps {
   onClose: () => void;
-  // Updated onGenerate to pass all necessary data back to the editor component
   onGenerate: (
     questions: Omit<LocalQuestion, 'id'>[], 
     topic: string, 
@@ -34,60 +36,20 @@ export function AiSurveyModal({ onClose, onGenerate }: AiSurveyModalProps) {
     setError('');
 
     try {
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gemini-ai`;
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'generate-survey',
-          data: {
-            topic: prompt.trim(),
-            questionCount,
-          },
-        }),
-      });
+      // The component no longer knows HOW the survey is generated.
+      // It just calls our service and waits for the result.
+      const generatedData = await generateSurveyWithAI(prompt.trim(), questionCount);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error || `Ошибка ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      if (!result.questions || !Array.isArray(result.questions)) {
-        throw new Error('Некорректный формат ответа от API');
-      }
-
-      // Map the API response to the LocalQuestion structure
-      const questions: Omit<LocalQuestion, 'id'>[] = result.questions.map((q: any) => {
-        let type: LocalQuestion['type'] = 'text';
-        if (['radio', 'checkbox', 'choice'].includes(q.type)) type = 'choice';
-        else if (['rating', 'scale'].includes(q.type)) type = 'rating';
-        else if (q.type === 'number') type = 'number';
-        else if (q.type === 'email') type = 'email';
-
-        return {
-          text: q.question,
-          type,
-          required: true, // Let's default to true, user can change it
-          options: q.options || [],
-        };
-      });
-
-      // Extract title and description from the API response, with fallbacks
-      const surveyTitle = result.title || prompt.trim();
-      const surveyDescription = result.description || `Опрос, сгенерированный AI на тему: "${prompt.trim()}"`;
-
-      // *** THIS IS THE FIX ***
-      // Call the callback with the generated data. The parent component will handle it.
-      // No saving or navigation happens here anymore.
-      onGenerate(questions, surveyTitle, isInteractive, surveyDescription);
+      // Pass the data back to the parent component.
+      onGenerate(
+        generatedData.questions,
+        generatedData.title,
+        isInteractive, // We still control this UI-specific option here
+        generatedData.description
+      );
 
     } catch (err: any) {
-      setError(err.message || 'Ошибка при генерации опроса');
+      setError(err.message || 'Неизвестная ошибка при генерации опроса');
     } finally {
       setLoading(false);
     }
