@@ -20,6 +20,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { path: '/admin/settings', label: 'Настройки', icon: Settings },
   ];
 
+  const handleSuperAdminLogout = () => {
+    sessionStorage.removeItem('admin_authenticated');
+    navigate('/dashboard');
+  };
+
   const handleLogout = async () => {
     await logout();
   };
@@ -33,7 +38,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         } bg-white border-r border-[#E8EAED] transition-all duration-300 overflow-hidden flex flex-col`}
       >
         <div className="p-6 border-b border-[#E8EAED]">
-          <h2 className="text-lg font-semibold text-[#1F1F1F]">Администратор</h2>
+          <h2 className="text-lg font-semibold text-[#1F1F1F]">Суперадмин</h2>
           <p className="text-sm text-[#5F6368] mt-1">Survey Pro</p>
         </div>
 
@@ -60,11 +65,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         <div className="p-4 border-t border-[#E8EAED] space-y-2">
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={handleSuperAdminLogout}
             className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-[#1A73E8] hover:bg-[#E8F0FE] transition-colors"
           >
             <LayoutDashboard className="w-5 h-5" strokeWidth={2} />
-            <span className="font-medium">Мои опросы</span>
+            <span className="font-medium">Вернуться в компанию</span>
           </button>
           <button
             onClick={handleLogout}
