@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { supabase } from '../lib/supabase';
-import { Save, AlertCircle, CheckCircle, Mail, ExternalLink, Cpu, Trash2, PlusCircle } from 'lucide-react';
+import { Save, AlertCircle, CheckCircle, Cpu, Trash2, PlusCircle, Power, RefreshCcw, ExternalLink, HelpCircle } from 'lucide-react';
 
 interface SystemSettings {
   id: string;
@@ -13,54 +13,67 @@ interface SystemSettings {
   active_ai_model: string | null;
 }
 
+interface ModelStatus {
+    modelName: string;
+    status: 'idle' | 'testing' | 'success' | 'error';
+    message: string;
+}
+
 export function AdminSettings() {
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [newModelName, setNewModelName] = useState('');
+  const [modelStatuses, setModelStatuses] = useState<Record<string, ModelStatus>>({});
 
   useEffect(() => {
     fetchSettings();
   }, []);
 
+  useEffect(() => {
+    // Whenever the active model changes, test it if it hasn't been tested yet.
+    if (settings?.active_ai_model && modelStatuses[settings.active_ai_model]?.status === 'idle') {
+      handleTestModel(settings.active_ai_model);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.active_ai_model, modelStatuses]);
+
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      // Be explicit with the select query to bypass client-side schema cache
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('system_settings')
         .select('id,support_email,maintenance_mode,auto_delete_inactive_days,notify_admin_new_registration,ai_model_list,active_ai_model')
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
 
-      if (data) {
-        setSettings({
-          ...data,
-          ai_model_list: data.ai_model_list || ['gemini-1.5-pro-latest', 'gemini-1.5-flash-latest'],
-          active_ai_model: data.active_ai_model || 'gemini-1.5-pro-latest',
-        });
-      } else {
-        const defaultModels = ['gemini-1.5-pro-latest', 'gemini-1.5-flash-latest'];
+      if (!data) {
         const { data: newSettings, error: createError } = await supabase
           .from('system_settings')
           .insert([{
-            support_email: 'support@surveypo.com',
-            maintenance_mode: false,
-            auto_delete_inactive_days: 90,
-            notify_admin_new_registration: true,
-            ai_model_list: defaultModels,
-            active_ai_model: defaultModels[0],
+            support_email: 'support@example.com',
+            ai_model_list: ['gemini-1.5-pro-latest', 'gemini-1.5-flash-latest', 'gemini-pro'],
+            active_ai_model: 'gemini-1.5-pro-latest',
           }])
           .select()
           .single();
-
         if (createError) throw createError;
-        setSettings(newSettings);
+        data = newSettings;
       }
+      
+      setSettings(data);
+      
+      // Initialize statuses for all models
+      const initialStatuses: Record<string, ModelStatus> = {};
+      (data?.ai_model_list || []).forEach(model => {
+          initialStatuses[model] = { modelName: model, status: 'idle', message: 'Не проверено' };
+      });
+      setModelStatuses(initialStatuses);
+
     } catch (err: any) {
-      showToast('error', `Ошибка загрузки: ${err.message}`);
+      showToast('error', `Ошибка загрузки настроек: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -68,24 +81,13 @@ export function AdminSettings() {
 
   const handleSave = async () => {
     if (!settings) return;
-
     try {
       setSaving(true);
       const { error } = await supabase
         .from('system_settings')
-        .update({
-          support_email: settings.support_email,
-          maintenance_mode: settings.maintenance_mode,
-          auto_delete_inactive_days: settings.auto_delete_inactive_days,
-          notify_admin_new_registration: settings.notify_admin_new_registration,
-          ai_model_list: settings.ai_model_list,
-          active_ai_model: settings.active_ai_model,
-          updated_at: new Date().toISOString(),
-        })
+        .update({ ...settings, updated_at: new Date().toISOString() })
         .eq('id', settings.id);
-
       if (error) throw error;
-
       showToast('success', 'Настройки сохранены');
     } catch (err: any) {
       showToast('error', `Ошибка сохранения: ${err.message}`);
@@ -93,21 +95,50 @@ export function AdminSettings() {
       setSaving(false);
     }
   };
-  
+
+  const handleTestModel = async (modelName: string) => {
+    setModelStatuses(prev => ({ ...prev, [modelName]: { modelName, status: 'testing', message: 'Проверка...' } }));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('gemini-ai', {
+        body: { action: 'test-model', data: { modelName } },
+      });
+
+      if (error) throw new Error(`Network error: ${error.message}`);
+
+      if (data.status === 'success') {
+        setModelStatuses(prev => ({ ...prev, [modelName]: { modelName, status: 'success', message: 'Модель доступна' } }));
+      } else {
+        throw new Error(data.message || 'Неизвестная ошибка функции');
+      }
+
+    } catch (err: any) {
+      setModelStatuses(prev => ({ ...prev, [modelName]: { modelName, status: 'error', message: err.message } }));
+    }
+  };
+
+  const handleTestAllModels = async () => {
+    if (!settings?.ai_model_list) return;
+
+    const testPromises = settings.ai_model_list.map(modelName => handleTestModel(modelName));
+    await Promise.all(testPromises);
+  };
+
   const handleAddModel = () => {
     if (!settings || !newModelName.trim()) {
       showToast('error', 'Имя модели не может быть пустым');
       return;
     }
-    if (settings.ai_model_list?.includes(newModelName.trim())) {
+    const modelToAdd = newModelName.trim();
+    if (settings.ai_model_list?.includes(modelToAdd)) {
         showToast('error', 'Такая модель уже существует');
         return;
     }
-    setSettings({ 
-        ...settings, 
-        ai_model_list: [...(settings.ai_model_list || []), newModelName.trim()] 
-    });
+    const newModelList = [...(settings.ai_model_list || []), modelToAdd];
+    setSettings({ ...settings, ai_model_list: newModelList });
+    setModelStatuses(prev => ({ ...prev, [modelToAdd]: { modelName: modelToAdd, status: 'idle', message: 'Не проверено' } }));
     setNewModelName('');
+    handleTestModel(modelToAdd);
   };
 
   const handleRemoveModel = (modelToRemove: string) => {
@@ -115,199 +146,126 @@ export function AdminSettings() {
         showToast('error', 'Нельзя удалить активную модель');
         return;
     }
-    setSettings({ 
-        ...settings, 
-        ai_model_list: settings.ai_model_list?.filter(m => m !== modelToRemove) || [] 
-    });
+    setSettings({ ...settings, ai_model_list: settings.ai_model_list?.filter(m => m !== modelToRemove) || [] });
+    const newStatuses = { ...modelStatuses };
+    delete newStatuses[modelToRemove];
+    setModelStatuses(newStatuses);
   };
 
   const showToast = (type: 'success' | 'error', message: string) => {
     setToast({ type, message });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 5000);
   };
 
   if (loading) {
-    return (
-      <AdminLayout>
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border border-[#1A73E8] border-t-transparent mx-auto mb-4"></div>
-          <p className="text-[#5F6368]">Загрузка...</p>
-        </div>
-      </AdminLayout>
-    );
+    return <AdminLayout><div className="text-center py-12">Загрузка...</div></AdminLayout>;
+  }
+
+  const isActiveModelVerified = settings?.active_ai_model ? modelStatuses[settings.active_ai_model]?.status === 'success' : false;
+
+  const getStatusColorClasses = (status: ModelStatus['status']) => {
+    switch (status) {
+      case 'testing': return 'bg-blue-100 text-blue-700';
+      case 'success': return 'bg-green-100 text-green-700';
+      case 'error': return 'bg-red-100 text-red-700';
+      default: return 'bg-gray-100 text-gray-600';
+    }
   }
 
   return (
     <AdminLayout>
-      <div>
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-[#1F1F1F] mb-2">Системные настройки</h2>
-          <p className="text-[#5F6368]">Управление глобальными параметрами системы</p>
-        </div>
+      <div className="mb-8">
+        <h2 className="text-2xl font-semibold text-[#1F1F1F]">Управление ИИ-моделями</h2>
+        <p className="text-[#5F6368]">Настройте и протестируйте модели Gemini для использования в системе.</p>
+      </div>
 
-        {settings && (
-          <div className="bg-white rounded-2xl border border-[#E8EAED] p-8 max-w-2xl">
-            <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-6">
+      {settings && (
+        <div className="bg-white rounded-2xl border border-[#E8EAED] p-8 max-w-3xl">
+          <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-6">
               
-              {/* Support Email */}
-              <div>
-                <label className="block text-sm font-medium text-[#1F1F1F] mb-2">
-                  Email для поддержки
-                </label>
-                <input
-                  type="email"
-                  value={settings.support_email}
-                  onChange={(e) =>
-                    setSettings({ ...settings, support_email: e.target.value })
-                  }
-                  className="w-full h-12 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]"
-                />
-              </div>
-
-              {/* Maintenance Mode */}
-              <div className="pt-6 border-t border-[#E8EAED]">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.maintenance_mode}
-                    onChange={(e) =>
-                      setSettings({ ...settings, maintenance_mode: e.target.checked })
-                    }
-                    className="w-5 h-5 rounded border-[#E8EAED]"
-                  />
-                  <div>
-                    <p className="font-medium text-[#1F1F1F]">Режим обслуживания</p>
-                    <p className="text-sm text-[#5F6368]">
-                      Сайт будет недоступен для обычных пользователей
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Auto Delete Inactive */}
-              <div className="pt-6 border-t border-[#E8EAED]">
-                <label className="flex items-center gap-3 cursor-pointer mb-3">
-                  <input
-                    type="checkbox"
-                    checked={settings.auto_delete_inactive_days > 0}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        auto_delete_inactive_days: e.target.checked ? 90 : 0,
-                      })
-                    }
-                    className="w-5 h-5 rounded border-[#E8EAED]"
-                  />
-                  <div>
-                    <p className="font-medium text-[#1F1F1F]">Автоматическое удаление</p>
-                    <p className="text-sm text-[#5F6368]">
-                      Удалять неактивные аккаунты
-                    </p>
-                  </div>
-                </label>
-
-                {settings.auto_delete_inactive_days > 0 && (
-                  <div className="ml-8">
-                    <label className="block text-sm text-[#5F6368] mb-2">
-                      Количество дней неактивности
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="365"
-                      value={settings.auto_delete_inactive_days}
-                      onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          auto_delete_inactive_days: parseInt(e.target.value),
-                        })
-                      }
-                      className="w-32 h-10 px-3 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Email Notifications */}
-              <div className="pt-6 border-t border-[#E8EAED]">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.notify_admin_new_registration}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        notify_admin_new_registration: e.target.checked,
-                      })
-                    }
-                    className="w-5 h-5 rounded border-[#E8EAED]"
-                  />
-                  <div>
-                    <p className="font-medium text-[#1F1F1F]">Email уведомления</p>
-                    <p className="text-sm text-[#5F6368]">
-                      Отправлять админу уведомления при новой регистрации
-                    </p>
-                  </div>
-                </label>
-              </div>
-              
-              {/* AI Model Management */}
-              <div className="pt-6 border-t border-[#E8EAED]">
-                <div className="flex items-center gap-2 mb-4">
-                  <Cpu className="w-5 h-5 text-[#1A73E8]" strokeWidth={2} />
-                  <h3 className="text-lg font-medium text-[#1F1F1F]">Управление ИИ-моделями</h3>
+            <div className="space-y-3 mb-4">
+                <label className="block text-sm font-medium text-[#1F1F1F]">Активная модель в системе</label>
+                <div className={`flex items-center gap-3 p-3 rounded-lg border-2 ${isActiveModelVerified ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
+                    <Cpu className={`w-6 h-6 ${isActiveModelVerified ? 'text-green-600' : 'text-red-600'}`} />
+                    <div>
+                        <p className="font-mono font-semibold text-base">{settings.active_ai_model || 'Не выбрана'}</p>
+                        <p className={`text-sm ${isActiveModelVerified ? 'text-green-700' : 'text-red-700'}`}>
+                            {isActiveModelVerified ? 'Проверена и используется для всех запросов' : 'Модель недоступна или не выбрана. Запросы будут отклонены.'}
+                        </p>
+                    </div>
                 </div>
+            </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                    <p className="text-sm text-[#5F6368]">
-                        Здесь вы можете управлять списком ИИ-моделей от Google. Выберите активную модель, которая будет использоваться для всех задач в системе. Вы можете добавлять новые модели по мере их появления.
-                        <br />
-                        Актуальный список доступных моделей можно найти на{' '}
-                        <a
-                            href="https://ai.google.dev/gemini-api/docs/models/gemini"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[#1A73E8] hover:underline inline-flex items-center gap-1"
-                        >
-                            официальной странице Google AI
-                            <ExternalLink className="w-3 h-3" strokeWidth={2} />
-                        </a>.
-                    </p>
+            <div className="pt-6 border-t border-[#E8EAED]">
+                <div className="flex justify-between items-center mb-3">
+                    <label className="block text-sm font-medium text-[#1F1F1F]">Список доступных моделей</label>
+                    <button
+                        type="button"
+                        onClick={handleTestAllModels}
+                        className="flex items-center gap-2 px-3 h-9 bg-gray-100 text-gray-800 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                    >
+                        <RefreshCcw className="w-4 h-4" />
+                        Проверить все
+                    </button>
                 </div>
-
-                <div className="space-y-3 mb-4">
-                    <label className="block text-sm font-medium text-[#1F1F1F]">Доступные модели</label>
-                    {settings.ai_model_list?.map(model => (
-                        <div key={model} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                            <label className="flex items-center gap-3 cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="active_ai_model"
-                                    value={model}
-                                    checked={settings.active_ai_model === model}
-                                    onChange={() => setSettings({...settings, active_ai_model: model})}
-                                    className="w-5 h-5 accent-[#1A73E8]"
-                                />
-                                <span className="font-mono text-sm">{model}</span>
-                            </label>
-                            <button 
-                                type="button"
-                                onClick={() => handleRemoveModel(model)}
-                                disabled={settings.active_ai_model === model}
-                                className="p-1 text-red-500 hover:bg-red-100 rounded-full disabled:text-gray-400 disabled:hover:bg-transparent transition-colors"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        </div>
-                    ))}
+                <div className="space-y-2">
+                    {settings.ai_model_list?.map(model => {
+                        const status = modelStatuses[model];
+                        return (
+                            <div key={model} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
+                                <label className="flex items-center gap-3 cursor-pointer flex-grow">
+                                    <input
+                                        type="radio"
+                                        name="active_ai_model"
+                                        value={model}
+                                        checked={settings.active_ai_model === model}
+                                        onChange={() => setSettings({...settings, active_ai_model: model})}
+                                        className="w-5 h-5 accent-[#1A73E8]"
+                                    />
+                                    <span className="font-mono text-sm pt-0.5">{model}</span>
+                                </label>
+                                
+                                <div className="flex items-center gap-2">
+                                    {status && (
+                                        <div className={`text-xs px-2 py-1 rounded-md flex items-center gap-1.5 ${getStatusColorClasses(status.status)}`}>
+                                            {status.status === 'testing' && <RefreshCcw className="w-3 h-3 animate-spin" />}
+                                            {status.status === 'success' && <CheckCircle className="w-3 h-3" />}
+                                            {status.status === 'error' && <AlertCircle className="w-3 h-3" />}
+                                            {status.status === 'idle' && <HelpCircle className="w-3 h-3" />}
+                                            <span className='max-w-[200px] truncate'>{status.message}</span>
+                                        </div>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleTestModel(model)}
+                                        disabled={status?.status === 'testing'}
+                                        className="p-2 text-gray-500 hover:bg-gray-200 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        <Power className="w-4 h-4" />
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => handleRemoveModel(model)}
+                                        disabled={settings.active_ai_model === model}
+                                        className="p-2 text-red-500 hover:bg-red-100 rounded-full disabled:text-gray-400 disabled:hover:bg-transparent transition-colors"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    )}
                 </div>
+            </div>
 
+            <div className="pt-6 border-t border-[#E8EAED]">
+                <label className="block text-sm font-medium text-[#1F1F1F] mb-2">Добавить новую модель</label>
                 <div className="flex items-center gap-2">
                     <input 
                         type="text"
                         value={newModelName}
                         onChange={(e) => setNewModelName(e.target.value)}
-                        placeholder="Напр: gemini-1.5-flash-latest"
+                        placeholder="Напр: gemini-1.5-pro или gemini-1.5-flash"
                         className="flex-grow h-11 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]"
                     />
                     <button
@@ -319,86 +277,30 @@ export function AdminSettings() {
                     </button>
                 </div>
                 <p className="text-xs text-[#5F6368] mt-2">
-                  <strong>Правило именования:</strong> "Gemini 2.5 Pro" → <code className="bg-gray-200 px-1 py-0.5 rounded">gemini-2.5-pro</code> (нижний регистр, пробелы на дефисы).
+                    Актуальный список и правила именования смотрите на{' '}
+                    <a href="https://ai.google.dev/gemini-api/docs/models/gemini" target="_blank" rel="noopener noreferrer" className="text-[#1A73E8] hover:underline">официальной странице Google</a>.
+                    <ExternalLink className="w-3 h-3 inline-block ml-1"/>
                 </p>
-              </div>
+            </div>
 
-              {/* Email Service Configuration */}
-              <div className="pt-6 border-t border-[#E8EAED]">
-                <div className="flex items-center gap-2 mb-4">
-                  <Mail className="w-5 h-5 text-[#1A73E8]" strokeWidth={2} />
-                  <h3 className="text-lg font-medium text-[#1F1F1F]">Настройка отправки Email</h3>
-                </div>
+            <div className="pt-6 border-t border-[#E8EAED] flex gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex items-center gap-2 px-6 h-11 bg-[#1A73E8] text-white rounded-lg font-medium hover:bg-[#1557B0] transition-colors disabled:opacity-50"
+              >
+                <Save className="w-5 h-5" strokeWidth={2} />
+                Сохранить
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-[#1F1F1F] font-medium mb-2">
-                    Для автоматической отправки email настройте Resend API Key
-                  </p>
-                  <p className="text-sm text-[#5F6368] mb-3">
-                    Resend - бесплатный сервис для отправки email (до 100 писем/день)
-                  </p>
-                  <ol className="text-sm text-[#5F6368] space-y-2 list-decimal ml-4">
-                    <li>
-                      Зарегистрируйтесь на{' '}
-                      <a
-                        href="https://resend.com/signup"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[#1A73E8] hover:underline inline-flex items-center gap-1"
-                      >
-                        resend.com
-                        <ExternalLink className="w-3 h-3" strokeWidth={2} />
-                      </a>
-                    </li>
-                    <li>Создайте API Key в разделе API Keys</li>
-                    <li>Откройте настройки проекта в Supabase Dashboard</li>
-                    <li>
-                      Перейдите в Edge Functions → Secrets
-                    </li>
-                    <li>
-                      Добавьте секрет: <code className="bg-white px-2 py-0.5 rounded">RESEND_API_KEY</code> с вашим API ключом
-                    </li>
-                    <li>После настройки кнопка "Отправить Email" будет работать автоматически</li>
-                  </ol>
-                </div>
-
-                <div className="bg-gray-50 border border-[#E8EAED] rounded-lg p-4">
-                  <p className="text-sm text-[#5F6368]">
-                    <strong>Без настройки:</strong> Кнопка "Отправить Email" будет открывать ваш почтовый клиент для ручной отправки.
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-[#E8EAED] flex gap-3">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex items-center gap-2 px-6 h-11 bg-[#1A73E8] text-white rounded-lg font-medium hover:bg-[#1557B0] transition-colors disabled:opacity-50"
-                >
-                  <Save className="w-5 h-5" strokeWidth={2} />
-                  Сохранить все изменения
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-      </div>
-
-      {/* Toast */}
       {toast && (
         <div className="fixed bottom-4 right-4 z-50">
-          <div
-            className={`px-4 py-3 rounded-lg font-medium flex items-center gap-2 shadow-lg ${
-              toast.type === 'success'
-                ? 'bg-green-600 text-white'
-                : 'bg-red-600 text-white'
-            }`}
-          >
-            {toast.type === 'success' ? (
-              <CheckCircle className="w-5 h-5" strokeWidth={2} />
-            ) : (
-              <AlertCircle className="w-5 h-5" strokeWidth={2} />
-            )}
+          <div className={`px-4 py-3 rounded-lg font-medium flex items-center gap-2 shadow-lg ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+            {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
             {toast.message}
           </div>
         </div>
