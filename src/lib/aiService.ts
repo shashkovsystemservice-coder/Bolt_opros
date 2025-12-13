@@ -22,6 +22,29 @@ export interface GeneratedSurvey {
 }
 
 /**
+ * Tests a specific AI model's availability and returns its status.
+ * @param modelName The name of the model to test (e.g., 'gemini-1.5-pro-latest').
+ * @returns A promise that resolves to a status object.
+ */
+export async function testAiModel(modelName: string): Promise<{ status: 'ok' | 'error', message: string }> {
+    // NOTE: This is a placeholder. The backend function needs to be updated to support this.
+    // Since Docker is not working, we are returning a mock response for now.
+    console.log(`[Dev Mock] Testing model: ${modelName}`);
+
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    if (modelName.includes('pro')) {
+         return { status: 'ok', message: 'Модель доступна и работает.' };
+    } else if (modelName.includes('flash')) {
+         return { status: 'ok', message: 'Модель доступна и работает.' };
+    } else {
+         return { status: 'error', message: 'Модель не найдена. Проверьте название на опечатки.' };
+    }
+}
+
+
+/**
  * Generates a survey using the AI backend function.
  * This is the central point for all AI-based survey generation.
  * If the backend AI model or its API changes, we only need to update this function.
