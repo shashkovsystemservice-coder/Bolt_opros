@@ -1,5 +1,6 @@
 
 import { LocalQuestion } from '../pages/CreateSurvey';
+import { supabase } from './supabase';
 
 // Interface for the raw response from the AI Function
 interface AIQuestionResponse {
@@ -21,71 +22,75 @@ export interface GeneratedSurvey {
     description: string;
 }
 
-/**
- * Generates a survey using the AI backend function.
- * This is the central point for all AI-based survey generation.
- * If the backend AI model or its API changes, we only need to update this function.
- * 
- * @param topic The main subject of the survey.
- * @param questionCount The number of questions to generate.
- * @returns A promise that resolves to a structured survey object.
- */
+
 export async function generateSurveyWithAI(topic: string, questionCount: number): Promise<GeneratedSurvey> {
-    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gemini-ai`;
     
-    const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+    const { data: result, error } = await supabase.functions.invoke('gemini-ai', {
+        body: {
             action: 'generate-survey',
             data: {
-                topic: topic,
-                questionCount,
+                user_prompt: topic,
+                num_questions: questionCount,
             },
-        }),
+        },
     });
 
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        // Provide a more user-friendly error
-        throw new Error(errorData?.error || `Сервер AI вернул ошибку ${response.status}. Попробуйте снова.`);
+    if (error) {
+        throw new Error(`Ошибка вызова функции: ${error.message}`);
     }
 
-    const result: AISurveyResponse = await response.json();
-
-    if (!result.questions || !Array.isArray(result.questions) || result.questions.length === 0) {
-        // Handle cases where the AI returns an empty or invalid question list
-        throw new Error('AI не смог сгенерировать вопросы по вашему запросу. Попробуйте переформулировать тему.');
+    if (result.status === 'error') {
+        throw new Error(`Ошибка генерации AI: ${result.message}`);
     }
 
-    // Map the flexible API response to our strict LocalQuestion structure
-    const questions: Omit<LocalQuestion, 'id'>[] = result.questions.map((q) => {
-        let type: LocalQuestion['type'] = 'text'; // Default to text
+    try {
+        // --- START OF FINAL FIX ---
+        // The AI can sometimes wrap the JSON in markdown. We need to robustly clean it.
+        let rawResponse = result.data as string;
+        
+        const jsonStartIndex = rawResponse.indexOf('{');
+        const jsonEndIndex = rawResponse.lastIndexOf('}');
+        
+        if (jsonStartIndex === -1 || jsonEndIndex === -1 || jsonEndIndex < jsonStartIndex) {
+            console.error("Invalid JSON structure in AI response:", rawResponse);
+            throw new Error('Не удалось найти валидный JSON-объект в ответе AI.');
+        }
 
-        // Map various possible AI types to our strict, defined types
-        if (['radio', 'checkbox', 'choice'].includes(q.type)) type = 'choice';
-        else if (['rating', 'scale'].includes(q.type)) type = 'rating';
-        else if (q.type === 'number') type = 'number';
-        else if (q.type === 'email') type = 'email';
+        const jsonString = rawResponse.substring(jsonStartIndex, jsonEndIndex + 1);
+        // --- END OF FINAL FIX ---
+
+        const aiResult: AISurveyResponse = JSON.parse(jsonString);
+
+        if (!aiResult.questions || !Array.isArray(aiResult.questions) || aiResult.questions.length === 0) {
+            throw new Error('AI вернул пустой или некорректный список вопросов.');
+        }
+
+        const questions: Omit<LocalQuestion, 'id'>[] = aiResult.questions.map((q) => {
+            let type: LocalQuestion['type'] = 'text';
+            if (['radio', 'checkbox', 'choice'].includes(q.type)) type = 'choice';
+            else if (['rating', 'scale'].includes(q.type)) type = 'rating';
+            else if (q.type === 'number') type = 'number';
+            else if (q.type === 'email') type = 'email';
+
+            return {
+                text: q.question,
+                type,
+                required: true,
+                options: q.options || [],
+            };
+        });
+
+        const surveyTitle = aiResult.title || topic;
+        const surveyDescription = aiResult.description || `Опрос, сгенерированный AI на тему: "${topic}"`;
 
         return {
-            text: q.question,
-            type,
-            required: true, // Always default to required, user can change this easily
-            options: q.options || [],
+            title: surveyTitle,
+            description: surveyDescription,
+            questions: questions
         };
-    });
 
-    // Ensure we always have a title and description
-    const surveyTitle = result.title || topic;
-    const surveyDescription = result.description || `Опрос, сгенерированный AI на тему: "${topic}"`;
-
-    return {
-        title: surveyTitle,
-        description: surveyDescription,
-        questions: questions
-    };
+    } catch (e: any) {
+        console.error("Ошибка парсинга ответа от AI:", result.data);
+        throw new Error(`Не удалось разобрать ответ от AI. Пожалуйста, проверьте системный промпт и модель. Детали: ${e.message}`);
+    }
 }

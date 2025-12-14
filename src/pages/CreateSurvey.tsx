@@ -1,12 +1,30 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { AiSurveyModal } from '../components/AiSurveyModal';
-import { Plus, Trash2, Download, UploadCloud } from 'lucide-react';
+import { Plus, Trash2, Download, UploadCloud, GripVertical } from 'lucide-react';
 import ExcelJS from 'exceljs';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
 
 export interface LocalQuestion {
   id: string; 
@@ -15,6 +33,102 @@ export interface LocalQuestion {
   required: boolean;
   options: string[];
 }
+
+// Helper component for individual questions to make them draggable
+const SortableQuestionItem = React.memo(({
+    q, qIndex, updateQuestion, removeQuestion, addOption, removeOption, updateOption
+}: { 
+    q: LocalQuestion; 
+    qIndex: number;
+    updateQuestion: (id: string, field: keyof LocalQuestion, value: any) => void;
+    removeQuestion: (id: string) => void;
+    addOption: (questionId: string) => void;
+    removeOption: (questionId: string, optionIndex: number) => void;
+    updateOption: (questionId: string, optionIndex: number, value: string) => void;
+}) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({id: q.id});
+  
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} className="bg-white p-6 rounded-2xl border border-[#E8EAED] shadow-sm relative">
+            <div className='flex items-start gap-4'>
+                <div className="flex items-center pt-2 gap-2">
+                    <button {...attributes} {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600">
+                        <GripVertical size={20}/>
+                    </button>
+                    <span className="text-xl font-semibold text-gray-400">Q{qIndex + 1}</span>
+                </div>
+                <div className='flex-grow'>
+                    <input
+                        type="text"
+                        value={q.text}
+                        onChange={e => updateQuestion(q.id, 'text', e.target.value)}
+                        placeholder="Текст вашего вопроса"
+                        className="w-full text-lg font-medium border-b-2 border-transparent focus:border-blue-500 outline-none pb-2 mb-3"
+                    />
+                    <div className='flex items-center gap-6'>
+                        <select value={q.type} onChange={e => updateQuestion(q.id, 'type', e.target.value)} className='h-10 px-3 rounded-md border border-gray-300 bg-white'>
+                            <option value="text">Текст</option>
+                            <option value="number">Число</option>
+                            <option value="rating">Рейтинг (1-10)</option>
+                            <option value="choice">Один вариант</option>
+                        </select>
+                        <div className="flex items-center">
+                            <input
+                                id={`required-${q.id}`}
+                                type="checkbox"
+                                checked={q.required}
+                                onChange={e => updateQuestion(q.id, 'required', e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <label htmlFor={`required-${q.id}`} className="ml-2 block text-sm text-gray-900">
+                                Обязательный
+                            </label>
+                        </div>
+                    </div>
+
+                    {q.type === 'choice' && (
+                        <div className='mt-4 pl-4 border-l-2 border-gray-200'>
+                            {q.options.map((opt, oIndex) => (
+                                <div key={oIndex} className='flex items-center gap-2 mb-2'>
+                                    <input type='radio' disabled className='h-4 w-4' />
+                                    <input
+                                        type='text'
+                                        value={opt}
+                                        onChange={e => updateOption(q.id, oIndex, e.target.value)}
+                                        placeholder={`Вариант ${oIndex + 1}`}
+                                        className='flex-grow border-b-2 border-transparent focus:border-blue-300 outline-none'
+                                    />
+                                    <button onClick={() => removeOption(q.id, oIndex)} className="text-gray-400 hover:text-red-500">
+                                        <Trash2 size={16}/>
+                                    </button>
+                                </div>
+                            ))}
+                            <button onClick={() => addOption(q.id)} className='flex items-center gap-2 mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium'>
+                                <Plus size={16}/>
+                                Добавить вариант
+                            </button>
+                        </div>
+                    )}
+                </div>
+                <button onClick={() => removeQuestion(q.id)} className="text-gray-500 hover:text-red-600 absolute top-4 right-4">
+                    <Trash2 size={20}/>
+                </button>
+            </div>
+        </div>
+    );
+});
+
 
 const CreateSurvey = () => {
   const { user } = useAuth();
@@ -30,6 +144,8 @@ const CreateSurvey = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  
+  const questionIds = useMemo(() => questions.map(q => q.id), [questions]);
 
   useEffect(() => {
     const fetchCompany = async () => {
@@ -114,6 +230,25 @@ const CreateSurvey = () => {
           return q;
       }));
   }
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const {active, over} = event;
+    
+    if (over && active.id !== over.id) {
+      setQuestions((items) => {
+        const oldIndex = items.findIndex(item => item.id === active.id);
+        const newIndex = items.findIndex(item => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  }
 
   const handleDownloadTemplate = async () => {
     const workbook = new ExcelJS.Workbook();
@@ -162,13 +297,11 @@ const CreateSurvey = () => {
     }
 
     worksheet.views = [{ state: 'frozen', ySplit: 1 }];
-
     worksheet.mergeCells('E1:G1');
     const instructionTitle = worksheet.getCell('E1');
     instructionTitle.value = 'ИНСТРУКЦИЯ';
     instructionTitle.font = { bold: true, color: { argb: 'FF1A73E8' }, size: 14 };
     instructionTitle.alignment = { horizontal: 'center' };
-
     worksheet.getCell('E2').value = '1. Текст вопроса: Просто напишите ваш вопрос.';
     worksheet.getCell('E3').value = '2. Тип вопроса: Выберите из выпадающего списка.';
     worksheet.getCell('E4').value = '3. Обязательный?: Выберите "Да" или "Нет".';
@@ -412,72 +545,31 @@ const CreateSurvey = () => {
               </p>
           </div>
 
-          <div className='space-y-4'>
-            {questions.map((q, qIndex) => (
-                <div key={q.id} className="bg-white p-6 rounded-2xl border border-[#E8EAED] shadow-sm relative">
-                    <div className='flex items-start gap-4'>
-                        <span className="text-xl font-semibold text-gray-400 pt-2">Q{qIndex + 1}</span>
-                        <div className='flex-grow'>
-                            <input
-                                type="text"
-                                value={q.text}
-                                onChange={e => updateQuestion(q.id, 'text', e.target.value)}
-                                placeholder="Текст вашего вопроса"
-                                className="w-full text-lg font-medium border-b-2 border-transparent focus:border-blue-500 outline-none pb-2 mb-3"
-                            />
-                            <div className='flex items-center gap-6'>
-                                <select value={q.type} onChange={e => updateQuestion(q.id, 'type', e.target.value)} className='h-10 px-3 rounded-md border border-gray-300 bg-white'>
-                                    <option value="text">Текст</option>
-                                    <option value="number">Число</option>
-                                    <option value="rating">Рейтинг (1-10)</option>
-                                    <option value="choice">Один вариант</option>
-                                </select>
-                                <div className="flex items-center">
-                                    <input
-                                        id={`required-${q.id}`}
-                                        type="checkbox"
-                                        checked={q.required}
-                                        onChange={e => updateQuestion(q.id, 'required', e.target.checked)}
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    <label htmlFor={`required-${q.id}`} className="ml-2 block text-sm text-gray-900">
-                                        Обязательный
-                                    </label>
-                                </div>
-                            </div>
-
-                             {q.type === 'choice' && (
-                                <div className='mt-4 pl-4 border-l-2 border-gray-200'>
-                                    {q.options.map((opt, oIndex) => (
-                                        <div key={oIndex} className='flex items-center gap-2 mb-2'>
-                                            <input type='radio' disabled className='h-4 w-4' />
-                                            <input
-                                                type='text'
-                                                value={opt}
-                                                onChange={e => updateOption(q.id, oIndex, e.target.value)}
-                                                placeholder={`Вариант ${oIndex + 1}`}
-                                                className='flex-grow border-b-2 border-transparent focus:border-blue-300 outline-none'
-                                            />
-                                            <button onClick={() => removeOption(q.id, oIndex)} className="text-gray-400 hover:text-red-500">
-                                                <Trash2 size={16}/>
-                                            </button>
-                                        </div>
-                                    ))}
-                                    <button onClick={() => addOption(q.id)} className='flex items-center gap-2 mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium'>
-                                        <Plus size={16}/>
-                                        Добавить вариант
-                                    </button>
-                                </div>
-                            )}
-
-                        </div>
-                        <button onClick={() => removeQuestion(q.id)} className="text-gray-500 hover:text-red-600 absolute top-4 right-4">
-                            <Trash2 size={20}/>
-                        </button>
+            <DndContext 
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+            >
+                <SortableContext 
+                    items={questionIds}
+                    strategy={verticalListSortingStrategy}
+                >
+                    <div className='space-y-4'>
+                        {questions.map((q, qIndex) => (
+                           <SortableQuestionItem
+                                key={q.id}
+                                q={q}
+                                qIndex={qIndex}
+                                updateQuestion={updateQuestion}
+                                removeQuestion={removeQuestion}
+                                addOption={addOption}
+                                removeOption={removeOption}
+                                updateOption={updateOption}
+                           />
+                        ))}
                     </div>
-                </div>
-            ))}
-          </div>
+                </SortableContext>
+            </DndContext>
           
           <div className="mt-6 text-center">
             <button
