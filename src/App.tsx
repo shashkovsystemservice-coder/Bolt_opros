@@ -7,7 +7,7 @@ import { Auth } from './pages/Auth';
 import { ResetPassword } from './pages/ResetPassword';
 import { Dashboard } from './pages/Dashboard';
 import CreateSurvey from './pages/CreateSurvey';
-import EditSurvey from './pages/EditSurvey'; // Import the new EditSurvey page
+import EditSurvey from './pages/EditSurvey';
 import { Recipients } from './pages/Recipients';
 import { SurveyForm } from './pages/SurveyForm';
 import { Responses } from './pages/Responses';
@@ -41,7 +41,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* This is the new route for editing a survey */}
           <Route
             path="/survey/:id/edit"
             element={
@@ -106,7 +105,12 @@ function App() {
               </AdminRoute>
             }
           />
-          <Route path="/survey/:id" element={<SurveyForm />} />
+          {/* Это новый, правильный маршрут для прохождения опроса */}
+          <Route path="/take-survey/:token" element={<SurveyForm />} />
+
+          {/* Старый маршрут ниже больше не нужен, так как предпросмотр теперь также идет через /take-survey/:id */}
+          {/* <Route path="/survey/:id" element={<SurveyForm />} /> */}
+          
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

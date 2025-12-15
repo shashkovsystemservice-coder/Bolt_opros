@@ -28,20 +28,21 @@ export function AdminStats() {
     try {
       setLoading(true);
 
-      // Get company count
+      // Запрос 1: Количество компаний
       const { count: companyCount } = await supabase
         .from('companies')
         .select('*', { count: 'exact' });
 
-      // Get survey count
+      // Запрос 2: Количество шаблонов опросов
       const { count: surveyCount } = await supabase
         .from('survey_templates')
         .select('*', { count: 'exact' });
 
-      // Get submission count
+      // Запрос 3: Количество завершенных опросов (ИСПРАВЛЕНО)
       const { count: submissionCount } = await supabase
-        .from('survey_submissions')
-        .select('*', { count: 'exact' });
+        .from('survey_invitations')
+        .select('*', { count: 'exact' })
+        .eq('status', 'completed');
 
       setStats([
         {
@@ -58,25 +59,48 @@ export function AdminStats() {
         },
         {
           label: 'Ответов',
-          value: submissionCount || 0,
+          value: submissionCount || 0, // Теперь здесь правильное значение
           icon: <MessageSquare className="w-8 h-8" strokeWidth={2} />,
           color: 'bg-purple-50 text-purple-600',
         },
       ]);
 
-      // Fetch top companies (simplified)
-      const { data: companies } = await supabase
-        .from('companies')
-        .select('id, name')
-        .order('created_at', { ascending: false })
-        .limit(5);
+      // --- Расчет топа компаний по ответам (ИСПРАВЛЕНО) ---
+      const { data: companies, error: companiesError } = await supabase.from('companies').select('id, name');
+      if (companiesError) throw companiesError;
 
-      const topCompaniesData: TopCompany[] = (companies || []).map((c) => ({
+      // Предполагаем, что в survey_templates есть company_id. Если его нет, нужна другая логика.
+      const { data: templates, error: templatesError } = await supabase.from('survey_templates').select('id, company_id');
+      if (templatesError) throw templatesError;
+
+      const { data: completed_invitations, error: invitationsError } = await supabase.from('survey_invitations').select('survey_template_id').eq('status', 'completed');
+      if (invitationsError) throw invitationsError;
+
+      // Собираем данные в удобные структуры
+      const templateToCompanyMap = templates.reduce<Record<string, string>>((acc, t) => {
+        if(t.id && t.company_id) acc[t.id] = t.company_id;
+        return acc;
+      }, {});
+
+      const companyCounts = completed_invitations.reduce<Record<string, number>>((acc, inv) => {
+        if (inv.survey_template_id) {
+            const companyId = templateToCompanyMap[inv.survey_template_id];
+            if (companyId) {
+                acc[companyId] = (acc[companyId] || 0) + 1;
+            }
+        }
+        return acc;
+      }, {});
+
+      // Формируем финальный список
+      const topCompaniesData: TopCompany[] = (companies || []).map(c => ({
         name: c.name,
-        response_count: Math.floor(Math.random() * 500) + 10,
-      }));
+        response_count: companyCounts[c.id] || 0,
+      })).sort((a, b) => b.response_count - a.response_count).slice(0, 5);
 
-      setTopCompanies(topCompaniesData.sort((a, b) => b.response_count - a.response_count));
+      setTopCompanies(topCompaniesData);
+      // --- Конец расчета топа компаний ---
+
     } catch (err) {
       console.error('Error fetching stats:', err);
     } finally {
@@ -89,7 +113,7 @@ export function AdminStats() {
       <div>
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-[#1F1F1F] mb-2">Статистика системы</h2>
-          <p className="text-[#5F6368]">Общий обзор活активности платформы</p>
+          <p className="text-[#5F6368]">Общий обзор активности платформы</p>
         </div>
 
         {loading ? (
@@ -121,9 +145,9 @@ export function AdminStats() {
                 Топ компаний по активности
               </h3>
 
-              {topCompanies.length === 0 ? (
+              {topCompanies.length === 0 || topCompanies.every(c => c.response_count === 0) ? (
                 <div className="text-center py-8">
-                  <p className="text-[#5F6368]">Нет данных</p>
+                  <p className="text-[#5F6368]">Нет данных по ответам</p>
                 </div>
               ) : (
                 <div className="space-y-3">

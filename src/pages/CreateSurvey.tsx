@@ -140,37 +140,11 @@ const CreateSurvey = () => {
   const [isInteractive, setIsInteractive] = useState(false);
   const [questions, setQuestions] = useState<LocalQuestion[]>([]);
   
-  const [companyId, setCompanyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   
   const questionIds = useMemo(() => questions.map(q => q.id), [questions]);
-
-  useEffect(() => {
-    const fetchCompany = async () => {
-      if (user) {
-        setLoading(true);
-        try {
-          const { data: company, error: companyError } = await supabase
-            .from('companies')
-            .select('id')
-            .eq('id', user.id)
-            .single();
-
-          if (companyError) throw companyError;
-          if (company) setCompanyId(company.id);
-            
-        } catch (err: any) {
-          console.error('Error fetching company info:', err);
-          setError(`Не удалось получить информацию о компании: ${err.message}`);
-        } finally {
-          setLoading(false);
-        }
-      }
-    };
-    fetchCompany();
-  }, [user]);
 
   const handleOpenAiModal = () => setIsAiModalOpen(true);
 
@@ -399,8 +373,8 @@ const CreateSurvey = () => {
       setError('Добавьте хотя бы один вопрос.');
       return;
     }
-    if (!companyId) {
-      setError('Не удалось определить ID компании. Невозможно создать опрос.');
+    if (!user) {
+      setError('Не удалось определить ID пользователя. Невозможно создать опрос.');
       return;
     }
 
@@ -408,9 +382,10 @@ const CreateSurvey = () => {
     setError(null);
 
     try {
+      // === ИСПРАВЛЕНИЕ: Используем user.id напрямую для company_id ===
       const { data: surveyData, error: surveyError } = await supabase
         .from('survey_templates')
-        .insert([{'title': title, 'description': description, 'company_id': companyId, 'is_interactive': isInteractive, 'unique_code': `${Date.now()}${Math.random().toString(36).substring(2, 9)}`}])
+        .insert([{'title': title, 'description': description, 'company_id': user.id, 'is_interactive': isInteractive, 'unique_code': `${Date.now()}${Math.random().toString(36).substring(2, 9)}`}])
         .select()
         .single();
 
@@ -456,14 +431,14 @@ const CreateSurvey = () => {
             <div className="flex gap-2 mt-4 sm:mt-0">
                 <button
                     onClick={handleOpenAiModal}
-                    disabled={loading || !companyId}
+                    disabled={loading || !user}
                     className="flex items-center justify-center gap-2 h-11 px-6 bg-green-600 text-white font-semibold rounded-full hover:bg-green-700 transition-colors disabled:bg-gray-400"
                 >
                     Сгенерировать с AI
                 </button>
                 <button
                     onClick={handleSaveSurvey}
-                    disabled={loading || !companyId || questions.length === 0}
+                    disabled={loading || !user || questions.length === 0}
                     className="flex items-center justify-center gap-2 h-11 px-6 bg-[#1A73E8] text-white font-semibold rounded-full hover:bg-[#1557B0] transition-colors disabled:bg-gray-400"
                 >
                     {loading ? 'Сохранение...' : 'Сохранить опрос'}
@@ -566,7 +541,8 @@ const CreateSurvey = () => {
                                 removeOption={removeOption}
                                 updateOption={updateOption}
                            />
-                        ))}
+                        ))
+                        }
                     </div>
                 </SortableContext>
             </DndContext>
@@ -583,7 +559,7 @@ const CreateSurvey = () => {
         </div>
       </main>
 
-      {isAiModalOpen && companyId && (
+      {isAiModalOpen && user && (
         <AiSurveyModal
           onClose={() => setIsAiModalOpen(false)}
           onGenerate={handleAcceptAiSurvey}
