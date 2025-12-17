@@ -9,7 +9,7 @@ const corsHeaders = {
 
 // The function to call Google Gemini API, now with a dynamic model name
 async function callGeminiAI(prompt: string, apiKey: string, modelName: string) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`;
   
   const response = await fetch(
     url,
@@ -34,7 +34,10 @@ async function callGeminiAI(prompt: string, apiKey: string, modelName: string) {
   if (!response.ok) {
     const errorBody = await response.json();
     console.error("Google Gemini API Error Response:", errorBody);
-    throw new Error(`Google Gemini API error: ${errorBody.error?.message || "Unknown error"}`);
+    // Unified error format for the client
+    const statusCode = response.status;
+    const errorMessage = errorBody.error?.message || "Unknown error";
+    throw new Error(`Google API request failed: ${statusCode} ${errorMessage}`);
   }
 
   const data = await response.json();
@@ -66,15 +69,28 @@ Deno.serve(async (req: Request) => {
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY not configured in Supabase secrets.");
     }
+    
+    // ACTION: check-model-availability
+    if (action === "check-model-availability") {
+      const { modelName } = data;
+      if (!modelName) {
+        throw new Error("modelName is required for check-model-availability action.");
+      }
+      // Make a test call to see if it succeeds or fails.
+      await callGeminiAI("test", apiKey, modelName);
+      // If it doesn't throw, it's available.
+      return new Response(JSON.stringify({ message: "Model is available" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // ИСПРАВЛЕНО: Создаем НАСТОЯЩИЙ админ-клиент, который использует ТОЛЬКО service_role ключ
-    // Это позволяет надежно читать системные настройки в обход любых RLS политик.
+
+    // For all other actions, first get the system settings
     const supabaseAdminClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? '',
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ''
     );
 
-    // Fetch the active AI model and meta prompt from system_settings
     const { data: settings, error: settingsError } = await supabaseAdminClient
       .from('system_settings')
       .select('active_ai_model, generate_survey_meta_prompt')
@@ -92,7 +108,6 @@ Deno.serve(async (req: Request) => {
     switch (action) {
       case "generate-survey": {
         const { topic, questionCount } = data;
-        // Replace placeholders in the meta prompt with actual values
         const prompt = metaPrompt
           .replace('${prompt}', topic)
           .replace('${numQuestions}', questionCount);
