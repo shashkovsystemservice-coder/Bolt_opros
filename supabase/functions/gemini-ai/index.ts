@@ -40,6 +40,7 @@ async function callGeminiAI(prompt: string, apiKey: string, modelName: string) {
   const data = await response.json();
   if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
     let text = data.candidates[0].content.parts[0].text;
+    // Clean the response from markdown formatting
     if (text.startsWith("```json")) {
       text = text.substring(7, text.length - 3).trim();
     } else if (text.startsWith("```")) {
@@ -66,34 +67,38 @@ Deno.serve(async (req: Request) => {
       throw new Error("GEMINI_API_KEY not configured in Supabase secrets.");
     }
 
-    // Create a Supabase admin client to securely fetch settings
-    const supabaseClient = createClient(
+    // ИСПРАВЛЕНО: Создаем НАСТОЯЩИЙ админ-клиент, который использует ТОЛЬКО service_role ключ
+    // Это позволяет надежно читать системные настройки в обход любых RLS политик.
+    const supabaseAdminClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? '',
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ''
     );
 
-    // Fetch the active AI model from system_settings
-    const { data: settings, error: settingsError } = await supabaseClient
+    // Fetch the active AI model and meta prompt from system_settings
+    const { data: settings, error: settingsError } = await supabaseAdminClient
       .from('system_settings')
-      .select('active_ai_model')
+      .select('active_ai_model, generate_survey_meta_prompt')
       .single();
 
     if (settingsError) throw new Error(`Database error: ${settingsError.message}`);
-    if (!settings || !settings.active_ai_model) {
-      throw new Error("Active AI model is not configured in system settings.");
+    if (!settings || !settings.active_ai_model || !settings.generate_survey_meta_prompt) {
+      throw new Error("AI model or meta prompt is not configured in system settings.");
     }
     const activeModel = settings.active_ai_model;
+    const metaPrompt = settings.generate_survey_meta_prompt;
 
     let result;
 
     switch (action) {
       case "generate-survey": {
         const { topic, questionCount } = data;
-        const prompt = `Создай опрос на тему "${topic}" с ${questionCount} вопросами. Верни ответ строго в формате JSON массива объектов, где каждый объект имеет поля:\n- "question": текст вопроса\n- "type": тип вопроса ("text" для открытых вопросов, "radio" для выбора одного варианта, "checkbox" для множественного выбора)\n- "options": массив вариантов ответа (только для типов "radio" и "checkbox"), может быть пустым массивом для типа "text"\n\nИспользуй разные типы вопросов. Вопросы должны быть релевантными, профессиональными и помогать получить полезную информацию по теме. Верни только JSON без дополнительного текста.`;
+        // Replace placeholders in the meta prompt with actual values
+        const prompt = metaPrompt
+          .replace('${prompt}', topic)
+          .replace('${numQuestions}', questionCount);
 
         const rawJson = await callGeminiAI(prompt, apiKey, activeModel);
-        result = { questions: JSON.parse(rawJson) };
+        result = JSON.parse(rawJson);
         break;
       }
 
