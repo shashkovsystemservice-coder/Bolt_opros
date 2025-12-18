@@ -28,10 +28,12 @@ export function AdminSettings() {
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [googleModelsList, setGoogleModelsList] = useState('');
   const [showGoogleModelsArea, setShowGoogleModelsArea] = useState(false);
+  const [generateSurveyMetaPrompt, setGenerateSurveyMetaPrompt] = useState('');
+  const [isSavingPrompt, setIsSavingPrompt] = useState(false);
 
   useEffect(() => {
     fetchSystemModels();
-    fetchActiveModel();
+    fetchSettings();
   }, []);
 
   const fetchSystemModels = async () => {
@@ -51,11 +53,15 @@ export function AdminSettings() {
     setLoading(false);
   };
 
-  const fetchActiveModel = async () => {
-    const { data, error } = await supabase.from('system_settings').select('id, active_ai_model').single();
+  const fetchSettings = async () => {
+    const { data, error } = await supabase.from('system_settings').select('id, active_ai_model, generate_survey_meta_prompt').single();
     if (data) {
       setActiveModelState(data.active_ai_model);
       setSettingsId(data.id);
+      setGenerateSurveyMetaPrompt(data.generate_survey_meta_prompt || '');
+    }
+     if (error) {
+      toast.error('Не удалось загрузить системные настройки: ' + error.message);
     }
   };
 
@@ -77,6 +83,25 @@ export function AdminSettings() {
       toast.success(`Модель "${modelName}" установлена как активная.`);
     }
     setIsUpdating(false);
+  };
+    
+  const handleSavePrompt = async () => {
+    if (!settingsId) {
+      toast.error("ID системных настроек не найден. Невозможно обновить промпт.");
+      return;
+    }
+    setIsSavingPrompt(true);
+    const { error } = await supabase
+      .from('system_settings')
+      .update({ generate_survey_meta_prompt: generateSurveyMetaPrompt })
+      .eq('id', settingsId);
+
+    if (error) {
+      toast.error('Не удалось сохранить промпт: ' + error.message);
+    } else {
+      toast.success('Системный промпт для генерации опросов успешно обновлен.');
+    }
+    setIsSavingPrompt(false);
   };
 
   const addModel = async (e: React.FormEvent) => {
@@ -223,7 +248,7 @@ export function AdminSettings() {
                 {modelStatuses[model.model_name]?.status === 'error' && (
                   <div className='flex items-center gap-1 text-sm text-red-600'>
                     <AlertCircle className="h-4 w-4" />
-                    <span title={modelStatuses[model.name]?.message}>{modelStatuses[model.name]?.message?.substring(0, 50) + '...'}</span>
+                    <span title={modelStatuses[model.model_name]?.message}>{modelStatuses[model.model_name]?.message?.substring(0, 50) + '...'}</span>
                   </div>
                 )}
               </div>
@@ -257,6 +282,29 @@ export function AdminSettings() {
                 Добавить вручную
               </Button>
            </form>
+        </div>
+      </div>
+        
+       <div className="bg-white rounded-2xl border border-gray-200 mt-8">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-800">Промпт для генерации опроса</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Это системная инструкция, которую ИИ использует для создания структуры и вопросов опроса. Отредактируйте ее, чтобы изменить стиль или язык генерируемых опросов.
+          </p>
+        </div>
+        <div className="p-6">
+          <textarea
+            className="w-full h-60 p-3 font-mono text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            value={generateSurveyMetaPrompt}
+            onChange={(e) => setGenerateSurveyMetaPrompt(e.target.value)}
+            placeholder="Введите системный промпт здесь..."
+          />
+        </div>
+        <div className="p-6 bg-gray-50/50 border-t border-gray-200 flex justify-end">
+          <Button onClick={handleSavePrompt} disabled={isSavingPrompt}>
+            {isSavingPrompt ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
+            Сохранить промпт
+          </Button>
         </div>
       </div>
 
