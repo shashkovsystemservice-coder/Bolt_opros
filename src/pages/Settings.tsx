@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DashboardLayout } from '../components/DashboardLayout';
 import { Save, AlertCircle, CheckCircle, Building2, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -92,19 +91,17 @@ export function Settings() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border border-[#1A73E8] border-t-transparent mx-auto mb-4"></div>
-            <p className="text-[#5F6368]">Загрузка...</p>
-          </div>
+      <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border border-[#1A73E8] border-t-transparent mx-auto mb-4"></div>
+          <p className="text-[#5F6368]">Загрузка...</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
+    <>
       <div className="p-6 lg:p-8 max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-medium text-[#1F1F1F] tracking-tight mb-2">Настройки</h1>
@@ -220,6 +217,6 @@ export function Settings() {
           </div>
         </div>
       )}
-    </DashboardLayout>
+    </>
   );
 }

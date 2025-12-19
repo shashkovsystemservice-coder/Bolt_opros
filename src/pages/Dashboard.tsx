@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { DashboardLayout } from '../components/DashboardLayout';
@@ -8,7 +8,17 @@ import { Plus, Users, FileText, Calendar, Edit3, Archive, Trash2, Inbox, ArrowLe
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
 
+// Новый компонент-обертка для навигации
 export function Dashboard() {
+  return (
+    <DashboardLayout>
+      <Outlet />
+    </DashboardLayout>
+  );
+}
+
+// Старый компонент Dashboard, переименованный в SurveyList
+export function SurveyList() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [surveys, setSurveys] = useState<SurveyTemplate[]>([]);
@@ -52,7 +62,7 @@ export function Dashboard() {
       loadSurveys();
     }
   };
-
+  
   const handleRestore = async (surveyId: string) => {
     const { error } = await supabase
       .from('survey_templates')
@@ -78,7 +88,6 @@ export function Dashboard() {
       return;
     }
 
-    // Case 1: Survey has responses and is active
     if (count > 0 && survey.is_active) {
       const isConfirmed = window.confirm(
         'У этого опроса есть ответы, поэтому его нельзя удалить. Хотите вместо этого перенести его в архив?'
@@ -86,11 +95,9 @@ export function Dashboard() {
       if (isConfirmed) {
         await handleArchive(survey.id);
       }
-      // IMPORTANT: We do not proceed to deletion logic.
       return;
     }
 
-    // Case 2: Survey is in archive (and may or may not have responses)
     if (!survey.is_active) {
        const promptResponse = window.prompt(
         `ВНИМАНИЕ! Вы собираетесь навсегда удалить опрос "${survey.title}" и все его данные (включая ${count || 0} ответов). Это действие АБСОЛЮТНО необратимо. Для подтверждения введите УДАЛИТЬ НАВСЕГДА`
@@ -109,7 +116,6 @@ export function Dashboard() {
       return;
     }
     
-    // Case 3: Survey has no responses (and is implicitly active from Case 1 check)
     const isConfirmed = window.confirm('Вы уверены, что хотите удалить этот опрос? У него нет ответов, поэтому действие необратимо.');
     if (isConfirmed) {
       const { error: deleteError } = await supabase.from('survey_templates').delete().eq('id', survey.id);
@@ -131,101 +137,99 @@ export function Dashboard() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-medium text-[#1F1F1F] tracking-tight">Мои опросы</h1>
-            <p className="text-[#5F6368] mt-1">Управляйте своими опросами и просматривайте ответы</p>
-          </div>
-          <button
-            onClick={() => navigate('/survey/create')}
-            className="hidden md:flex items-center gap-2 bg-[#1A73E8] text-white px-6 py-3 rounded-full font-medium hover:bg-[#1557B0] transition-all shadow-sm hover:shadow-md"
-          >
-            <Plus className="w-5 h-5" strokeWidth={2} />
-            Создать опрос
-          </button>
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-medium text-[#1F1F1F] tracking-tight">Мои опросы</h1>
+          <p className="text-[#5F6368] mt-1">Управляйте своими опросами и просматривайте ответы</p>
         </div>
-
-        <div className="mb-6">
-          <div className="flex border-b">
-            <button onClick={() => setView('active')} className={`px-4 py-2 text-sm font-medium ${view === 'active' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Активные</button>
-            <button onClick={() => setView('archived')} className={`px-4 py-2 text-sm font-medium ${view === 'archived' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Архив</button>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="text-center py-20 text-[#5F6368]">Загрузка...</div>
-        ) : surveys.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="w-16 h-16 bg-[#E8F0FE] rounded-2xl flex items-center justify-center mx-auto mb-6">
-              {view === 'active' ? <FileText className="w-8 h-8 text-[#1A73E8]" /> : <Inbox className="w-8 h-8 text-[#1A73E8]" />}
-            </div>
-            <h2 className="text-xl font-medium text-[#1F1F1F] mb-2">{view === 'active' ? 'Нет активных опросов' : 'Архив пуст'}</h2>
-            <p className="text-[#5F6368] mb-6">{view === 'active' ? 'Создайте свой первый опрос для начала работы' : 'Здесь будут храниться опросы, которые вы архивировали'}</p>
-            {view === 'active' && (
-              <button
-                onClick={() => navigate('/survey/create')}
-                className="inline-flex items-center gap-2 bg-[#1A73E8] text-white px-6 py-3 rounded-full font-medium hover:bg-[#1557B0] transition-all"
-              >
-                <Plus className="w-5 h-5" strokeWidth={2} />
-                Создать опрос
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {surveys.map((survey) => (
-              <div
-                key={survey.id}
-                className="bg-white rounded-2xl border border-[#E8EAED] p-6 flex flex-col justify-between hover:shadow-lg transition-shadow"
-              >
-                <div>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="font-medium text-[#1F1F1F] mb-1 line-clamp-2">{survey.title}</h3>
-                      {survey.description && (
-                        <p className="text-sm text-[#5F6368] line-clamp-2">{survey.description}</p>
-                      )}
-                    </div>
-                    <div className={`ml-3 px-2 py-1 rounded-md text-xs font-medium ${survey.is_active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                      {survey.is_active ? 'Активен' : 'В архиве'}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-[#5F6368] mb-4">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      {formatDate(survey.created_at)}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2 pt-4 border-t border-[#E8EAED]">
-                  {view === 'active' ? (
-                    <>
-                      <Button variant="outline" size="sm" onClick={() => navigate(`/survey/${survey.id}/edit`)}><Edit3 className="w-4 h-4 mr-2" />Редактор</Button>
-                      <Button variant="outline" size="sm" onClick={() => navigate(`/survey/${survey.id}/recipients`)}><Users className="w-4 h-4 mr-2" />Получатели</Button>
-                      <Button variant="outline" size="sm" onClick={() => navigate(`/survey/${survey.id}/responses`)}><FileText className="w-4 h-4 mr-2" />Ответы</Button>
-                      <Button variant="outline" size="sm" onClick={() => handleArchive(survey.id)}><Archive className="w-4 h-4 mr-2" />В архив</Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(survey)}><Trash2 className="w-4 h-4 text-gray-500 hover:text-red-600" /></Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button variant="outline" size="sm" onClick={() => handleRestore(survey.id)}><ArrowLeft className="w-4 h-4 mr-2" />Восстановить</Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(survey)}><Trash2 className="w-4 h-4 mr-2" />Удалить навсегда</Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
         <button
           onClick={() => navigate('/survey/create')}
-          className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-[#1A73E8] text-white rounded-full shadow-lg hover:bg-[#1557B0] transition-all flex items-center justify-center"
+          className="hidden md:flex items-center gap-2 bg-[#1A73E8] text-white px-6 py-3 rounded-full font-medium hover:bg-[#1557B0] transition-all shadow-sm hover:shadow-md"
         >
-          <Plus className="w-6 h-6" strokeWidth={2} />
+          <Plus className="w-5 h-5" strokeWidth={2} />
+          Создать опрос
         </button>
       </div>
-    </DashboardLayout>
+
+      <div className="mb-6">
+        <div className="flex border-b">
+          <button onClick={() => setView('active')} className={`px-4 py-2 text-sm font-medium ${view === 'active' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Активные</button>
+          <button onClick={() => setView('archived')} className={`px-4 py-2 text-sm font-medium ${view === 'archived' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Архив</button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-20 text-[#5F6368]">Загрузка...</div>
+      ) : surveys.length === 0 ? (
+        <div className="text-center py-20">
+          <div className="w-16 h-16 bg-[#E8F0FE] rounded-2xl flex items-center justify-center mx-auto mb-6">
+            {view === 'active' ? <FileText className="w-8 h-8 text-[#1A73E8]" /> : <Inbox className="w-8 h-8 text-[#1A73E8]" />}
+          </div>
+          <h2 className="text-xl font-medium text-[#1F1F1F] mb-2">{view === 'active' ? 'Нет активных опросов' : 'Архив пуст'}</h2>
+          <p className="text-[#5F6368] mb-6">{view === 'active' ? 'Создайте свой первый опрос для начала работы' : 'Здесь будут храниться опросы, которые вы архивировали'}</p>
+          {view === 'active' && (
+            <button
+              onClick={() => navigate('/survey/create')}
+              className="inline-flex items-center gap-2 bg-[#1A73E8] text-white px-6 py-3 rounded-full font-medium hover:bg-[#1557B0] transition-all"
+            >
+              <Plus className="w-5 h-5" strokeWidth={2} />
+              Создать опрос
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {surveys.map((survey) => (
+            <div
+              key={survey.id}
+              className="bg-white rounded-2xl border border-[#E8EAED] p-6 flex flex-col justify-between hover:shadow-lg transition-shadow"
+            >
+              <div>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h3 className="font-medium text-[#1F1F1F] mb-1 line-clamp-2">{survey.title}</h3>
+                    {survey.description && (
+                      <p className="text-sm text-[#5F6368] line-clamp-2">{survey.description}</p>
+                    )}
+                  </div>
+                  <div className={`ml-3 px-2 py-1 rounded-md text-xs font-medium ${survey.is_active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {survey.is_active ? 'Активен' : 'В архиве'}
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 text-sm text-[#5F6368] mb-4">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    {formatDate(survey.created_at)}
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-4 border-t border-[#E8EAED]">
+                {view === 'active' ? (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/survey/${survey.id}/edit`)}><Edit3 className="w-4 h-4 mr-2" />Редактор</Button>
+                    <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/survey/${survey.id}/recipients`)}><Users className="w-4 h-4 mr-2" />Получатели</Button>
+                    <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/survey/${survey.id}/responses`)}><FileText className="w-4 h-4 mr-2" />Ответы</Button>
+                    <Button variant="outline" size="sm" onClick={() => handleArchive(survey.id)}><Archive className="w-4 h-4 mr-2" />В архив</Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(survey)}><Trash2 className="w-4 h-4 text-gray-500 hover:text-red-600" /></Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => handleRestore(survey.id)}><ArrowLeft className="w-4 h-4 mr-2" />Восстановить</Button>
+                    <Button variant="destructive" size="sm" onClick={() => handleDelete(survey)}><Trash2 className="w-4 h-4 mr-2" />Удалить навсегда</Button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <button
+        onClick={() => navigate('/survey/create')}
+        className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-[#1A73E8] text-white rounded-full shadow-lg hover:bg-[#1557B0] transition-all flex items-center justify-center"
+      >
+        <Plus className="w-6 h-6" strokeWidth={2} />
+      </button>
+    </div>
   );
 }

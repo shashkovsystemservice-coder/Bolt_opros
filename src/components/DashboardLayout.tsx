@@ -1,7 +1,8 @@
+
 import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield } from 'lucide-react';
+import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AdminPasswordModal } from './AdminPasswordModal';
 
@@ -23,7 +24,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   useEffect(() => {
     if (user) {
-      // Check if super admin
       if (user.email === SUPER_ADMIN_EMAIL) {
         setIsSuperAdmin(true);
       }
@@ -74,7 +74,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Опросы', path: '/dashboard' },
-    { icon: Settings, label: 'Настройки', path: '/settings' },
+    { icon: Users, label: 'Контакты', path: '/dashboard/contacts' }, // ИСПРАВЛЕНО
+    { icon: Settings, label: 'Настройки', path: '/dashboard/settings' }, // ИСПРАВЛЕНО
   ];
 
   if (isSuperAdmin) {
@@ -85,7 +86,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     });
   }
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    const { pathname } = location;
+    // Особая логика для "Опросов", чтобы включать все вложенные пути
+    if (path === '/dashboard') {
+      return pathname.startsWith('/dashboard') && !pathname.startsWith('/dashboard/contacts') && !pathname.startsWith('/dashboard/settings');
+    }
+    // Точное совпадение для остальных
+    return pathname === path;
+  };
+  
+  const isAdminActive = () => location.pathname.startsWith('/admin');
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
@@ -125,7 +136,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         >
           <nav className="p-4 space-y-1">
             {menuItems.map((item) => {
-              const isAdminPanel = item.path === '/admin/companies';
+              const isAdminPanel = item.label === 'Админ-панель';
+              const itemIsActive = isAdminPanel ? isAdminActive() : isActive(item.path);
+
               return (
                 <button
                   key={item.path}
@@ -133,9 +146,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   className={`
                     w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all
                     ${
-                      isAdminPanel
+                      isAdminPanel && itemIsActive
                         ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md hover:shadow-lg'
-                        : isActive(item.path)
+                        : !isAdminPanel && itemIsActive
                         ? 'bg-white text-[#1A73E8] shadow-sm'
                         : 'text-[#5F6368] hover:bg-white hover:text-[#1F1F1F]'
                     }

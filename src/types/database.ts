@@ -9,6 +9,7 @@ export interface SurveyTemplate {
   company_id: string;
   title: string;
   description: string | null;
+  survey_basis: string | null; // Новое поле
   unique_code: string;
   is_active: boolean;
   is_ai_generated: boolean;
@@ -26,6 +27,17 @@ export interface QuestionTemplate {
   is_required: boolean;
   question_order: number;
   choice_options: string[] | null;
+}
+
+export interface Contact {
+  id: string;
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  company_name: string | null;
+  email: string | null;
+  phone: string | null;
+  created_at: string;
 }
 
 export interface SurveyRecipient {

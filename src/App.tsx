@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -5,10 +6,11 @@ import { AdminRoute } from './components/AdminRoute';
 import { Landing } from './pages/Landing';
 import { Auth } from './pages/Auth';
 import { ResetPassword } from './pages/ResetPassword';
-import { Dashboard } from './pages/Dashboard';
+import { Dashboard, SurveyList } from './pages/Dashboard'; // Импортируем оба компонента
 import CreateSurvey from './pages/CreateSurvey';
-import EditSurvey from './pages/EditSurvey'; // Import the new EditSurvey page
-import { Recipients } from './pages/Recipients';
+import EditSurvey from './pages/EditSurvey';
+import Recipients from './pages/Recipients';
+import ContactsPage from './pages/Contacts';
 import { SurveyForm } from './pages/SurveyForm';
 import { Responses } from './pages/Responses';
 import { Settings } from './pages/Settings';
@@ -22,91 +24,42 @@ function App() {
     <Router>
       <AuthProvider>
         <Routes>
+          {/* Публичные маршруты */}
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* Основной защищенный маршрут с вложенными страницами */}
           <Route
             path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
+            element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+          >
+            <Route index element={<Navigate to="surveys" replace />} />
+            <Route path="surveys" element={<SurveyList />} />
+            <Route path="contacts" element={<ContactsPage />} />
+            <Route path="survey/create" element={<CreateSurvey />} />
+            <Route path="survey/:id/edit" element={<EditSurvey />} />
+            <Route path="survey/:id/recipients" element={<Recipients />} />
+            <Route path="survey/:id/responses" element={<Responses />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+
+          {/* Маршруты для администратора */}
           <Route
-            path="/survey/create"
-            element={
-              <ProtectedRoute>
-                <CreateSurvey />
-              </ProtectedRoute>
-            }
-          />
-          {/* This is the new route for editing a survey */}
-          <Route
-            path="/survey/:id/edit"
-            element={
-              <ProtectedRoute>
-                <EditSurvey />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/survey/:id/recipients"
-            element={
-              <ProtectedRoute>
-                <Recipients />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/survey/:id/responses"
-            element={
-              <ProtectedRoute>
-                <Responses />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/companies"
-            element={
-              <AdminRoute>
-                <AdminCompanies />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/stats"
-            element={
-              <AdminRoute>
-                <AdminStats />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/security"
-            element={
-              <AdminRoute>
-                <AdminSecurity />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/settings"
-            element={
-              <AdminRoute>
-                <AdminSettings />
-              </AdminRoute>
-            }
-          />
+            path="/admin"
+            element={<AdminRoute><Dashboard /></AdminRoute>}
+          >
+            <Route index element={<Navigate to="companies" replace />} />
+            <Route path="companies" element={<AdminCompanies />} />
+            <Route path="stats" element={<AdminStats />} />
+            <Route path="security" element={<AdminSecurity />} />
+            <Route path="settings" element={<AdminSettings />} />
+          </Route>
+
+          {/* Отдельный маршрут для прохождения опроса */}
           <Route path="/survey/:id" element={<SurveyForm />} />
+          
+          {/* Перенаправление для всех остальных случаев */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
