@@ -267,7 +267,79 @@ const CreateSurvey = () => {
             </div>
           </div>
           
-          {/* ... (остальной код без изменений) */}
+          {questions.map((q, index) => (
+            <div key={q.id} className="bg-white p-6 rounded-2xl border border-[#E8EAED] shadow-sm mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <input
+                  type="text"
+                  value={q.text}
+                  onChange={(e) => updateQuestion(q.id, 'text', e.target.value)}
+                  placeholder={`Вопрос ${index + 1}`}
+                  className="w-full text-xl font-semibold focus:outline-none bg-transparent"
+                />
+                <button onClick={() => removeQuestion(q.id)} className="text-gray-400 hover:text-red-500 transition-colors p-2">
+                  <Trash2 size={20} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#E8EAED]">
+                <select
+                  value={q.type}
+                  onChange={(e) => updateQuestion(q.id, 'type', e.target.value)}
+                  className="h-10 px-3 border border-[#E8EAED] rounded-lg bg-gray-50 focus:outline-none focus:border-[#1A73E8]"
+                >
+                  <option value="text">Текст</option>
+                  <option value="number">Число</option>
+                  <option value="email">Email</option>
+                  <option value="rating">Рейтинг (1-10)</option>
+                  <option value="choice">Выбор варианта</option>
+                </select>
+                <div className="flex items-center gap-2">
+                  <label htmlFor={`required-${q.id}`} className="text-sm font-medium text-gray-600">Обязательный</label>
+                  <input
+                    id={`required-${q.id}`}
+                    type="checkbox"
+                    checked={q.required}
+                    onChange={(e) => updateQuestion(q.id, 'required', e.target.checked)}
+                    className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {q.type === 'choice' && (
+                <div className="mt-4 pt-4 border-t border-[#E8EAED]">
+                   <h3 class="text-sm font-medium text-gray-600 mb-2">Варианты ответа</h3>
+                  {q.options.map((opt, optIndex) => (
+                    <div key={optIndex} className="flex items-center mb-2">
+                      <input
+                        type="text"
+                        value={opt}
+                        onChange={(e) => updateOption(q.id, optIndex, e.target.value)}
+                        placeholder={`Вариант ${optIndex + 1}`}
+                        className="w-full h-10 px-3 border-b border-[#E8EAED] focus:outline-none focus:border-b-2 focus:border-[#1A73E8] bg-transparent"
+                      />
+                      <button onClick={() => removeOption(q.id, optIndex)} className="ml-2 text-gray-400 hover:text-red-500 p-1">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  <button onClick={() => addOption(q.id)} className="text-sm font-semibold text-[#1A73E8] hover:underline mt-2">
+                    Добавить вариант
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+
+          <div className="flex justify-center mt-6">
+              <button
+                  onClick={addQuestion}
+                  className="flex items-center justify-center gap-2 h-11 px-6 bg-gray-100 text-gray-700 font-semibold rounded-full hover:bg-gray-200 transition-colors border border-dashed border-gray-400"
+              >
+                  <Plus size={20} />
+                  Добавить вопрос
+              </button>
+          </div>
 
         </div>
       </main>

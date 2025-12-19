@@ -6,7 +6,7 @@ import { AdminRoute } from './components/AdminRoute';
 import { Landing } from './pages/Landing';
 import { Auth } from './pages/Auth';
 import { ResetPassword } from './pages/ResetPassword';
-import { Dashboard, SurveyList } from './pages/Dashboard'; // Импортируем оба компонента
+import { Dashboard, SurveyList } from './pages/Dashboard';
 import CreateSurvey from './pages/CreateSurvey';
 import EditSurvey from './pages/EditSurvey';
 import Recipients from './pages/Recipients';
@@ -37,7 +37,7 @@ function App() {
             <Route index element={<Navigate to="surveys" replace />} />
             <Route path="surveys" element={<SurveyList />} />
             <Route path="contacts" element={<ContactsPage />} />
-            <Route path="survey/create" element={<CreateSurvey />} />
+            {/* Маршрут создания перенесен на верхний уровень */}
             <Route path="survey/:id/edit" element={<EditSurvey />} />
             <Route path="survey/:id/recipients" element={<Recipients />} />
             <Route path="survey/:id/responses" element={<Responses />} />
@@ -56,7 +56,10 @@ function App() {
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 
-          {/* Отдельный маршрут для прохождения опроса */}
+          {/* Защищенные маршруты для работы с опросами (должны быть до /survey/:id) */}
+          <Route path="/survey/create" element={<ProtectedRoute><CreateSurvey /></ProtectedRoute>} />
+
+          {/* Отдельный маршрут для прохождения опроса (публичный) */}
           <Route path="/survey/:id" element={<SurveyForm />} />
           
           {/* Перенаправление для всех остальных случаев */}

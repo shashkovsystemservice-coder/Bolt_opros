@@ -73,14 +73,24 @@ export async function generateSurveyWithAI(topic: string, questionCount: number)
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        // Provide a more user-friendly error
         throw new Error(errorData?.error || `Сервер AI вернул ошибку ${response.status}. Попробуйте снова.`);
     }
 
-    const result: AISurveyResponse = await response.json();
+    // --- FRONTEND DIAGNOSTICS ---
+    const rawText = await response.text();
+    console.log("%c[AI Service] Raw response from server:", "color: blue; font-weight: bold;", rawText);
+
+    let result: AISurveyResponse;
+    try {
+        result = JSON.parse(rawText);
+    } catch (e: any) {
+        console.error("[AI Service] Failed to parse JSON!", e);
+        throw new Error("Не удалось обработать ответ от AI. Ответ не является валидным JSON.");
+    }
+    // --- END OF DIAGNOSTICS ---
+
 
     if (!result.questions || !Array.isArray(result.questions) || result.questions.length === 0) {
-        // Handle cases where the AI returns an empty or invalid question list
         throw new Error('AI не смог сгенерировать вопросы по вашему запросу. Попробуйте переформулировать тему.');
     }
 
@@ -88,7 +98,6 @@ export async function generateSurveyWithAI(topic: string, questionCount: number)
     const questions: Omit<LocalQuestion, 'id'>[] = result.questions.map((q) => {
         let type: LocalQuestion['type'] = 'text'; // Default to text
 
-        // Map various possible AI types to our strict, defined types
         if (['radio', 'checkbox', 'choice'].includes(q.type)) type = 'choice';
         else if (['rating', 'scale'].includes(q.type)) type = 'rating';
         else if (q.type === 'number') type = 'number';
@@ -97,12 +106,11 @@ export async function generateSurveyWithAI(topic: string, questionCount: number)
         return {
             text: q.question,
             type,
-            required: true, // Always default to required, user can change this easily
+            required: true,
             options: q.options || [],
         };
     });
 
-    // Ensure we always have a title and description
     const surveyTitle = result.title || topic;
     const surveyDescription = result.description || `Опрос, сгенерированный AI на тему: "${topic}"`;
 

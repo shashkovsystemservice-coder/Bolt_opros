@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { SurveyTemplate, QuestionTemplate, SurveyRecipient } from '../types/database';
 import { InteractiveSurveyChat } from '../components/InteractiveSurveyChat';
@@ -8,7 +8,8 @@ import { ClipboardList, CheckCircle2, Download, Printer, Eye } from 'lucide-reac
 import ExcelJS from 'exceljs';
 
 export function SurveyForm() {
-  const { id } = useParams<{ id: string }>();
+  const { id: surveyIdFromUrl } = useParams<{ id: string }>();
+  const location = useLocation();
 
   const [survey, setSurvey] = useState<SurveyTemplate | null>(null);
   const [questions, setQuestions] = useState<QuestionTemplate[]>([]);
@@ -23,82 +24,98 @@ export function SurveyForm() {
   const [isPreview, setIsPreview] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, [id]);
+    const searchParams = new URLSearchParams(location.search);
+    const recipientCode = searchParams.get('code');
+    loadData(recipientCode, surveyIdFromUrl);
+  }, [surveyIdFromUrl, location.search]);
 
-  const loadData = async () => {
-    if (!id) return;
+  const loadData = async (recipientCode: string | null, surveyId: string | undefined) => {
     setLoading(true);
     setError('');
 
-    // Сначала пробуем загрузить как предпросмотр опроса по его ID
-    const { data: surveyAsPreview, error: surveyPreviewError } = await supabase
-      .from('survey_templates')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
+    // Сценарий 1: Загрузка опроса для конкретного получателя по 'recipient_code'
+    if (recipientCode) {
+      const { data: recipientData, error: recipientError } = await supabase
+        .from('survey_recipients')
+        .select('*')
+        .eq('recipient_code', recipientCode)
+        .maybeSingle();
 
-    if (surveyAsPreview) {
-      setIsPreview(true);
-      setSurvey(surveyAsPreview);
+      if (recipientError || !recipientData) {
+        setError('Ссылка недействительна или получатель не найден');
+        setLoading(false);
+        return;
+      }
+
+      setRecipient(recipientData);
+      if (recipientData.email) setRespondentEmail(recipientData.email);
+
+      if (!recipientData.opened_at) {
+        await supabase
+          .from('survey_recipients')
+          .update({ opened_at: new Date().toISOString() })
+          .eq('id', recipientData.id);
+      }
+
+      const { data: surveyData, error: surveyError } = await supabase
+        .from('survey_templates')
+        .select('*')
+        .eq('id', recipientData.survey_template_id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (surveyError || !surveyData) {
+        setError('Опрос не найден или неактивен');
+        setLoading(false);
+        return;
+      }
+
+      setSurvey(surveyData);
 
       const { data: questionsData } = await supabase
         .from('question_templates')
         .select('*')
-        .eq('survey_template_id', surveyAsPreview.id)
+        .eq('survey_template_id', surveyData.id)
         .order('question_order');
 
       if (questionsData) setQuestions(questionsData);
-      setLoading(false);
-      return; // Выходим, так как мы в режиме предпросмотра
-    }
 
-    // Если не получилось, пробуем загрузить как ответ получателя (старая логика)
-    const { data: recipientData, error: recipientError } = await supabase
-      .from('survey_recipients')
-      .select('*')
-      .eq('recipient_code', id)
-      .maybeSingle();
-
-    if (recipientError || !recipientData) {
-      setError('Ссылка недействительна или получатель не найден');
       setLoading(false);
       return;
     }
 
-    setRecipient(recipientData);
-    if (recipientData.email) setRespondentEmail(recipientData.email);
+    // Сценарий 2: Загрузка опроса в режиме предпросмотра по 'surveyId'
+    if (surveyId) {
+      const { data: surveyAsPreview, error: surveyPreviewError } = await supabase
+        .from('survey_templates')
+        .select('*')
+        .eq('id', surveyId)
+        .maybeSingle();
 
-    if (!recipientData.opened_at) {
-      await supabase
-        .from('survey_recipients')
-        .update({ opened_at: new Date().toISOString() })
-        .eq('id', recipientData.id);
+      if (surveyPreviewError) {
+         // Ошибка 400 Bad Request может произойти здесь, если ID не в формате UUID.
+         // Это ожидаемо, если используется ссылка старого формата.
+         // Мы просто проигнорируем ошибку и перейдем к финальному сообщению.
+      }
+      
+      if (surveyAsPreview) {
+        setIsPreview(true);
+        setSurvey(surveyAsPreview);
+
+        const { data: questionsData } = await supabase
+          .from('question_templates')
+          .select('*')
+          .eq('survey_template_id', surveyAsPreview.id)
+          .order('question_order');
+
+        if (questionsData) setQuestions(questionsData);
+        setLoading(false);
+        return;
+      }
     }
-
-    const { data: surveyData, error: surveyError } = await supabase
-      .from('survey_templates')
-      .select('*')
-      .eq('id', recipientData.survey_template_id)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (surveyError || !surveyData) {
-      setError('Опрос не найден или неактивен');
-      setLoading(false);
-      return;
-    }
-
-    setSurvey(surveyData);
-
-    const { data: questionsData } = await supabase
-      .from('question_templates')
-      .select('*')
-      .eq('survey_template_id', surveyData.id)
-      .order('question_order');
-
-    if (questionsData) setQuestions(questionsData);
-
+    
+    // Сценарий 3: Если ни один из сценариев не сработал
+    setError('Ссылка недействительна или получатель не найден');
     setLoading(false);
   };
 
