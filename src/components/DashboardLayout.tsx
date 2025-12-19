@@ -53,7 +53,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleNavigation = (path: string) => {
     const isAdminPath = path.startsWith('/admin');
 
-    if (isAdminPath && !sessionStorage.getItem('admin_authenticated')) {
+    if (isAdminPath && isSuperAdmin && !sessionStorage.getItem('admin_authenticated')) {
       setPendingAdminPath(path);
       setShowPasswordModal(true);
       return;
@@ -74,25 +74,24 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Опросы', path: '/dashboard' },
-    { icon: Users, label: 'Контакты', path: '/dashboard/contacts' }, // ИСПРАВЛЕНО
-    { icon: Settings, label: 'Настройки', path: '/dashboard/settings' }, // ИСПРАВЛЕНО
+    { icon: Users, label: 'Контакты', path: '/dashboard/contacts' },
+    { icon: Settings, label: 'Настройки', path: '/dashboard/settings' },
   ];
 
+  // ONLY super admins should see the Admin Panel link.
   if (isSuperAdmin) {
     menuItems.push({
       icon: Shield,
       label: 'Админ-панель',
-      path: '/admin/companies',
+      path: '/admin/companies', // Main entry point for super admin
     });
   }
 
   const isActive = (path: string) => {
     const { pathname } = location;
-    // Особая логика для "Опросов", чтобы включать все вложенные пути
     if (path === '/dashboard') {
       return pathname.startsWith('/dashboard') && !pathname.startsWith('/dashboard/contacts') && !pathname.startsWith('/dashboard/settings');
     }
-    // Точное совпадение для остальных
     return pathname === path;
   };
   
