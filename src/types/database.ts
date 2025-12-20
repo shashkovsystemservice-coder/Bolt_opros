@@ -1,3 +1,4 @@
+
 export interface Company {
   id: string;
   name: string;
@@ -9,7 +10,7 @@ export interface SurveyTemplate {
   company_id: string;
   title: string;
   description: string | null;
-  survey_basis: string | null; // Новое поле
+  survey_basis: string | null; 
   unique_code: string;
   is_active: boolean;
   is_ai_generated: boolean;
@@ -43,10 +44,11 @@ export interface Contact {
 export interface SurveyRecipient {
   id: string;
   survey_template_id: string;
+  company_id: string;
   company_name: string | null;
   email: string | null;
   phone: string | null;
-  contact_person: string | null;
+  contact_person: string;
   additional_info: string | null;
   recipient_code: string;
   sent_at: string | null;
@@ -54,6 +56,7 @@ export interface SurveyRecipient {
   opened_at: string | null;
   submitted_at: string | null;
   created_at: string;
+  updated_at: string | null;
 }
 
 export interface SurveySubmission {

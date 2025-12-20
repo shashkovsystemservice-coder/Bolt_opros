@@ -9,6 +9,7 @@ export default defineConfig({
   },
   server: {
     watch: {
+      // This is a comment to force a reload
       ignored: ['.env'],
     },
   },
