@@ -3,7 +3,6 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { DashboardLayout } from '../components/DashboardLayout';
 import { SurveyTemplate, SurveyRecipient, Contact } from '../types/database';
 import { generateCode } from '../utils/generateCode';
 import { getBaseUrl } from '../utils/urls';
@@ -184,10 +183,10 @@ const Recipients = () => {
     navigator.clipboard.writeText(link).then(() => { setCopiedLink(id); setTimeout(() => setCopiedLink(null), 2500); });
   }
 
-  if (loading) return <DashboardLayout><div className="p-8 text-center">Загрузка...</div></DashboardLayout>;
+  if (loading) return <div className="p-8 text-center">Загрузка...</div>;
 
   return (
-    <DashboardLayout>
+    <>
       {isContactModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg m-4 max-h-[80vh] flex flex-col">
@@ -258,7 +257,7 @@ const Recipients = () => {
             </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 };
 

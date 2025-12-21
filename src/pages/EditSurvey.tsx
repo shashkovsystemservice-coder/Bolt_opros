@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useNavigate, useParams } from 'react-router-dom';
-import { DashboardLayout } from '../components/DashboardLayout';
 import { Plus, Trash2 } from 'lucide-react';
 
 export interface LocalQuestion {
@@ -227,10 +226,9 @@ const EditSurvey = () => {
     }
   };
 
-  if (initialLoading) return <DashboardLayout><div className="p-8 text-center">Загрузка редактора...</div></DashboardLayout>
+  if (initialLoading) return <div className="p-8 text-center">Загрузка редактора...</div>
 
   return (
-    <DashboardLayout>
       <main className="flex-grow container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6">
@@ -375,7 +373,6 @@ const EditSurvey = () => {
 
         </div>
       </main>
-    </DashboardLayout>
   );
 };
 

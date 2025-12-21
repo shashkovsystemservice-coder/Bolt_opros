@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { DashboardLayout } from '../components/DashboardLayout';
 import { SurveyTemplate, SurveySubmission, SubmissionAnswer, SurveyRecipient } from '../types/database';
 import { Download, Search, ChevronDown, ChevronUp, Building2, Mail, Calendar, Maximize2, Minimize2, List, Table2, BarChart3, Sparkles, Loader2 } from 'lucide-react';
 
@@ -242,16 +241,13 @@ export function Responses() {
 
   if (loading) {
     return (
-      <DashboardLayout>
         <div className="flex items-center justify-center h-96">
           <div className="text-[#5F6368]">Загрузка...</div>
         </div>
-      </DashboardLayout>
     );
   }
 
   return (
-    <DashboardLayout>
       <div className="p-6 lg:p-8 max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-medium text-[#1F1F1F] tracking-tight mb-2">{survey?.title}</h1>
@@ -595,6 +591,5 @@ export function Responses() {
           </>
         )}
       </div>
-    </DashboardLayout>
   );
 }
