@@ -150,6 +150,7 @@ const CreateSurvey = () => {
           survey_basis: surveyBasis, // Добавляем новое поле
           company_id: companyId,
           is_interactive: isInteractive,
+          is_active: true, 
           unique_code: `${Date.now()}${Math.random().toString(36).substring(2, 9)}`
         }])
         .select()
@@ -308,7 +309,7 @@ const CreateSurvey = () => {
 
               {q.type === 'choice' && (
                 <div className="mt-4 pt-4 border-t border-[#E8EAED]">
-                   <h3 class="text-sm font-medium text-gray-600 mb-2">Варианты ответа</h3>
+                   <h3 className="text-sm font-medium text-gray-600 mb-2">Варианты ответа</h3>
                   {q.options.map((opt, optIndex) => (
                     <div key={optIndex} className="flex items-center mb-2">
                       <input

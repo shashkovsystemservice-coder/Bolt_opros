@@ -30,11 +30,12 @@ export interface QuestionTemplate {
   choice_options: string[] | null;
 }
 
+// Возвращаем исходный интерфейс, соответствующий БД
 export interface Contact {
   id: string;
-  user_id: string;
-  first_name: string | null;
-  last_name: string | null;
+  user_id: string; // <-- Правильное поле user_id
+  first_name: string | null; // <-- Правильное поле
+  last_name: string | null; // <-- Правильное поле
   company_name: string | null;
   email: string | null;
   phone: string | null;
@@ -48,7 +49,7 @@ export interface SurveyRecipient {
   company_name: string | null;
   email: string | null;
   phone: string | null;
-  contact_person: string;
+  contact_person: string | null; 
   additional_info: string | null;
   recipient_code: string;
   sent_at: string | null;

@@ -6,16 +6,15 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Plus, Trash2 } from 'lucide-react';
 
-// Re-using the same question structure from CreateSurvey
 export interface LocalQuestion {
-  id: string; // Temporary ID for new questions, or DB ID for existing ones
+  id: string; 
   text: string;
   type: 'text' | 'number' | 'email' | 'rating' | 'choice';
   required: boolean;
   options: string[];
+  db_id?: number;
 }
 
-// Type for DB question templates
 interface QuestionTemplate {
     id: number;
     survey_template_id: number;
@@ -31,17 +30,18 @@ const EditSurvey = () => {
   const navigate = useNavigate();
   const { id: surveyId } = useParams<{ id: string }>();
 
-  // State for survey details
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [surveyBasis, setSurveyBasis] = useState(''); // Новое состояние
+  const [surveyBasis, setSurveyBasis] = useState('');
   const [isInteractive, setIsInteractive] = useState(false);
   const [questions, setQuestions] = useState<LocalQuestion[]>([]);
   
-  // State for loading, errors
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  
+  const [initialQuestions, setInitialQuestions] = useState<LocalQuestion[]>([]);
+
 
   useEffect(() => {
     if (!surveyId || !user) {
@@ -51,7 +51,6 @@ const EditSurvey = () => {
 
     const fetchSurvey = async () => {
         try {
-            // Fetch survey template details
             const { data: surveyData, error: surveyError } = await supabase
                 .from('survey_templates')
                 .select('*, question_templates(*)')
@@ -61,23 +60,23 @@ const EditSurvey = () => {
 
             if (surveyError) throw new Error('Опрос не найден или у вас нет прав на его редактирование.');
 
-            // Populate form fields
             setTitle(surveyData.title);
             setDescription(surveyData.description || '');
-            setSurveyBasis(surveyData.survey_basis || ''); // Загружаем новое поле
+            setSurveyBasis(surveyData.survey_basis || '');
             setIsInteractive(surveyData.is_interactive || false);
 
-            // Populate questions
             const loadedQuestions = (surveyData.question_templates as QuestionTemplate[] || [])
                 .sort((a,b) => a.question_order - b.question_order)
                 .map(q => ({
-                    id: q.id.toString(), // Use the actual DB ID
+                    id: crypto.randomUUID(), 
+                    db_id: q.id,
                     text: q.question_text,
                     type: q.question_type,
                     required: q.is_required,
                     options: q.choice_options || []
                 }));
             setQuestions(loadedQuestions);
+            setInitialQuestions(loadedQuestions);
 
         } catch(err: any) {
             setError(err.message);
@@ -90,10 +89,55 @@ const EditSurvey = () => {
   }, [surveyId, user]);
 
   
-  // --- Functions for question manipulation (same as CreateSurvey) ---
-  // ... (код без изменений)
+  const addQuestion = () => {
+    const newQuestion: LocalQuestion = {
+      id: crypto.randomUUID(),
+      text: '',
+      type: 'text',
+      required: true,
+      options: []
+    };
+    setQuestions([...questions, newQuestion]);
+  };
 
-  // --- Main Save Function ---
+  const removeQuestion = (id: string) => {
+    setQuestions(questions.filter(q => q.id !== id));
+  };
+  
+  const updateQuestion = (id: string, field: keyof LocalQuestion, value: any) => {
+    setQuestions(questions.map(q => (q.id === id ? { ...q, [field]: value } : q)));
+  };
+
+  const addOption = (questionId: string) => {
+    setQuestions(questions.map(q => {
+        if (q.id === questionId) {
+            return { ...q, options: [...q.options, ''] };
+        }
+        return q;
+    }));
+  }
+
+  const removeOption = (questionId: string, optionIndex: number) => {
+      setQuestions(questions.map(q => {
+          if (q.id === questionId) {
+              const newOptions = q.options.filter((_, i) => i !== optionIndex);
+              return { ...q, options: newOptions };
+          }
+          return q;
+      }));
+  }
+
+  const updateOption = (questionId: string, optionIndex: number, value: string) => {
+      setQuestions(questions.map(q => {
+          if (q.id === questionId) {
+              const newOptions = [...q.options];
+              newOptions[optionIndex] = value;
+              return { ...q, options: newOptions };
+          }
+          return q;
+      }));
+  }
+
   const handleSaveSurvey = async () => {
     if (!title.trim()) {
       setError('Название опроса не может быть пустым.');
@@ -109,22 +153,70 @@ const EditSurvey = () => {
     setError(null);
 
     try {
-        // 1. Update the Survey Template itself
         const { error: templateError } = await supabase
             .from('survey_templates')
             .update({
                 title: title,
                 description: description,
-                survey_basis: surveyBasis, // Добавляем новое поле
+                survey_basis: surveyBasis,
                 is_interactive: isInteractive
             })
             .eq('id', surveyId);
         
         if (templateError) throw templateError;
 
-        // ... (остальной код без изменений)
+        const initialDbIds = new Set(initialQuestions.map(q => q.db_id).filter(id => id));
+        const currentDbIds = new Set(questions.map(q => q.db_id).filter(id => id));
 
-      // 6. Success and Redirect
+        const questionsToInsert = questions
+            .filter(q => !q.db_id)
+            .map((q, index) => ({
+                survey_template_id: surveyId,
+                question_text: q.text,
+                question_type: q.type,
+                is_required: q.required,
+                question_order: initialQuestions.length + index + 1,
+                choice_options: (q.type === 'choice' && q.options.length > 0) ? q.options : null,
+            }));
+
+        const questionsToUpdate = questions
+            .filter(q => q.db_id && initialDbIds.has(q.db_id))
+             .map((q, index) => ({
+                id: q.db_id,
+                question_text: q.text,
+                question_type: q.type,
+                is_required: q.is_required,
+                question_order: index + 1,
+                choice_options: (q.type === 'choice' && q.options.length > 0) ? q.options : null,
+            }));
+            
+        const questionIdsToDelete = initialQuestions
+            .filter(q => q.db_id && !currentDbIds.has(q.db_id))
+            .map(q => q.db_id);
+
+        if (questionsToInsert.length > 0) {
+            const { error } = await supabase.from('question_templates').insert(questionsToInsert);
+            if (error) throw new Error(`Ошибка при добавлении новых вопросов: ${error.message}`);
+        }
+        
+        if (questionsToUpdate.length > 0) {
+            for (const q of questionsToUpdate) {
+                const { error } = await supabase.from('question_templates').update({
+                    question_text: q.question_text,
+                    question_type: q.question_type,
+                    is_required: q.is_required,
+                    question_order: q.question_order,
+                    choice_options: q.choice_options
+                }).eq('id', q.id);
+                if (error) throw new Error(`Ошибка при обновлении вопроса (ID: ${q.id}): ${error.message}`);
+            }
+        }
+
+        if (questionIdsToDelete.length > 0) {
+            const { error } = await supabase.from('question_templates').delete().in('id', questionIdsToDelete);
+            if (error) throw new Error(`Ошибка при удалении вопросов: ${error.message}`);
+        }
+
       navigate('/dashboard');
 
     } catch (err: any) {
@@ -141,7 +233,6 @@ const EditSurvey = () => {
     <DashboardLayout>
       <main className="flex-grow container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6">
             <h1 className="text-3xl font-bold text-[#1F1F1F]">Редактор опроса</h1>
             <div className="flex gap-2 mt-4 sm:mt-0">
@@ -162,7 +253,6 @@ const EditSurvey = () => {
             </div>
           )}
 
-          {/* Survey Details Form */}
           <div className="bg-white p-8 rounded-2xl border border-[#E8EAED] shadow-sm mb-6">
               <div className="mb-6">
                   <label htmlFor="surveyTitle" className="block text-lg font-medium text-[#1F1F1F] mb-2">Название</label>
@@ -209,8 +299,80 @@ const EditSurvey = () => {
               </div>
           </div>
           
-          {/* Questions Editor */}
-          {/* ... (остальной код без изменений) */}
+          {questions.map((q, index) => (
+            <div key={q.id} className="bg-white p-6 rounded-2xl border border-[#E8EAED] shadow-sm mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <input
+                  type="text"
+                  value={q.text}
+                  onChange={(e) => updateQuestion(q.id, 'text', e.target.value)}
+                  placeholder={`Вопрос ${index + 1}`}
+                  className="w-full text-xl font-semibold focus:outline-none bg-transparent"
+                />
+                <button onClick={() => removeQuestion(q.id)} className="text-gray-400 hover:text-red-500 transition-colors p-2">
+                  <Trash2 size={20} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#E8EAED]">
+                <select
+                  value={q.type}
+                  onChange={(e) => updateQuestion(q.id, 'type', e.target.value)}
+                  className="h-10 px-3 border border-[#E8EAED] rounded-lg bg-gray-50 focus:outline-none focus:border-[#1A73E8]"
+                >
+                  <option value="text">Текст</option>
+                  <option value="number">Число</option>
+                  <option value="email">Email</option>
+                  <option value="rating">Рейтинг (1-10)</option>
+                  <option value="choice">Выбор варианта</option>
+                </select>
+                <div className="flex items-center gap-2">
+                  <label htmlFor={`required-${q.id}`} className="text-sm font-medium text-gray-600">Обязательный</label>
+                  <input
+                    id={`required-${q.id}`}
+                    type="checkbox"
+                    checked={q.required}
+                    onChange={(e) => updateQuestion(q.id, 'required', e.target.checked)}
+                    className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {q.type === 'choice' && (
+                <div className="mt-4 pt-4 border-t border-[#E8EAED]">
+                   <h3 className="text-sm font-medium text-gray-600 mb-2">Варианты ответа</h3>
+                  {q.options.map((opt, optIndex) => (
+                    <div key={optIndex} className="flex items-center mb-2">
+                      <input
+                        type="text"
+                        value={opt}
+                        onChange={(e) => updateOption(q.id, optIndex, e.target.value)}
+                        placeholder={`Вариант ${optIndex + 1}`}
+                        className="w-full h-10 px-3 border-b border-[#E8EAED] focus:outline-none focus:border-b-2 focus:border-[#1A73E8] bg-transparent"
+                      />
+                      <button onClick={() => removeOption(q.id, optIndex)} className="ml-2 text-gray-400 hover:text-red-500 p-1">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  <button onClick={() => addOption(q.id)} className="text-sm font-semibold text-[#1A73E8] hover:underline mt-2">
+                    Добавить вариант
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+
+          <div className="flex justify-center mt-6">
+              <button
+                  onClick={addQuestion}
+                  className="flex items-center justify-center gap-2 h-11 px-6 bg-gray-100 text-gray-700 font-semibold rounded-full hover:bg-gray-200 transition-colors border border-dashed border-gray-400"
+              >
+                  <Plus size={20} />
+                  Добавить вопрос
+              </button>
+          </div>
+
         </div>
       </main>
     </DashboardLayout>
