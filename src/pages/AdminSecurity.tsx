@@ -1,565 +1,221 @@
-import { useState, useEffect } from 'react';
-import { Shield, Mail, Key, Download, RefreshCw, AlertTriangle, Check, Eye, EyeOff, Clock, Settings, CheckCircle2, Circle } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Shield, Mail, Key, Download, RefreshCw, AlertTriangle, Eye, EyeOff, Clock, Settings, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
-interface BackupCode {
-  code: string;
-  used: boolean;
-  created_at: string;
-  used_at?: string;
-}
+// Reusable Card Component
+const SecurityCard = ({ icon, title, description, children, badge, actions }) => (
+  <div className="bg-surface border border-border-subtle rounded-2xl shadow-ambient overflow-hidden">
+    <div className="p-6">
+      <div className="flex justify-between items-start gap-4">
+        <div className="flex items-start gap-4">
+          <div className="bg-background flex-shrink-0 rounded-full w-10 h-10 flex items-center justify-center">
+            {icon}
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+            {description && <p className="text-sm text-text-secondary mt-1">{description}</p>}
+          </div>
+        </div>
+        <div className="flex items-center gap-4 flex-shrink-0">
+          {badge}
+          {actions}
+        </div>
+      </div>
+    </div>
+    {children && <div className="px-6 pb-6 space-y-4">{children}</div>}
+  </div>
+);
 
-interface AuditLogEntry {
-  id: string;
-  action_type: string;
-  target_email: string;
-  details: any;
-  ip_address: string;
-  created_at: string;
-}
+// Reusable Input Component
+const FormInput = ({ id, label, ...props }) => (
+  <div>
+    <label htmlFor={id} className="block text-sm font-medium text-text-secondary mb-2">
+      {label}
+    </label>
+    <input
+      id={id}
+      className="w-full h-11 px-4 bg-background border border-border-subtle rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+      {...props}
+    />
+  </div>
+);
 
-interface IntegrationSettings {
-  email_enabled: boolean;
-  email_provider?: string;
-  email_configured?: boolean;
-  sms_enabled: boolean;
-  sms_provider?: string;
-  sms_configured?: boolean;
-}
-
+// Main Component
 export function AdminSecurity() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [recoveryEmail, setRecoveryEmail] = useState('');
-  const [securityQuestion, setSecurityQuestion] = useState('');
-  const [securityAnswer, setSecurityAnswer] = useState('');
-  const [backupCodes, setBackupCodes] = useState<BackupCode[]>([]);
+  const [formState, setFormState] = useState({ recoveryEmail: '', securityQuestion: '', securityAnswer: '' });
+  const [backupCodes, setBackupCodes] = useState([]);
   const [showCodes, setShowCodes] = useState(false);
-  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+  const [auditLog, setAuditLog] = useState([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [showIntegrations, setShowIntegrations] = useState(false);
-  const [integrations, setIntegrations] = useState<IntegrationSettings>({
-    email_enabled: false,
-    email_configured: false,
-    sms_enabled: false,
-    sms_configured: false,
-  });
 
-  useEffect(() => {
-    loadSecuritySettings();
-    if (user && user.email === 'shashkov.systemservice@gmail.com') {
-      loadAuditLog();
-    }
-  }, [user]);
-
-  const loadSecuritySettings = async () => {
+  const loadSecurityData = useCallback(async () => {
+    if (!user) return;
     try {
-      const { data, error } = await supabase
-        .from('companies')
-        .select('recovery_email, security_question, backup_codes')
-        .eq('id', user?.id)
-        .maybeSingle();
-
+      const { data, error } = await supabase.from('companies').select('recovery_email, security_question, backup_codes').eq('id', user.id).single();
       if (error) throw error;
       if (data) {
-        setRecoveryEmail(data.recovery_email || '');
-        setSecurityQuestion(data.security_question || '');
+        setFormState(prev => ({ ...prev, recoveryEmail: data.recovery_email || '', securityQuestion: data.security_question || '' }));
         setBackupCodes(data.backup_codes || []);
       }
-    } catch (error: any) {
-      console.error('Error loading security settings:', error);
-    }
-  };
+    } catch (err) { console.error('Error loading security settings:', err); }
+  }, [user]);
 
-  const loadAuditLog = async () => {
+  const loadAuditLog = useCallback(async () => {
+    if (!user || user.email !== 'shashkov.systemservice@gmail.com') return;
     try {
-      const { data, error } = await supabase
-        .from('admin_audit_log')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
+      const { data, error } = await supabase.from('admin_audit_log').select('*').order('created_at', { ascending: false }).limit(10);
       if (error) throw error;
       setAuditLog(data || []);
-    } catch (error: any) {
-      console.error('Error loading audit log:', error);
-    }
+    } catch (err) { console.error('Error loading audit log:', err); }
+  }, [user]);
+
+  useEffect(() => {
+    loadSecurityData();
+    loadAuditLog();
+  }, [loadSecurityData, loadAuditLog]);
+
+  const handleInputChange = (e) => {
+    const { id, value } = e.target;
+    setFormState(prev => ({ ...prev, [id]: value }));
   };
 
-  const saveSecuritySettings = async () => {
+  const saveSecuritySettings = async (e) => {
+    e.preventDefault();
     setLoading(true);
     setMessage(null);
-
     try {
-      const updates: any = {
-        recovery_email: recoveryEmail,
-        security_question: securityQuestion,
-      };
-
-      // Если введен ответ на секретный вопрос, хешируем его
-      if (securityAnswer) {
-        // В продакшене здесь должен быть настоящий хеш (bcrypt)
-        updates.security_answer_hash = btoa(securityAnswer);
+      const updates = { recovery_email: formState.recoveryEmail, security_question: formState.securityQuestion };
+      if (formState.securityAnswer) {
+        updates.security_answer_hash = btoa(formState.securityAnswer); // Placeholder for real hashing
       }
-
-      const { error } = await supabase
-        .from('companies')
-        .update(updates)
-        .eq('id', user?.id);
-
+      const { error } = await supabase.from('companies').update(updates).eq('id', user.id);
       if (error) throw error;
-
-      setMessage({ type: 'success', text: 'Настройки безопасности сохранены' });
-      setSecurityAnswer('');
-    } catch (error: any) {
-      setMessage({ type: 'error', text: error.message });
-    } finally {
-      setLoading(false);
-    }
+      setMessage({ type: 'success', text: 'Настройки безопасности сохранены.' });
+      setFormState(prev => ({ ...prev, securityAnswer: '' }));
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+    } finally { setLoading(false); }
   };
 
   const generateBackupCodes = async () => {
     setLoading(true);
     setMessage(null);
-
     try {
-      const { data, error } = await supabase.rpc('generate_backup_codes', {
-        company_uuid: user?.id,
-      });
-
+      const { data, error } = await supabase.rpc('generate_backup_codes', { company_uuid: user?.id });
       if (error) throw error;
-
       setBackupCodes(data || []);
       setShowCodes(true);
-      setMessage({
-        type: 'success',
-        text: 'Новые резервные коды созданы. Сохраните их в безопасном месте!',
-      });
-    } catch (error: any) {
-      setMessage({ type: 'error', text: error.message });
-    } finally {
-      setLoading(false);
-    }
+      setMessage({ type: 'success', text: 'Новые резервные коды успешно созданы.' });
+    } catch (err: any) { setMessage({ type: 'error', text: err.message }); } 
+    finally { setLoading(false); }
   };
 
   const downloadBackupCodes = () => {
-    const codesText = backupCodes
-      .map((c, i) => `${i + 1}. ${c.code} ${c.used ? '(использован)' : ''}`)
-      .join('\n');
-
-    const blob = new Blob(
-      [
-        `РЕЗЕРВНЫЕ КОДЫ ВОССТАНОВЛЕНИЯ\n` +
-        `Дата создания: ${new Date().toLocaleString('ru-RU')}\n\n` +
-        `${codesText}\n\n` +
-        `ВАЖНО:\n` +
-        `- Храните эти коды в безопасном месте\n` +
-        `- Каждый код можно использовать только один раз\n` +
-        `- После использования кода сгенерируйте новые коды\n`
-      ],
-      { type: 'text/plain' }
-    );
-
+    const codesText = backupCodes.map((c, i) => `${i + 1}. ${c.code}`).join('\n');
+    const blob = new Blob([`SurveyPro Backup Codes\nCreated: ${new Date().toLocaleString()}\n\n${codesText}`], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `backup-codes-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.download = `surveypro-backup-codes.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
-
-  const getActionLabel = (actionType: string) => {
-    const labels: Record<string, string> = {
-      grant_superadmin: 'Выдача прав суперадмина',
-      revoke_superadmin: 'Отзыв прав суперадмина',
-      block_company: 'Блокировка компании',
-      unblock_company: 'Разблокировка компании',
-      delete_company: 'Удаление компании',
-    };
-    return labels[actionType] || actionType;
-  };
-
-  const unusedCodesCount = backupCodes.filter((c) => !c.used).length;
-
-  const StatusBadge = ({ enabled }: { enabled: boolean }) => (
-    <span
-      className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${
-        enabled
-          ? 'bg-green-100 text-green-700'
-          : 'bg-gray-100 text-gray-600'
-      }`}
-    >
-      {enabled ? (
-        <>
-          <CheckCircle2 className="w-3 h-3" />
-          Работает
-        </>
-      ) : (
-        <>
-          <Circle className="w-3 h-3" />
-          Опционально
-        </>
-      )}
-    </span>
-  );
+  
+  const getActionLabel = (action) => ({ grant_superadmin: 'Права суперадмина выданы' }[action] || action);
 
   return (
-    <div className="max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-[#1F1F1F] mb-2">Безопасность</h1>
-        <p className="text-[#5F6368]">
-          Управление настройками безопасности и восстановления доступа
-        </p>
-      </div>
-
-      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <div className="flex items-start gap-3">
-          <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-800">
-            <p className="font-medium mb-2">Базовые функции работают без настройки</p>
-            <ul className="list-disc list-inside space-y-1 text-blue-700">
-              <li>Резервные коды можно скачать и хранить локально</li>
-              <li>Секретный вопрос работает для проверки личности</li>
-              {user && user.email === 'shashkov.systemservice@gmail.com' && (
-                <>
-                  <li>Журнал действий ведется автоматически</li>
-                  <li>Email и SMS-уведомления можно подключить позже</li>
-                </>
-              )}
-            </ul>
-          </div>
-        </div>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold text-text-primary">Безопасность</h1>
+        <p className="text-text-secondary mt-2">Управление настройками безопасности и восстановления доступа.</p>
       </div>
 
       {message && (
-        <div
-          className={`mb-6 p-4 rounded-lg border ${
-            message.type === 'success'
-              ? 'bg-green-50 border-green-200 text-green-700'
-              : 'bg-red-50 border-red-200 text-red-700'
-          }`}
-        >
+        <div className={`p-4 rounded-lg border-l-4 ${message.type === 'success' ? 'bg-green-500/10 border-green-500 text-green-700' : 'bg-red-500/10 border-red-500 text-red-700'}`}>
           {message.text}
         </div>
       )}
 
-      <div className="space-y-6">
-        <div className="bg-white rounded-xl border border-[#E8EAED] p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Mail className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-[#1F1F1F]">Резервный Email</h2>
-                <p className="text-sm text-[#5F6368]">
-                  Для восстановления доступа в случае потери основного email
-                </p>
-              </div>
-            </div>
-            <StatusBadge enabled={true} />
-          </div>
+      <form onSubmit={saveSecuritySettings} className="space-y-8">
+        <SecurityCard icon={<Mail className="w-5 h-5 text-primary" strokeWidth={1.5} />} title="Резервный Email" description="Для восстановления доступа в случае потери основного email.">
+          <FormInput id="recoveryEmail" label="Резервный email" type="email" placeholder="recovery@example.com" value={formState.recoveryEmail} onChange={handleInputChange} />
+        </SecurityCard>
 
+        <SecurityCard icon={<Shield className="w-5 h-5 text-primary" strokeWidth={1.5} />} title="Секретный вопрос" description="Дополнительный способ подтверждения личности.">
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-[#1F1F1F] mb-2">
-                Резервный email
-              </label>
-              <input
-                type="email"
-                value={recoveryEmail}
-                onChange={(e) => setRecoveryEmail(e.target.value)}
-                className="w-full h-11 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]"
-                placeholder="recovery@example.com"
-              />
-              <p className="mt-2 text-xs text-[#5F6368]">
-                {integrations.email_configured
-                  ? '✓ Email-уведомления настроены'
-                  : '⚠️ Email сохранится, но автоматические уведомления требуют настройки SMTP'}
-              </p>
-            </div>
+             <FormInput id="securityQuestion" label="Вопрос" type="text" placeholder="Например: Девичья фамилия матери" value={formState.securityQuestion} onChange={handleInputChange} />
+             <FormInput id="securityAnswer" label="Ответ" type="password" placeholder="Оставьте пустым, если не хотите менять ответ" value={formState.securityAnswer} onChange={handleInputChange} />
           </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-[#E8EAED] p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-[#1F1F1F]">Секретный вопрос</h2>
-                <p className="text-sm text-[#5F6368]">
-                  Дополнительный способ подтверждения личности
-                </p>
-              </div>
-            </div>
-            <StatusBadge enabled={true} />
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-[#1F1F1F] mb-2">
-                Вопрос
-              </label>
-              <input
-                type="text"
-                value={securityQuestion}
-                onChange={(e) => setSecurityQuestion(e.target.value)}
-                className="w-full h-11 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]"
-                placeholder="Например: Девичья фамилия матери"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-[#1F1F1F] mb-2">
-                Ответ
-              </label>
-              <input
-                type="password"
-                value={securityAnswer}
-                onChange={(e) => setSecurityAnswer(e.target.value)}
-                className="w-full h-11 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]"
-                placeholder="Введите ответ"
-              />
-              <p className="mt-1 text-xs text-[#5F6368]">
-                Оставьте пустым, если не хотите менять ответ
-              </p>
-            </div>
-          </div>
-        </div>
+        </SecurityCard>
 
         <div className="flex justify-end">
-          <button
-            onClick={saveSecuritySettings}
-            disabled={loading}
-            className="px-6 h-11 bg-[#1A73E8] text-white rounded-lg hover:bg-[#1557B0] transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Сохранение...' : 'Сохранить настройки'}
-          </button>
-        </div>
-
-        <div className="bg-white rounded-xl border border-[#E8EAED] p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                <Key className="w-5 h-5 text-amber-600" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-lg font-semibold text-[#1F1F1F]">Резервные коды</h2>
-                  <StatusBadge enabled={true} />
-                </div>
-                <p className="text-sm text-[#5F6368]">
-                  Одноразовые коды для восстановления доступа
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={generateBackupCodes}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 h-10 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Сгенерировать новые
+            <button type="submit" disabled={loading} className="h-11 px-6 inline-flex items-center justify-center bg-primary text-on-primary font-semibold rounded-lg shadow-sm hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                {loading ? <Loader2 className="animate-spin w-5 h-5" /> : 'Сохранить настройки'}
             </button>
-          </div>
-
-          {backupCodes.length > 0 && (
-            <>
-              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-amber-800">
-                  <p className="font-medium mb-1">Важно!</p>
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>Каждый код можно использовать только один раз</li>
-                    <li>Храните коды в безопасном месте (не в браузере)</li>
-                    <li>После использования всех кодов сгенерируйте новые</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="mb-4 flex items-center justify-between">
-                <div className="text-sm text-[#5F6368]">
-                  Доступно кодов: <span className="font-semibold text-[#1F1F1F]">{unusedCodesCount}</span> из {backupCodes.length}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowCodes(!showCodes)}
-                    className="flex items-center gap-2 px-3 h-9 border border-[#E8EAED] rounded-lg hover:bg-[#F8F9FA] transition-colors"
-                  >
-                    {showCodes ? (
-                      <>
-                        <EyeOff className="w-4 h-4" />
-                        Скрыть
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="w-4 h-4" />
-                        Показать
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={downloadBackupCodes}
-                    className="flex items-center gap-2 px-3 h-9 border border-[#E8EAED] rounded-lg hover:bg-[#F8F9FA] transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    Скачать
-                  </button>
-                </div>
-              </div>
-
-              {showCodes && (
-                <div className="grid grid-cols-2 gap-3">
-                  {backupCodes.map((code, index) => (
-                    <div
-                      key={index}
-                      className={`p-3 rounded-lg border-2 font-mono text-sm ${
-                        code.used
-                          ? 'bg-gray-50 border-gray-200 text-gray-400 line-through'
-                          : 'bg-blue-50 border-blue-200 text-blue-900'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold">{code.code}</span>
-                        {code.used && <Check className="w-4 h-4 text-gray-400" />}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {backupCodes.length === 0 && (
-            <div className="text-center py-8 text-[#5F6368]">
-              <Key className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>Резервные коды не созданы</p>
-              <p className="text-sm mt-1">Нажмите "Сгенерировать новые" для создания</p>
-            </div>
-          )}
         </div>
+      </form>
 
-        {user && user.email === 'shashkov.systemservice@gmail.com' && (
-          <>
-            <div className="bg-white rounded-xl border border-[#E8EAED] p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-slate-600" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-[#1F1F1F]">Журнал действий</h2>
-                    <p className="text-sm text-[#5F6368]">
-                      История всех критических действий администраторов
-                    </p>
-                  </div>
-                </div>
-                <StatusBadge enabled={true} />
-              </div>
-
-              <div className="space-y-3">
-                {auditLog.length > 0 ? (
-                  auditLog.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="p-4 border border-[#E8EAED] rounded-lg hover:bg-[#F8F9FA] transition-colors"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <span className="font-medium text-[#1F1F1F]">
-                          {getActionLabel(entry.action_type)}
-                        </span>
-                        <span className="text-xs text-[#5F6368]">
-                          {new Date(entry.created_at).toLocaleString('ru-RU')}
-                        </span>
-                      </div>
-                      <div className="text-sm text-[#5F6368]">
-                        <p>Email: {entry.target_email || 'N/A'}</p>
-                        {entry.details?.company_name && (
-                          <p>Компания: {entry.details.company_name}</p>
-                        )}
-                        {entry.ip_address && <p>IP: {entry.ip_address}</p>}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-[#5F6368]">
-                    <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <p>Журнал пуст</p>
-                  </div>
-                )}
-              </div>
+      <SecurityCard
+        icon={<Key className="w-5 h-5 text-primary" strokeWidth={1.5} />} 
+        title="Резервные коды"
+        description="Одноразовые коды для восстановления доступа."
+        actions={
+          <button onClick={generateBackupCodes} disabled={loading} className="h-10 px-4 inline-flex items-center justify-center bg-background border border-border-subtle text-text-primary font-medium rounded-lg shadow-sm hover:bg-surface transition-colors duration-200 disabled:opacity-50">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Сгенерировать
+          </button>
+        }>
+        {backupCodes.length === 0 ? (
+          <div className="text-center py-10 text-text-secondary">Резервные коды еще не созданы.</div>
+        ) : (
+          <div>
+            <div className="p-4 mb-4 bg-primary/10 border border-primary/20 rounded-lg flex items-start gap-3 text-sm text-primary/80">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div>Храните коды в безопасном месте. Каждый код можно использовать только один раз.</div>
             </div>
-
-            <div className="bg-white rounded-xl border border-[#E8EAED] p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <Settings className="w-5 h-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-[#1F1F1F]">Дополнительные интеграции</h2>
-                    <p className="text-sm text-[#5F6368]">
-                      Опциональные платные сервисы для расширенных возможностей
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowIntegrations(!showIntegrations)}
-                  className="text-sm text-[#1A73E8] hover:underline"
-                >
-                  {showIntegrations ? 'Скрыть' : 'Настроить'}
-                </button>
-              </div>
-
-              {showIntegrations && (
-                <div className="space-y-4 pt-4 border-t border-[#E8EAED]">
-                  <div className="p-4 bg-[#F8F9FA] rounded-lg">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="font-medium text-[#1F1F1F] mb-1">Email-уведомления</h3>
-                        <p className="text-sm text-[#5F6368]">
-                          Автоматическая отправка писем для восстановления доступа
-                        </p>
-                      </div>
-                      <StatusBadge enabled={integrations.email_configured || false} />
-                    </div>
-                    <div className="text-xs text-[#5F6368] space-y-1">
-                      <p>Требуется: SMTP-сервер (Gmail, SendGrid, Resend)</p>
-                      <p className="text-amber-700">💡 Без настройки коды можно скачать вручную</p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-[#F8F9FA] rounded-lg">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="font-medium text-[#1F1F1F] mb-1">SMS-уведомления</h3>
-                        <p className="text-sm text-[#5F6368]">
-                          Отправка кодов восстановления по SMS
-                        </p>
-                      </div>
-                      <StatusBadge enabled={integrations.sms_configured || false} />
-                    </div>
-                    <div className="text-xs text-[#5F6368] space-y-1">
-                      <p>Требуется: Twilio или аналогичный SMS-провайдер</p>
-                      <p className="text-amber-700">💡 Опционально для дополнительной защиты</p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-800">
-                      <strong>Совет:</strong> Начните с базовых функций (резервные коды + секретный вопрос).
-                      Платные интеграции можно подключить позже, когда понадобится автоматизация.
-                    </p>
-                  </div>
-                </div>
-              )}
+            <div className="flex justify-end gap-2 mb-4">
+              <button onClick={() => setShowCodes(!showCodes)} className="h-9 px-3 inline-flex items-center justify-center bg-background border border-border-subtle text-text-secondary font-medium rounded-lg hover:bg-surface transition-colors duration-200">
+                {showCodes ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />} {showCodes ? 'Скрыть' : 'Показать'}
+              </button>
+              <button onClick={downloadBackupCodes} className="h-9 px-3 inline-flex items-center justify-center bg-background border border-border-subtle text-text-secondary font-medium rounded-lg hover:bg-surface transition-colors duration-200">
+                <Download className="w-4 h-4 mr-2" /> Скачать
+              </button>
             </div>
-          </>
+            {showCodes && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {backupCodes.map((code, index) => (
+                  <div key={index} className={`p-3 rounded-lg font-mono text-sm flex justify-between items-center ${code.used ? 'bg-surface text-text-secondary line-through' : 'bg-background text-text-primary'}`}>
+                    <span>{code.code}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
-      </div>
+      </SecurityCard>
+
+      {user && user.email === 'shashkov.systemservice@gmail.com' && (
+        <SecurityCard icon={<Clock className="w-5 h-5 text-primary" strokeWidth={1.5} />} title="Журнал действий" description="История критических действий администраторов.">
+           {auditLog.length > 0 ? (
+              <ul className="space-y-2">
+                {auditLog.map(entry => (
+                   <li key={entry.id} className="flex justify-between items-center p-3 rounded-lg hover:bg-background">
+                     <div>
+                        <p className="font-medium text-text-primary">{getActionLabel(entry.action_type)}</p>
+                        <p className="text-sm text-text-secondary">{entry.target_email || 'N/A'} - {entry.ip_address}</p>
+                     </div>
+                     <p className="text-xs text-text-secondary">{new Date(entry.created_at).toLocaleString()}</p>
+                   </li>
+                ))}
+              </ul>
+           ) : (
+             <div className="text-center py-10 text-text-secondary">Журнал действий пуст.</div>
+           )}
+        </SecurityCard>
+      )}
     </div>
   );
 }

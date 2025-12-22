@@ -5,25 +5,46 @@ import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { AiSurveyModal } from '../components/AiSurveyModal';
-import { Plus, Trash2, Download, UploadCloud } from 'lucide-react';
-import ExcelJS from 'exceljs';
+import { Plus, Trash2, Settings2, GripVertical, ArrowLeft, Save, Sparkles, AlertTriangle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
+// --- Interfaces & Types ---
 export interface LocalQuestion {
-  id: string; 
+  id: string;
   text: string;
   type: 'text' | 'number' | 'email' | 'rating' | 'choice';
   required: boolean;
   options: string[];
 }
 
+// --- Styled Components ---
+const FormInput = ({ id, label, value, onChange, placeholder, as = 'input', rows = 3 }) => (
+    <div>
+        <label htmlFor={id} className="block text-sm font-medium text-text-secondary mb-1.5">{label}</label>
+        {as === 'textarea' ? (
+            <textarea id={id} value={value} onChange={onChange} placeholder={placeholder} rows={rows} className="w-full p-3 bg-background border border-border-subtle rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors" />
+        ) : (
+            <input type="text" id={id} value={value} onChange={onChange} placeholder={placeholder} className="w-full h-11 p-3 bg-background border border-border-subtle rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors" />
+        )}
+    </div>
+);
+
+const ActionButton = ({ onClick, children, variant = 'primary', disabled = false, loading = false }) => {
+    const variants = {
+        primary: 'bg-primary text-on-primary hover:bg-primary/90 focus:ring-primary',
+        secondary: 'bg-surface border border-border-subtle hover:bg-background text-text-primary focus:ring-primary',
+        special: 'bg-gradient-to-r from-violet-500 to-purple-500 text-white hover:opacity-90 focus:ring-violet-500'
+    };
+    return <button onClick={onClick} disabled={disabled || loading} className={`h-10 px-5 inline-flex items-center justify-center font-semibold text-sm rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 ${variants[variant]}`}>{loading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-on-primary"></div> : children}</button>;
+};
+
+// --- Main Page Component ---
 const CreateSurvey = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [surveyBasis, setSurveyBasis] = useState(''); // Новое состояние
   const [isInteractive, setIsInteractive] = useState(false);
   const [questions, setQuestions] = useState<LocalQuestion[]>([]);
   
@@ -33,32 +54,10 @@ const CreateSurvey = () => {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   useEffect(() => {
-    const fetchCompany = async () => {
-      if (user) {
-        setLoading(true);
-        try {
-          const { data: company, error: companyError } = await supabase
-            .from('companies')
-            .select('id')
-            .eq('id', user.id)
-            .single();
-
-          if (companyError) throw companyError;
-          if (company) setCompanyId(company.id);
-            
-        } catch (err: any) {
-          console.error('Error fetching company info:', err);
-          setError(`Не удалось получить информацию о компании: ${err.message}`);
-        } finally {
-          setLoading(false);
-        }
-      }
-    };
-    fetchCompany();
+    if (user) setCompanyId(user.id);
   }, [user]);
 
   const handleOpenAiModal = () => setIsAiModalOpen(true);
-
   const handleAcceptAiSurvey = (aiQuestions: Omit<LocalQuestion, 'id'>[], topic: string, interactive: boolean, desc: string) => {
     setTitle(topic);
     setDescription(desc);
@@ -67,292 +66,130 @@ const CreateSurvey = () => {
     setIsAiModalOpen(false);
   };
 
-  const addQuestion = () => {
-    const newQuestion: LocalQuestion = {
-      id: crypto.randomUUID(),
-      text: '',
-      type: 'text',
-      required: true,
-      options: []
-    };
-    setQuestions([...questions, newQuestion]);
-  };
-
-  const removeQuestion = (id: string) => {
-    setQuestions(questions.filter(q => q.id !== id));
-  };
-  
-  const updateQuestion = (id: string, field: keyof LocalQuestion, value: any) => {
-    setQuestions(questions.map(q => (q.id === id ? { ...q, [field]: value } : q)));
-  };
-  
-  const addOption = (questionId: string) => {
-    setQuestions(questions.map(q => {
-        if (q.id === questionId) {
-            return { ...q, options: [...q.options, ''] };
-        }
-        return q;
-    }));
-  }
-
-  const removeOption = (questionId: string, optionIndex: number) => {
-      setQuestions(questions.map(q => {
-          if (q.id === questionId) {
-              const newOptions = q.options.filter((_, i) => i !== optionIndex);
-              return { ...q, options: newOptions };
-          }
-          return q;
-      }));
-  }
-
-  const updateOption = (questionId: string, optionIndex: number, value: string) => {
-      setQuestions(questions.map(q => {
-          if (q.id === questionId) {
-              const newOptions = [...q.options];
-              newOptions[optionIndex] = value;
-              return { ...q, options: newOptions };
-          }
-          return q;
-      }));
-  }
-
-  const handleDownloadTemplate = async () => {
-    // ... (код без изменений)
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    // ... (код без изменений)
-  };
+  const addQuestion = () => setQuestions([...questions, { id: crypto.randomUUID(), text: '', type: 'text', required: true, options: [] }]);
+  const removeQuestion = (id: string) => setQuestions(questions.filter(q => q.id !== id));
+  const updateQuestion = (id: string, field: keyof LocalQuestion, value: any) => setQuestions(questions.map(q => (q.id === id ? { ...q, [field]: value } : q)));
 
   const handleSaveSurvey = async () => {
-    if (!title.trim()) {
-      setError('Название опроса не может быть пустым.');
-      return;
-    }
-     if (questions.length === 0) {
-      setError('Добавьте хотя бы один вопрос.');
-      return;
-    }
-    if (!companyId) {
-      setError('Не удалось определить ID компании. Невозможно создать опрос.');
-      return;
-    }
+    if (!title.trim()) { setError('Название опроса не может быть пустым.'); return; }
+    if (questions.length === 0) { setError('Добавьте хотя бы один вопрос.'); return; }
+    if (!companyId) { setError('Не удалось определить ID компании.'); return; }
 
     setLoading(true);
     setError(null);
 
     try {
-      const { data: surveyData, error: surveyError } = await supabase
-        .from('survey_templates')
-        .insert([{
-          title: title,
-          description: description,
-          survey_basis: surveyBasis, // Добавляем новое поле
-          company_id: companyId,
-          is_interactive: isInteractive,
-          is_active: true, 
-          unique_code: `${Date.now()}${Math.random().toString(36).substring(2, 9)}`
-        }])
-        .select()
-        .single();
-
+      const { data: survey, error: surveyError } = await supabase.from('survey_templates').insert([{ title, description, company_id: companyId, is_interactive: isInteractive, is_active: true }]).select().single();
       if (surveyError) throw surveyError;
-      if (!surveyData) throw new Error('Не удалось создать шаблон опроса.');
 
-      const surveyId = surveyData.id;
-
-      const questionsToInsert = questions.map((q, index) => ({
-        survey_template_id: surveyId,
-        question_text: q.text,
-        question_type: q.type,
-        is_required: q.required,
-        question_order: index + 1,
-        choice_options: (q.type === 'choice' && q.options.length > 0) ? q.options : null,
-      }));
-
-      const { error: questionsError } = await supabase
-        .from('question_templates')
-        .insert(questionsToInsert);
-
+      const questionsToInsert = questions.map((q, i) => ({ survey_template_id: survey.id, question_text: q.text, question_type: q.type, is_required: q.required, question_order: i + 1, choice_options: q.type === 'choice' ? q.options : null }));
+      const { error: questionsError } = await supabase.from('question_templates').insert(questionsToInsert);
+      
       if (questionsError) {
-        await supabase.from('survey_templates').delete().eq('id', surveyId);
+        await supabase.from('survey_templates').delete().eq('id', survey.id); // Rollback
         throw questionsError;
       }
-
       navigate('/dashboard');
-
-    } catch (err: any) {
-      console.error('Error saving survey:', err);
-      setError(`Ошибка при сохранении опроса: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { setError(`Ошибка сохранения: ${err.message}`); }
+    finally { setLoading(false); }
   };
 
   return (
     <DashboardLayout>
-      <main className="flex-grow container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6">
-            <h1 className="text-3xl font-bold text-[#1F1F1F]">Создать опрос</h1>
-            <div className="flex gap-2 mt-4 sm:mt-0">
-                <button
-                    onClick={handleOpenAiModal}
-                    disabled={loading || !companyId}
-                    className="flex items-center justify-center gap-2 h-11 px-6 bg-green-600 text-white font-semibold rounded-full hover:bg-green-700 transition-colors disabled:bg-gray-400"
-                >
-                    Сгенерировать с AI
-                </button>
-                <button
-                    onClick={handleSaveSurvey}
-                    disabled={loading || !companyId || questions.length === 0}
-                    className="flex items-center justify-center gap-2 h-11 px-6 bg-[#1A73E8] text-white font-semibold rounded-full hover:bg-[#1557B0] transition-colors disabled:bg-gray-400"
-                >
-                    {loading ? 'Сохранение...' : 'Сохранить опрос'}
-                </button>
+      <div className="max-w-4xl mx-auto py-8 px-4">
+        <header className="mb-8">
+          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-text-secondary hover:text-primary mb-4 transition-colors">
+            <ArrowLeft size={18}/> Назад ко всем опросам
+          </button>
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <h1 className="text-3xl font-bold text-text-primary">Создание опроса</h1>
+            <div className="flex gap-2">
+              <ActionButton onClick={handleOpenAiModal} variant='special' disabled={loading}><Sparkles className="w-4 h-4 mr-2"/>Сгенерировать с AI</ActionButton>
+              <ActionButton onClick={handleSaveSurvey} loading={loading} disabled={!companyId || questions.length === 0}><Save className="w-4 h-4 mr-2"/>Сохранить</ActionButton>
             </div>
           </div>
-          
-          {error && (
-            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md my-4" role="alert">
-              <p className="font-bold">Ошибка</p>
-              <p>{error}</p>
-            </div>
-          )}
+          {error && <div className="mt-4 bg-red-100/60 border border-red-500/50 text-red-700 p-3 rounded-lg flex items-center gap-3"><AlertTriangle size={20}/> <span className="text-sm">{error}</span></div>}
+        </header>
 
-          <div className="bg-white p-8 rounded-2xl border border-[#E8EAED] shadow-sm mb-6">
-            <div className="mb-6">
-              <label htmlFor="surveyTitle" className="block text-lg font-medium text-[#1F1F1F] mb-2">Название</label>
-              <input
-                type="text"
-                id="surveyTitle"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full h-12 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]"
-                placeholder="Напр., 'Ежегодный опрос вовлеченности'"
-              />
-            </div>
-            <div className="mb-6">
-              <label htmlFor="surveyDescription" className="block text-lg font-medium text-[#1F1F1F] mb-2">Описание (опционально)</label>
-              <textarea
-                id="surveyDescription"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-4 py-3 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]"
-                rows={3}
-                placeholder="Краткое пояснение для получателей опроса"
-              />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="surveyBasis" className="block text-lg font-medium text-[#1F1F1F] mb-2">Основание для опроса (опционально)</label>
-              <textarea
-                id="surveyBasis"
-                value={surveyBasis}
-                onChange={(e) => setSurveyBasis(e.target.value)}
-                className="w-full px-4 py-3 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]"
-                rows={2}
-                placeholder="Напр., 'Внутренняя политика компании от 15.03.2024'"
-              />
-            </div>
-             <div className="flex items-center">
-                <input
-                    id="isInteractive"
-                    type="checkbox"
-                    checked={isInteractive}
-                    onChange={(e) => setIsInteractive(e.target.checked)}
-                    className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="isInteractive" className="ml-3 block text-md font-medium text-gray-700">
-                    Интерактивный чат-режим
-                </label>
-            </div>
-          </div>
-          
-          {questions.map((q, index) => (
-            <div key={q.id} className="bg-white p-6 rounded-2xl border border-[#E8EAED] shadow-sm mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <input
-                  type="text"
-                  value={q.text}
-                  onChange={(e) => updateQuestion(q.id, 'text', e.target.value)}
-                  placeholder={`Вопрос ${index + 1}`}
-                  className="w-full text-xl font-semibold focus:outline-none bg-transparent"
-                />
-                <button onClick={() => removeQuestion(q.id)} className="text-gray-400 hover:text-red-500 transition-colors p-2">
-                  <Trash2 size={20} />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#E8EAED]">
-                <select
-                  value={q.type}
-                  onChange={(e) => updateQuestion(q.id, 'type', e.target.value)}
-                  className="h-10 px-3 border border-[#E8EAED] rounded-lg bg-gray-50 focus:outline-none focus:border-[#1A73E8]"
-                >
-                  <option value="text">Текст</option>
-                  <option value="number">Число</option>
-                  <option value="email">Email</option>
-                  <option value="rating">Рейтинг (1-10)</option>
-                  <option value="choice">Выбор варианта</option>
-                </select>
-                <div className="flex items-center gap-2">
-                  <label htmlFor={`required-${q.id}`} className="text-sm font-medium text-gray-600">Обязательный</label>
-                  <input
-                    id={`required-${q.id}`}
-                    type="checkbox"
-                    checked={q.required}
-                    onChange={(e) => updateQuestion(q.id, 'required', e.target.checked)}
-                    className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {q.type === 'choice' && (
-                <div className="mt-4 pt-4 border-t border-[#E8EAED]">
-                   <h3 className="text-sm font-medium text-gray-600 mb-2">Варианты ответа</h3>
-                  {q.options.map((opt, optIndex) => (
-                    <div key={optIndex} className="flex items-center mb-2">
-                      <input
-                        type="text"
-                        value={opt}
-                        onChange={(e) => updateOption(q.id, optIndex, e.target.value)}
-                        placeholder={`Вариант ${optIndex + 1}`}
-                        className="w-full h-10 px-3 border-b border-[#E8EAED] focus:outline-none focus:border-b-2 focus:border-[#1A73E8] bg-transparent"
-                      />
-                      <button onClick={() => removeOption(q.id, optIndex)} className="ml-2 text-gray-400 hover:text-red-500 p-1">
-                        <Trash2 size={16} />
-                      </button>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-surface p-6 sm:p-8 rounded-2xl border border-border-subtle shadow-ambient mb-8">
+            <div className="space-y-6">
+                <FormInput id="title" label="Название опроса" value={title} onChange={e => setTitle(e.target.value)} placeholder="Напр., Ежегодный опрос вовлеченности" />
+                <FormInput id="description" label="Описание (опционально)" value={description} onChange={e => setDescription(e.target.value)} placeholder="Краткое пояснение для получателей" as="textarea" />
+                <div className="flex items-start gap-3 pt-2">
+                    <input id="isInteractive" type="checkbox" checked={isInteractive} onChange={e => setIsInteractive(e.target.checked)} className="h-5 w-5 mt-0.5 rounded border-gray-400 text-primary focus:ring-primary/50" />
+                    <div>
+                         <label htmlFor="isInteractive" className="font-medium text-text-primary">Интерактивный чат-режим</label>
+                         <p className="text-sm text-text-secondary mt-1">Вопросы будут задаваться по одному в формате диалога.</p>
                     </div>
-                  ))}
-                  <button onClick={() => addOption(q.id)} className="text-sm font-semibold text-[#1A73E8] hover:underline mt-2">
-                    Добавить вариант
-                  </button>
                 </div>
-              )}
             </div>
-          ))}
+        </motion.div>
 
-          <div className="flex justify-center mt-6">
-              <button
-                  onClick={addQuestion}
-                  className="flex items-center justify-center gap-2 h-11 px-6 bg-gray-100 text-gray-700 font-semibold rounded-full hover:bg-gray-200 transition-colors border border-dashed border-gray-400"
-              >
-                  <Plus size={20} />
-                  Добавить вопрос
-              </button>
-          </div>
+        <AnimatePresence>
+        {questions.map((q, index) => (
+          <QuestionEditor key={q.id} question={q} index={index} update={updateQuestion} remove={removeQuestion} />
+        ))}
+        </AnimatePresence>
 
+        <div className="mt-6 flex justify-center">
+            <ActionButton onClick={addQuestion} variant='secondary'><Plus size={16} className="mr-2"/>Добавить вопрос</ActionButton>
         </div>
-      </main>
+      </div>
 
-      {isAiModalOpen && companyId && (
-        <AiSurveyModal
-          onClose={() => setIsAiModalOpen(false)}
-          onGenerate={handleAcceptAiSurvey}
-        />
-      )}
+      {isAiModalOpen && companyId && <AiSurveyModal onClose={() => setIsAiModalOpen(false)} onGenerate={handleAcceptAiSurvey} />}
     </DashboardLayout>
   );
 };
+
+// --- Question Editor Component ---
+const QuestionEditor = ({ question, index, update, remove }) => {
+    const addOption = () => update(question.id, 'options', [...question.options, '']);
+    const updateOption = (optIndex, value) => {
+        const newOptions = [...question.options];
+        newOptions[optIndex] = value;
+        update(question.id, 'options', newOptions);
+    };
+    const removeOption = (optIndex) => update(question.id, 'options', question.options.filter((_, i) => i !== optIndex));
+
+    return (
+        <motion.div layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.3, ease: 'easeInOut' }} className="bg-surface p-6 rounded-2xl border border-border-subtle shadow-ambient mb-6">
+            <div className="flex items-start gap-4">
+                <GripVertical className="w-5 h-5 text-text-secondary mt-2 cursor-grab"/>
+                <div className="w-full">
+                    <input type="text" value={question.text} onChange={e => update(question.id, 'text', e.target.value)} placeholder={`Вопрос ${index + 1}`} className="w-full text-lg font-semibold bg-transparent focus:outline-none focus:text-primary"/>
+                    <div className="flex flex-col sm:flex-row gap-4 mt-4 pt-4 border-t border-border-subtle">
+                        <select value={question.type} onChange={e => update(question.id, 'type', e.target.value)} className="h-10 w-full sm:w-48 px-3 border border-border-subtle rounded-lg bg-background focus:outline-none focus:border-primary text-sm">
+                            <option value="text">Текст</option>
+                            <option value="number">Число</option>
+                            <option value="email">Email</option>
+                            <option value="rating">Рейтинг (1-10)</option>
+                            <option value="choice">Выбор варианта</option>
+                        </select>
+                        <div className="flex items-center gap-2">
+                            <input id={`req-${question.id}`} type="checkbox" checked={question.required} onChange={e => update(question.id, 'required', e.target.checked)} className="h-4 w-4 rounded border-gray-400 text-primary focus:ring-primary/50"/>
+                            <label htmlFor={`req-${question.id}`} className="text-sm font-medium text-text-secondary">Обязательный</label>
+                        </div>
+                    </div>
+                </div>
+                <button onClick={() => remove(question.id)} className="text-text-secondary hover:text-red-500 transition-colors p-2"><Trash2 size={18} /></button>
+            </div>
+
+            {question.type === 'choice' && (
+                <div className="mt-4 pt-4 pl-9 border-t border-border-subtle">
+                    <h3 className="text-sm font-medium text-text-secondary mb-3">Варианты ответа</h3>
+                    <div className="space-y-2">
+                    {question.options.map((opt, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                            <input type="text" value={opt} onChange={e => updateOption(i, e.target.value)} placeholder={`Вариант ${i + 1}`} className="w-full h-10 px-3 border-b-2 border-border-subtle focus:outline-none focus:border-primary bg-transparent"/>
+                            <button onClick={() => removeOption(i)} className="p-1 text-text-secondary hover:text-red-500"><Trash2 size={16} /></button>
+                        </div>
+                    ))}
+                    </div>
+                    <button onClick={addOption} className="text-sm font-semibold text-primary hover:underline mt-3">+ Добавить вариант</button>
+                </div>
+            )}
+        </motion.div>
+    )
+}
 
 export default CreateSurvey;

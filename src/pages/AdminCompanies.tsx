@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { AdminLayout } from '../components/AdminLayout';
 import { supabase } from '../lib/supabase';
-import { Search, Settings, Copy, Trash2, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Search, Settings, Copy, Trash2, Lock, AlertCircle, CheckCircle, Loader2, X, ShieldCheck, Building, Mail } from 'lucide-react';
 
 interface Company {
   id: string;
@@ -20,8 +19,6 @@ export function AdminCompanies() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [tempPassword, setTempPassword] = useState('');
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [newPlan, setNewPlan] = useState('');
 
@@ -46,15 +43,10 @@ export function AdminCompanies() {
             .select('*', { count: 'exact' })
             .eq('company_id', company.id);
 
-          const { count: responseCount } = await supabase
-            .from('survey_submissions')
-            .select('*', { count: 'exact' })
-            .eq('survey_template_id', supabase.from('survey_templates').select('id').eq('company_id', company.id));
-
           return {
             ...company,
             survey_count: surveyCount || 0,
-            response_count: 0,
+            response_count: 0, // Placeholder
           };
         })
       );
@@ -69,12 +61,7 @@ export function AdminCompanies() {
 
   const showToast = (type: 'success' | 'error', message: string) => {
     setToast({ type, message });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const generateTempPassword = () => {
-    const pass = Math.random().toString(36).slice(-8);
-    setTempPassword(pass);
+    setTimeout(() => setToast(null), 4000);
   };
 
   const handleBlockCompany = async (companyId: string, isBlocked: boolean) => {
@@ -83,15 +70,11 @@ export function AdminCompanies() {
         .from('companies')
         .update({ is_blocked: !isBlocked })
         .eq('id', companyId);
-
       if (error) throw error;
 
-      setCompanies(
-        companies.map((c) =>
-          c.id === companyId ? { ...c, is_blocked: !isBlocked } : c
-        )
-      );
-      showToast('success', 'Статус обновлен');
+      setCompanies(companies.map((c) => (c.id === companyId ? { ...c, is_blocked: !isBlocked } : c)));
+      showToast('success', `Компания ${isBlocked ? 'разблокирована' : 'заблокирована'}`);
+      setShowModal(false);
     } catch (err: any) {
       showToast('error', err.message);
     }
@@ -105,37 +88,26 @@ export function AdminCompanies() {
         .from('companies')
         .update({ subscription_plan: newPlan })
         .eq('id', selectedCompany.id);
-
       if (error) throw error;
 
-      setCompanies(
-        companies.map((c) =>
-          c.id === selectedCompany.id
-            ? { ...c, subscription_plan: newPlan }
-            : c
-        )
-      );
+      setCompanies(companies.map((c) => (c.id === selectedCompany.id ? { ...c, subscription_plan: newPlan } : c)));
       setShowModal(false);
-      showToast('success', 'План обновлен');
+      showToast('success', 'Тарифный план компании обновлен');
     } catch (err: any) {
       showToast('error', err.message);
     }
   };
 
   const handleDeleteCompany = async (companyId: string) => {
-    if (!confirm('Это удалит ВСЕ данные компании. Вы уверены?')) return;
+    if (!window.confirm('Вы уверены, что хотите удалить эту компанию? Это действие необратимо и приведет к удалению всех связанных данных (опросов, ответов, контактов).')) return;
 
     try {
-      const { error } = await supabase
-        .from('companies')
-        .delete()
-        .eq('id', companyId);
-
+      const { error } = await supabase.rpc('delete_company_by_id', { company_id_to_delete: companyId });
       if (error) throw error;
 
       setCompanies(companies.filter((c) => c.id !== companyId));
       setShowModal(false);
-      showToast('success', 'Компания удалена');
+      showToast('success', 'Компания и все ее данные были удалены');
     } catch (err: any) {
       showToast('error', err.message);
     }
@@ -148,233 +120,152 @@ export function AdminCompanies() {
   );
 
   return (
-    <AdminLayout>
-      <div>
-        <div className="mb-6">
-          <h2 className="text-2xl font-semibold text-[#1F1F1F] mb-2">
-            Управление компаниями ({companies.length})
-          </h2>
-          <p className="text-[#5F6368]">Управление всеми компаниями и их подписками</p>
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-text-primary">Управление компаниями</h1>
+          <p className="text-text-secondary mt-2">
+            Найдено компаний: {filteredCompanies.length}
+          </p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-[#E8EAED] p-6">
-          <div className="mb-6 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5F6368]" strokeWidth={2} />
-            <input
-              type="text"
-              placeholder="Поиск по названию или email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-12 pl-12 pr-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]"
-            />
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-secondary" />
+          <input
+            type="text"
+            placeholder="Поиск по названию или email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full h-12 pl-12 pr-4 bg-surface border border-border-subtle rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <Loader2 className="animate-spin h-10 w-10 text-primary" />
           </div>
-
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border border-[#1A73E8] border-t-transparent mx-auto mb-4"></div>
-              <p className="text-[#5F6368]">Загрузка...</p>
-            </div>
-          ) : filteredCompanies.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-[#5F6368]">Компании не найдены</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[#E8EAED]">
-                    <th className="text-left py-3 px-4 font-semibold text-[#1F1F1F]">Компания</th>
-                    <th className="text-left py-3 px-4 font-semibold text-[#1F1F1F]">Email</th>
-                    <th className="text-left py-3 px-4 font-semibold text-[#1F1F1F]">План</th>
-                    <th className="text-left py-3 px-4 font-semibold text-[#1F1F1F]">Статус</th>
-                    <th className="text-left py-3 px-4 font-semibold text-[#1F1F1F]"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCompanies.map((company) => (
-                    <tr key={company.id} className="border-b border-[#E8EAED] hover:bg-[#F8F9FA]">
-                      <td className="py-3 px-4">
-                        <p className="font-medium text-[#1F1F1F]">{company.name}</p>
-                        <p className="text-sm text-[#5F6368]">
-                          {new Date(company.created_at).toLocaleDateString('ru-RU')}
-                        </p>
-                      </td>
-                      <td className="py-3 px-4 text-[#5F6368]">{company.email}</td>
-                      <td className="py-3 px-4">
-                        <span className="px-3 py-1 bg-[#E8F0FE] text-[#1A73E8] rounded-full text-sm font-medium">
-                          {company.subscription_plan}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        {company.is_blocked ? (
-                          <span className="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm font-medium flex items-center gap-1 w-fit">
-                            <Lock className="w-4 h-4" /> Заблокирована
-                          </span>
-                        ) : (
-                          <span className="px-3 py-1 bg-green-50 text-green-600 rounded-full text-sm font-medium">
-                            Активна
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => {
-                            setSelectedCompany(company);
-                            setNewPlan(company.subscription_plan);
-                            setShowModal(true);
-                          }}
-                          className="p-2 hover:bg-[#E8EAED] rounded-lg transition-colors"
-                        >
-                          <Settings className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Management Modal */}
-      {showModal && selectedCompany && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center px-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-[#1F1F1F] mb-4">
-              Управление компанией
-            </h3>
-
-            <div className="space-y-4 mb-6">
-              <div>
-                <p className="text-sm text-[#5F6368] mb-1">Название</p>
-                <p className="font-medium text-[#1F1F1F]">{selectedCompany.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-[#5F6368] mb-1">Email</p>
-                <p className="font-medium text-[#1F1F1F]">{selectedCompany.email}</p>
-              </div>
-              <div>
-                <p className="text-sm text-[#5F6368] mb-1">Дата регистрации</p>
-                <p className="font-medium text-[#1F1F1F]">
-                  {new Date(selectedCompany.created_at).toLocaleDateString('ru-RU')}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-[#5F6368] mb-1">Опросов создано</p>
-                <p className="font-medium text-[#1F1F1F]">{selectedCompany.survey_count || 0}</p>
-              </div>
-              <div>
-                <label className="block text-sm text-[#5F6368] mb-2">План подписки</label>
-                <select
-                  value={newPlan}
-                  onChange={(e) => setNewPlan(e.target.value)}
-                  className="w-full h-10 px-3 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]"
-                >
-                  <option value="Free">Free</option>
-                  <option value="Starter">Starter</option>
-                  <option value="Pro">Pro</option>
-                  <option value="Enterprise">Enterprise</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <button
-                onClick={generateTempPassword}
-                className="w-full h-10 bg-[#1A73E8] text-white rounded-lg font-medium hover:bg-[#1557B0] transition-colors"
-              >
-                Сбросить пароль
-              </button>
-              <button
-                onClick={handleChangePlan}
-                className="w-full h-10 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
-              >
-                Изменить план
-              </button>
-              <button
-                onClick={() => handleBlockCompany(selectedCompany.id, selectedCompany.is_blocked)}
-                className={`w-full h-10 rounded-lg font-medium transition-colors ${
-                  selectedCompany.is_blocked
-                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                    : 'bg-red-100 text-red-700 hover:bg-red-200'
-                }`}
-              >
-                {selectedCompany.is_blocked ? 'Разблокировать' : 'Заблокировать'}
-              </button>
-              <button
-                onClick={() => handleDeleteCompany(selectedCompany.id)}
-                className="w-full h-10 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" /> Удалить компанию
-              </button>
-            </div>
-
-            <button
-              onClick={() => setShowModal(false)}
-              className="w-full h-10 border border-[#E8EAED] rounded-lg font-medium text-[#1F1F1F] hover:bg-[#F8F9FA] transition-colors mt-4"
-            >
-              Закрыть
-            </button>
+        ) : filteredCompanies.length === 0 ? (
+          <div className="text-center py-20 rounded-xl bg-surface border border-border-subtle">
+            <p className="text-text-secondary">Компании не найдены</p>
           </div>
-        </div>
-      )}
-
-      {/* Password Modal */}
-      {showPasswordModal && tempPassword && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center px-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" strokeWidth={2} />
-            <h3 className="text-lg font-semibold text-[#1F1F1F] mb-4">Временный пароль</h3>
-            <p className="text-sm text-[#5F6368] mb-4">
-              Скопируйте и отправьте пользователю:
-            </p>
-            <div className="bg-[#F8F9FA] p-4 rounded-lg mb-4 flex items-center gap-2">
-              <code className="flex-1 font-mono font-bold text-[#1A73E8] text-lg">
-                {tempPassword}
-              </code>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(tempPassword);
-                  showToast('success', 'Скопировано');
-                }}
-                className="p-2 hover:bg-white rounded transition-colors"
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredCompanies.map((company) => (
+              <div 
+                key={company.id} 
+                className="bg-surface rounded-2xl border border-border-subtle shadow-ambient p-6 flex flex-col justify-between transition-shadow hover:shadow-lg"
               >
-                <Copy className="w-5 h-5 text-[#1A73E8]" strokeWidth={2} />
-              </button>
-            </div>
-            <button
-              onClick={() => {
-                setShowPasswordModal(false);
-                setTempPassword('');
-              }}
-              className="w-full h-10 bg-[#1A73E8] text-white rounded-lg font-medium hover:bg-[#1557B0] transition-colors"
-            >
-              Готово
-            </button>
-          </div>
-        </div>
-      )}
+                <div>
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="font-semibold text-lg text-text-primary flex items-center gap-2">
+                       <Building className="w-5 h-5 text-text-secondary"/>
+                       {company.name}
+                    </div>
+                    {company.is_blocked ? (
+                      <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> Заблокирована
+                      </span>
+                    ) : (
+                       <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3" /> Активна
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="text-sm text-text-secondary space-y-3 mb-6">
+                      <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4"/>
+                           {company.email}
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <span className="font-medium text-text-primary">Тариф:</span>
+                          <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-md text-xs font-semibold">
+                            {company.subscription_plan}
+                         </span>
+                      </div>
+                  </div>
+                </div>
 
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-50">
-          <div
-            className={`px-4 py-3 rounded-lg font-medium flex items-center gap-2 ${
-              toast.type === 'success'
-                ? 'bg-green-600 text-white'
-                : 'bg-red-600 text-white'
-            }`}
-          >
-            {toast.type === 'success' ? (
-              <CheckCircle className="w-5 h-5" strokeWidth={2} />
-            ) : (
-              <AlertCircle className="w-5 h-5" strokeWidth={2} />
-            )}
+                <div className="border-t border-border-subtle pt-4 flex items-center justify-between">
+                   <p className="text-xs text-text-secondary">
+                      Зарегистрирован: {new Date(company.created_at).toLocaleDateString('ru-RU')}
+                    </p>
+                  <button
+                    onClick={() => {
+                      setSelectedCompany(company);
+                      setNewPlan(company.subscription_plan);
+                      setShowModal(true);
+                    }}
+                    className="p-2 hover:bg-background rounded-full transition-colors text-text-secondary hover:text-primary"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showModal && selectedCompany && (
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-surface rounded-2xl shadow-ambient w-full max-w-lg border border-border-subtle">
+              <div className="p-6 border-b border-border-subtle flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-text-primary">{selectedCompany.name}</h3>
+                <button onClick={() => setShowModal(false)} className="p-2 rounded-full hover:bg-background">
+                  <X className="w-5 h-5 text-text-secondary" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                 <div>
+                    <label className="text-sm font-medium text-text-primary mb-2 block">Сменить тарифный план</label>
+                    <select
+                      value={newPlan}
+                      onChange={(e) => setNewPlan(e.target.value)}
+                      className="w-full h-11 px-4 bg-background border border-border-subtle rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <option value="free">Free</option>
+                      <option value="pro">Pro</option>
+                      <option value="enterprise">Enterprise</option>
+                    </select>
+                  </div>
+                   <button
+                      onClick={handleChangePlan}
+                      className="w-full h-11 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all font-semibold"
+                    >
+                      Сохранить изменения
+                    </button>
+              </div>
+
+              <div className="p-6 border-t border-border-subtle bg-background/70 rounded-b-2xl">
+                  <h4 className="font-semibold text-text-primary mb-3">Опасная зона</h4>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button 
+                      onClick={() => handleBlockCompany(selectedCompany.id, selectedCompany.is_blocked)}
+                      className={`w-full text-center px-4 py-2 rounded-lg transition-colors border ${selectedCompany.is_blocked ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100' : 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'}`}
+                    >
+                      {selectedCompany.is_blocked ? 'Разблокировать' : 'Заблокировать'}
+                    </button>
+                     <button 
+                      onClick={() => handleDeleteCompany(selectedCompany.id)}
+                      className="w-full text-center px-4 py-2 rounded-lg transition-colors border border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+                    >
+                      Удалить компанию
+                    </button>
+                  </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {toast && (
+          <div 
+            className={`fixed bottom-5 right-5 p-4 rounded-xl shadow-ambient border flex items-center gap-3 ${
+              toast.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'
+            }`}>
+             {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
             {toast.message}
           </div>
-        </div>
-      )}
-    </AdminLayout>
+        )}
+      </div>
   );
 }

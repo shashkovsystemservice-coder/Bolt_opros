@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AdminPasswordModal } from './AdminPasswordModal';
+import { MobileBottomNav } from './MobileBottomNav'; // Импортируем новый компонент
 
 const SUPER_ADMIN_EMAIL = 'shashkov.systemservice@gmail.com';
 
@@ -98,42 +99,42 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const isAdminActive = () => location.pathname.startsWith('/admin');
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
-      <header className="bg-white border-b border-[#E8EAED] sticky top-0 z-40 h-16">
-        <div className="h-full px-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-background text-text-primary">
+      <header className="bg-surface border-b border-border-subtle sticky top-0 z-40 h-16">
+        <div className="h-full px-4 md:px-6 flex items-center justify-between max-w-7xl mx-auto">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 hover:bg-[#F8F9FA] rounded-lg transition-colors"
+              className="lg:hidden p-2 hover:bg-background rounded-full transition-colors"
             >
               {mobileMenuOpen ? (
-                <X className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
+                <X className="w-5 h-5 text-text-secondary" strokeWidth={2.5} />
               ) : (
-                <Menu className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
+                <Menu className="w-5 h-5 text-text-secondary" strokeWidth={2.5} />
               )}
             </button>
-            <div className="flex items-center gap-2">
-              <ClipboardList className="w-6 h-6 text-[#1A73E8]" strokeWidth={2} />
-              <span className="text-xl font-medium text-[#1F1F1F] tracking-tight">Survey Pro</span>
+            <div className="flex items-center gap-3">
+              <ClipboardList className="w-7 h-7 text-primary" strokeWidth={2} />
+              <span className="text-xl font-semibold text-text-primary tracking-tight">Survey Pro</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <div className="text-sm font-medium text-[#1F1F1F]">{companyName}</div>
-              <div className="text-xs text-[#5F6368]">{user?.email}</div>
+              <div className="text-sm font-medium text-text-primary">{companyName}</div>
+              <div className="text-xs text-text-secondary">{user?.email}</div>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex max-w-7xl mx-auto">
         <aside
           className={`
-            fixed lg:sticky top-16 left-0 h-[calc(100vh-4rem)] w-72 bg-[#F8F9FA] border-r border-[#E8EAED] transition-transform z-30
+            fixed lg:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-background border-r border-border-subtle transition-transform z-30
             ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           `}
         >
-          <nav className="p-4 space-y-1">
+          <nav className="p-4 space-y-2">
             {menuItems.map((item) => {
               const isAdminPanel = item.label === 'Админ-панель';
               const itemIsActive = isAdminPanel ? isAdminActive() : isActive(item.path);
@@ -142,34 +143,30 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <button
                   key={item.path}
                   onClick={() => handleNavigation(item.path)}
-                  className={`
-                    w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all
-                    ${
-                      isAdminPanel && itemIsActive
-                        ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md hover:shadow-lg'
-                        : !isAdminPanel && itemIsActive
-                        ? 'bg-white text-[#1A73E8] shadow-sm'
-                        : 'text-[#5F6368] hover:bg-white hover:text-[#1F1F1F]'
-                    }
-                  `}
+                  className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl transition-all font-medium text-sm ${
+                    itemIsActive ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-surface'
+                  }`}
                 >
                   <item.icon className="w-5 h-5" strokeWidth={2} />
-                  <span className="font-medium">{item.label}</span>
+                  <span>{item.label}</span>
                 </button>
               );
             })}
 
-            <button
-              onClick={handleSignOut}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#5F6368] hover:bg-white hover:text-red-600 transition-all"
-            >
-              <LogOut className="w-5 h-5" strokeWidth={2} />
-              <span className="font-medium">Выход</span>
-            </button>
+            <div className="pt-4">
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-text-secondary hover:bg-red-500/10 hover:text-red-600 transition-all font-medium text-sm"
+              >
+                <LogOut className="w-5 h-5" strokeWidth={2} />
+                <span>Выход</span>
+              </button>
+            </div>
           </nav>
         </aside>
 
-        <main className="flex-1 min-h-[calc(100vh-4rem)]">
+        {/* Добавляем pb-20 для мобильных устройств, чтобы компенсировать высоту навбара */}
+        <main className="flex-1 min-h-[calc(100vh-4rem)] p-4 md:p-6 lg:p-8 pb-24 md:pb-6 lg:pb-8">
           {children}
         </main>
       </div>
@@ -177,7 +174,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {mobileMenuOpen && (
         <div
           onClick={() => setMobileMenuOpen(false)}
-          className="fixed inset-0 bg-black/20 z-20 lg:hidden"
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-20 lg:hidden"
         />
       )}
 
@@ -189,6 +186,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         }}
         onSuccess={handlePasswordSuccess}
       />
+      
+      {/* Отображаем нижнюю навигацию */}
+      <MobileBottomNav />
     </div>
   );
 }

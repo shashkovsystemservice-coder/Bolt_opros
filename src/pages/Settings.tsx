@@ -1,254 +1,247 @@
-import { useState, useEffect } from 'react';
-import { Save, AlertCircle, CheckCircle, Building2, Shield, Mail, Key, Download, RefreshCw, Eye, EyeOff, Settings as SettingsIcon } from 'lucide-react';
+
+import { useState, useEffect, useCallback } from 'react';
+import { Building2, Shield, Key, Save, Loader2, Eye, EyeOff, Download, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
-// --- Interfaces --- //
-interface CompanyData {
-  id: string;
-  name: string;
-}
+// --- Reusable & Styled Components ---
 
-interface BackupCode {
-  code: string;
-  used: boolean;
-  created_at: string;
-  used_at?: string;
-}
+const ActionButton = ({ onClick, children, variant = 'primary', size = 'md', disabled = false, loading = false }) => {
+    const baseClasses = "inline-flex items-center justify-center font-semibold text-sm rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2";
+    const sizeClasses = { md: "h-10 px-4", sm: "h-9 px-3" };
+    const variantClasses = {
+        primary: "bg-primary text-on-primary hover:bg-primary/90 focus:ring-primary",
+        secondary: "bg-surface border border-border-subtle hover:bg-background text-text-primary focus:ring-primary",
+    };
+    return <button onClick={onClick} disabled={disabled || loading} className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]}`}>{loading ? <Loader2 className="animate-spin h-5 w-5"/> : children}</button>
+};
 
-// --- Component --- //
+const SettingsCard = ({ icon, title, description, children, footer }) => (
+  <motion.div 
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5, ease: 'easeOut' }}
+    className="bg-surface border border-border-subtle rounded-2xl shadow-ambient"
+  >
+    <div className="p-6 border-b border-border-subtle">
+      <div className="flex items-start gap-5">
+        <div className="bg-primary/10 text-primary rounded-full w-10 h-10 flex-shrink-0 flex items-center justify-center">
+          {icon}
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+          <p className="text-sm text-text-secondary mt-1">{description}</p>
+        </div>
+      </div>
+    </div>
+    <div className="px-6 py-5 space-y-4">{children}</div>
+    {footer && <div className="px-6 py-4 bg-background/70 border-t border-border-subtle flex justify-end">{footer}</div>}
+  </motion.div>
+);
+
+const FormInput = ({ id, label, type = 'text', ...props }) => {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const isPassword = type === 'password';
+
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm font-medium text-text-secondary mb-2">
+        {label}
+      </label>
+      <div className="relative">
+         <input
+          id={id}
+          type={isPassword ? (isPasswordVisible ? 'text' : 'password') : type}
+          className="w-full h-10 px-3 bg-background border border-border-subtle rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+          {...props}
+        />
+        {isPassword && (
+          <button type="button" onClick={() => setIsPasswordVisible(!isPasswordVisible)} className="absolute inset-y-0 right-0 flex items-center px-3 text-text-secondary hover:text-primary">
+            {isPasswordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- Main Component ---
+
 export function Settings() {
   const { user } = useAuth();
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  
-  // State from original Settings.tsx
-  const [company, setCompany] = useState<CompanyData | null>(null);
-  const [companyName, setCompanyName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  
+  const [companyName, setCompanyName] = useState('');
+  const [initialCompanyName, setInitialCompanyName] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // State from AdminSecurity.tsx
   const [recoveryEmail, setRecoveryEmail] = useState('');
   const [securityQuestion, setSecurityQuestion] = useState('');
   const [securityAnswer, setSecurityAnswer] = useState('');
-  const [backupCodes, setBackupCodes] = useState<BackupCode[]>([]);
+  const [isSavingSecurity, setIsSavingSecurity] = useState(false);
+  
+  const [backupCodes, setBackupCodes] = useState([]);
   const [showCodes, setShowCodes] = useState(false);
+  const [isGeneratingCodes, setIsGeneratingCodes] = useState(false);
 
-  useEffect(() => {
+  const loadAllSettings = useCallback(async () => {
     if (!user) return;
-
-    const checkSuperAdmin = user.email === 'shashkov.systemservice@gmail.com';
-    setIsSuperAdmin(checkSuperAdmin);
-
     setLoading(true);
-    Promise.all([
-      fetchCompanyData(),
-      loadSecuritySettings(),
-    ]).finally(() => setLoading(false));
-
-  }, [user]);
-
-  const showToast = (type: 'success' | 'error', message: string) => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 4000);
-  };
-
-  // --- Data Fetching --- //
-  const fetchCompanyData = async () => {
-    if (!user) return;
     try {
-      const { data, error } = await supabase.from('companies').select('*').eq('id', user.id).maybeSingle();
-      if (error) throw error;
+      const { data, error } = await supabase.from('companies').select('name, recovery_email, security_question, backup_codes').eq('id', user.id).single();
+      if (error && error.code !== 'PGRST116') throw error; // Ignore no rows found error
       if (data) {
-        setCompany(data);
-        setCompanyName(data.name);
-      }
-    } catch (err: any) { showToast('error', `Ошибка загрузки профиля: ${err.message}`); }
-  };
-
-  const loadSecuritySettings = async () => {
-    if (!user) return;
-    try {
-      const { data, error } = await supabase.from('companies').select('recovery_email, security_question, backup_codes').eq('id', user.id).maybeSingle();
-      if (error) throw error;
-      if (data) {
+        setCompanyName(data.name || '');
+        setInitialCompanyName(data.name || '');
         setRecoveryEmail(data.recovery_email || '');
         setSecurityQuestion(data.security_question || '');
         setBackupCodes(data.backup_codes || []);
       }
-    } catch (err: any) { showToast('error', `Ошибка загрузки безопасности: ${err.message}`); }
+    } catch (err) {
+      toast.error('Не удалось загрузить настройки: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadAllSettings();
+  }, [loadAllSettings]);
+
+  const handleSaveProfile = async () => {
+    setIsSavingProfile(true);
+    try {
+      const { error } = await supabase.from('companies').update({ name: companyName.trim() }).eq('id', user.id);
+      if (error) throw error;
+      setInitialCompanyName(companyName.trim());
+      toast.success('Название компании обновлено.');
+    } catch (err) { toast.error(err.message); }
+    finally { setIsSavingProfile(false); }
   };
 
-  // --- Handlers --- //
-  const saveProfileSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!company || !companyName.trim()) { showToast('error', 'Название компании не может быть пустым'); return; }
-    setSaving(true);
+  const handleSaveSecurity = async () => {
+    setIsSavingSecurity(true);
     try {
-      const { error } = await supabase.from('companies').update({ name: companyName.trim() }).eq('id', company.id);
+      const updates = { recovery_email: recoveryEmail, security_question: securityQuestion };
+      if (securityAnswer) { updates.security_answer_hash = btoa(securityAnswer); } // Placeholder for hashing
+      const { error } = await supabase.from('companies').update(updates).eq('id', user.id);
       if (error) throw error;
-      setCompany({ ...company, name: companyName.trim() });
-      showToast('success', 'Данные компании обновлены');
-    } catch (err: any) { showToast('error', err.message); }
-    finally { setSaving(false); }
-  };
-  
-  const saveSecuritySettings = async () => {
-    setSaving(true);
-    try {
-      const updates: any = { recovery_email: recoveryEmail, security_question: securityQuestion };
-      if (securityAnswer) { updates.security_answer_hash = btoa(securityAnswer); }
-
-      const { error } = await supabase.from('companies').update(updates).eq('id', user?.id);
-      if (error) throw error;
-
-      showToast('success', 'Настройки безопасности сохранены');
+      toast.success('Настройки безопасности сохранены.');
       setSecurityAnswer('');
-    } catch (err: any) { showToast('error', err.message); }
-    finally { setSaving(false); }
+    } catch (err) { toast.error(err.message); }
+    finally { setIsSavingSecurity(false); }
   };
 
   const generateBackupCodes = async () => {
-    setSaving(true);
+    setIsGeneratingCodes(true);
     try {
       const { data, error } = await supabase.rpc('generate_backup_codes', { company_uuid: user?.id });
       if (error) throw error;
       setBackupCodes(data || []);
       setShowCodes(true);
-      showToast('success', 'Новые резервные коды созданы!');
-    } catch (err: any) { showToast('error', err.message); }
-    finally { setSaving(false); }
+      toast.success('Новые резервные коды созданы.');
+    } catch (err) { toast.error(err.message); }
+    finally { setIsGeneratingCodes(false); }
   };
-
+  
   const downloadBackupCodes = () => {
     const codesText = backupCodes.map((c, i) => `${i + 1}. ${c.code}`).join('\n');
-    const blob = new Blob([`Ваши резервные коды для Survey Pro:\n\n${codesText}`], { type: 'text/plain' });
+    const blob = new Blob([`SurveyPro Backup Codes\n---\n${codesText}`], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `survey-pro-backup-codes.txt`;
+    a.download = `surveypro-backup-codes.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  // --- Render --- //
   if (loading) {
-    return (
-      <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border border-[#1A73E8] border-t-transparent mx-auto mb-4"></div>
-          <p className="text-[#5F6368]">Загрузка настроек...</p>
-        </div>
-      </div>
-    );
+    return <div className="flex justify-center items-center py-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
   }
 
   return (
-    <>
-      <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-medium text-[#1F1F1F] tracking-tight mb-2">Настройки</h1>
-          <p className="text-[#5F6368]">Управление профилем компании, доступом и безопасностью.</p>
+    <div className="space-y-8">
+        <div>
+            <h1 className="text-3xl font-bold text-text-primary">Настройки</h1>
+            <p className="text-text-secondary mt-1.5">Управление профилем компании и безопасностью.</p>
         </div>
 
-        <div className="space-y-8">
-          {/* --- Профиль компании --- */}
-          <div className="bg-white rounded-2xl border border-[#E8EAED] p-6 lg:p-8">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-12 h-12 bg-[#E8F0FE] rounded-xl flex items-center justify-center">
-                <Building2 className="w-6 h-6 text-[#1A73E8]" strokeWidth={2} />
-              </div>
-              <div>
-                <h2 className="text-xl font-medium text-[#1F1F1F]">Профиль компании</h2>
-                <p className="text-sm text-[#5F6368]">Основная информация о вашей компании</p>
-              </div>
-            </div>
-            <form onSubmit={saveProfileSettings} className="space-y-4">
-              <div>
-                <label htmlFor="companyName" className="block text-sm font-medium text-[#1F1F1F] mb-2">Название компании</label>
-                <input id="companyName" type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full h-11 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]" />
-              </div>
-              <div className="pt-4 border-t border-[#E8EAED] flex gap-3">
-                <button type="submit" disabled={saving || !companyName.trim() || companyName === company?.name} className="flex items-center gap-2 px-6 h-11 bg-[#1A73E8] text-white rounded-lg font-medium hover:bg-[#1557B0] disabled:opacity-50">
-                  <Save className="w-5 h-5" /> {saving ? 'Сохранение...' : 'Сохранить'}
-                </button>
-              </div>
-            </form>
-          </div>
+        <SettingsCard 
+            icon={<Building2 className="w-5 h-5" strokeWidth={2}/>}
+            title="Профиль компании"
+            description="Основная информация о вашей компании"
+            footer={
+                <ActionButton onClick={handleSaveProfile} loading={isSavingProfile} disabled={companyName === initialCompanyName || !companyName.trim()}>
+                    <Save className="w-4 h-4 mr-2" /> Сохранить
+                </ActionButton>
+            }
+        >
+            <FormInput id="companyName" label="Название компании" type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+        </SettingsCard>
 
-          {/* --- Безопасность --- */}
-          <div className="bg-white rounded-2xl border border-[#E8EAED] p-6 lg:p-8">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center"><Shield className="w-6 h-6 text-green-600"/></div>
-              <div>
-                <h2 className="text-xl font-medium text-[#1F1F1F]">Безопасность и Восстановление</h2>
-                <p className="text-sm text-[#5F6368]">Настройте способы восстановления доступа к аккаунту.</p>
-              </div>
+        <SettingsCard
+            icon={<Shield className="w-5 h-5" strokeWidth={2} />}
+            title="Безопасность"
+            description="Настройте способы восстановления доступа к аккаунту"
+            footer={
+                <ActionButton onClick={handleSaveSecurity} loading={isSavingSecurity}>
+                    <Save className="w-4 h-4 mr-2" /> Сохранить изменения
+                </ActionButton>
+            }
+        >
+             <div className="space-y-4">
+                <FormInput id="recoveryEmail" label="Резервный email" type="email" placeholder="recovery@example.com" value={recoveryEmail} onChange={(e) => setRecoveryEmail(e.target.value)} />
+                <FormInput id="securityQuestion" label="Секретный вопрос" type="text" placeholder="Девичья фамилия матери" value={securityQuestion} onChange={(e) => setSecurityQuestion(e.target.value)} />
+                <FormInput id="securityAnswer" label="Ответ на вопрос (оставьте пустым, если не меняете)" type="password" placeholder="••••••••••••" value={securityAnswer} onChange={(e) => setSecurityAnswer(e.target.value)} />
             </div>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-[#1F1F1F] mb-2">Резервный email</label>
-                <input type="email" value={recoveryEmail} onChange={(e) => setRecoveryEmail(e.target.value)} className="w-full h-11 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]" placeholder="recovery@example.com" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#1F1F1F] mb-2">Секретный вопрос</label>
-                <input type="text" value={securityQuestion} onChange={(e) => setSecurityQuestion(e.target.value)} className="w-full h-11 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]" placeholder="Например: Девичья фамилия матери" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#1F1F1F] mb-2">Ответ на вопрос (оставьте пустым, если не меняете)</label>
-                <input type="password" value={securityAnswer} onChange={(e) => setSecurityAnswer(e.target.value)} className="w-full h-11 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]" placeholder="Введите ответ" />
-              </div>
-            </div>
-             <div className="pt-6 mt-6 border-t border-[#E8EAED] flex gap-3">
-                <button onClick={saveSecuritySettings} disabled={saving} className="flex items-center gap-2 px-6 h-11 bg-[#1A73E8] text-white rounded-lg font-medium hover:bg-[#1557B0] disabled:opacity-50">
-                  <Save className="w-5 h-5" /> {saving ? 'Сохранение...' : 'Сохранить настройки безопасности'}
-                </button>
-              </div>
-          </div>
+        </SettingsCard>
 
-          {/* --- Резервные коды --- */}
-          <div className="bg-white rounded-2xl border border-[#E8EAED] p-6 lg:p-8">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center"><Key className="w-6 h-6 text-amber-600"/></div>
-              <div><h2 className="text-xl font-medium text-[#1F1F1F]">Резервные коды</h2><p className="text-sm text-[#5F6368]">Используйте для входа, если потеряете доступ к телефону.</p></div>
-            </div>
-            {backupCodes.length > 0 && (
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="text-sm text-[#5F6368]">Доступно кодов: <span className="font-semibold">{backupCodes.filter(c => !c.used).length}</span> из {backupCodes.length}</div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setShowCodes(!showCodes)} className="flex items-center gap-2 px-3 h-9 border rounded-lg hover:bg-gray-50"><EyeOff className="w-4 h-4" /> Скрыть</button>
-                    <button onClick={downloadBackupCodes} className="flex items-center gap-2 px-3 h-9 border rounded-lg hover:bg-gray-50"><Download className="w-4 h-4" /> Скачать</button>
-                  </div>
+        <SettingsCard
+            icon={<Key className="w-5 h-5" strokeWidth={2} />}
+            title="Резервные коды"
+            description="Используйте для входа, если потеряете доступ к 2FA"
+            footer={
+                <ActionButton onClick={generateBackupCodes} loading={isGeneratingCodes} variant="secondary">
+                    <RefreshCw className="w-4 h-4 mr-2" /> Сгенерировать новые
+                </ActionButton>
+            }
+        >
+            {backupCodes.length > 0 ? (
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center bg-background p-3 rounded-lg">
+                        <p className="text-sm text-text-secondary">Коды сгенерированы. Сохраните их в безопасном месте.</p>
+                        <div className="flex gap-2">
+                            <ActionButton size="sm" variant="secondary" onClick={() => setShowCodes(!showCodes)}>
+                               {showCodes ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                            </ActionButton>
+                            <ActionButton size="sm" variant="secondary" onClick={downloadBackupCodes}>
+                               <Download className="w-4 h-4"/>
+                            </ActionButton>
+                        </div>
+                    </div>
+                    {showCodes && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2"
+                        >
+                           {backupCodes.map((code, index) => (
+                               <div key={index} className={`p-3 rounded-lg font-mono text-sm text-center border ${code.used ? 'bg-surface text-text-secondary line-through border-border-subtle' : 'bg-surface text-text-primary border-transparent'}`}>
+                                   {code.code}
+                               </div>
+                           ))}
+                        </motion.div>
+                    )}
                 </div>
-                {showCodes && <div className="grid grid-cols-2 md:grid-cols-3 gap-3 font-mono text-center">{backupCodes.map((c,i) => <div key={i} className={`p-2 rounded-lg ${c.used ? 'bg-gray-100 text-gray-400 line-through' : 'bg-blue-50 text-blue-800'}`}>{c.code}</div>)}</div>}
-              </div>
+            ) : (
+                <div className="text-center py-6 bg-background rounded-lg">
+                     <p className="text-text-secondary">Резервные коды еще не созданы.</p>
+                </div>
             )}
-            <div className="pt-4 border-t border-[#E8EAED]"><button onClick={generateBackupCodes} disabled={saving} className="flex items-center gap-2 px-6 h-11 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 disabled:opacity-50"><RefreshCw className="w-5 h-5"/>{saving ? 'Генерация...' : 'Сгенерировать новые коды'}</button></div>
-          </div>
+        </SettingsCard>
 
-          {/* --- Super Admin Only --- */}
-          {isSuperAdmin && (
-              <div className="bg-white rounded-2xl border border-[#E8EAED] p-6 lg:p-8">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center"><SettingsIcon className="w-6 h-6 text-red-600"/></div>
-                  <div><h2 className="text-xl font-medium text-[#1F1F1F]">Дополнительные интеграции</h2><p className="text-sm text-[#5F6368]">Платные сервисы для расширенных возможностей.</p></div>
-                </div>
-                <div className="text-sm text-center text-gray-500 py-8">Раздел для настройки SMTP, SMS и других интеграций. В разработке.</div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-50">
-          <div className={`px-4 py-3 rounded-lg font-medium flex items-center gap-2 shadow-lg ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
-            {toast.type === 'success' ? <CheckCircle className="w-5 h-5"/> : <AlertCircle className="w-5 h-5"/>}
-            {toast.message}
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 }

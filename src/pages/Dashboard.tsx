@@ -1,14 +1,63 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { DashboardLayout } from '../components/DashboardLayout';
-import { SurveyTemplate } from '../types/database';
-import { Plus, Users, FileText, Calendar, Edit3, Archive, Trash2, Inbox, ArrowLeft } from 'lucide-react';
-import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
+import { Plus, Users, FileText, Calendar, Edit3, Archive, Trash2, Inbox, ArrowLeft, Loader2, BarChart2 } from 'lucide-react';
 
-// Новый компонент-обертка для навигации
+// --- Reusable Components --- //
+
+const ActionButton = ({ onClick, children, variant = 'primary', size = 'md' }) => {
+    const baseClasses = "inline-flex items-center justify-center font-semibold text-sm rounded-lg shadow-sm transition-colors duration-200 disabled:opacity-50";
+    const sizeClasses = { md: "h-10 px-4", sm: "h-9 px-3 text-xs" };
+    const variantClasses = {
+        primary: "bg-primary text-on-primary hover:bg-primary/90",
+        secondary: "bg-surface border border-border-subtle hover:bg-background text-text-primary",
+        ghost: "hover:bg-surface text-text-secondary"
+    };
+    return <button onClick={onClick} className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]}`}>{children}</button>
+};
+
+const SurveyCard = ({ survey, onNavigate, onArchive, onRestore, onDelete }) => (
+    <div className="bg-surface border border-border-subtle rounded-2xl shadow-ambient hover:shadow-lg transition-shadow duration-300 flex flex-col">
+        <div className="p-6 flex-grow">
+            <div className="flex justify-between items-start mb-3">
+              <h3 className="font-semibold text-text-primary line-clamp-2 leading-snug">{survey.title}</h3>
+              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${survey.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{survey.is_active ? 'Активен' : 'В архиве'}</span>
+            </div>
+            <p className="text-sm text-text-secondary line-clamp-2 mb-4">{survey.description || 'Нет описания'}</p>
+            <div className="flex items-center gap-2 text-xs text-text-secondary"><Calendar size={14}/><span>{new Date(survey.created_at).toLocaleDateString('ru-RU')}</span></div>
+        </div>
+        <div className="p-4 bg-background/50 border-t border-border-subtle flex flex-wrap gap-2">
+            {survey.is_active ? (
+                <>
+                    <ActionButton size="sm" variant="secondary" onClick={() => onNavigate(`/dashboard/survey/${survey.id}/edit`)}><Edit3 size={14} className="mr-1.5"/>Редактор</ActionButton>
+                    <ActionButton size="sm" variant="secondary" onClick={() => onNavigate(`/dashboard/survey/${survey.id}/recipients`)}><Users size={14} className="mr-1.5"/>Ссылки</ActionButton>
+                    <ActionButton size="sm" variant="secondary" onClick={() => onNavigate(`/dashboard/survey/${survey.id}/responses`)}><BarChart2 size={14} className="mr-1.5"/>Ответы</ActionButton>
+                    <ActionButton size="sm" variant="ghost" onClick={() => onArchive(survey.id)}><Archive size={14} className="mr-1.5"/>В архив</ActionButton>
+                </>
+            ) : (
+                <>
+                    <ActionButton size="sm" variant="secondary" onClick={() => onRestore(survey.id)}><ArrowLeft size={14} className="mr-1.5"/>Восстановить</ActionButton>
+                    <ActionButton size="sm" variant="ghost" onClick={() => onDelete(survey)}><Trash2 size={14} className="mr-1.5"/>Удалить</ActionButton>
+                </>
+            )}
+        </div>
+    </div>
+);
+
+const EmptyState = ({ view, onCreate }) => (
+    <div className="text-center py-20 bg-surface border-2 border-dashed border-border-subtle rounded-2xl">
+        <div className="w-16 h-16 bg-background rounded-2xl flex items-center justify-center mx-auto mb-6"><Inbox size={32} className="text-text-secondary"/></div>
+        <h3 className="text-xl font-semibold text-text-primary mb-2">{view === 'active' ? 'Нет активных опросов' : 'Архив пуст'}</h3>
+        <p className="text-text-secondary mb-6">{view === 'active' ? 'Начните с создания вашего первого опроса.' : 'Здесь будут храниться опросы, которые вы архивировали.'}</p>
+        {view === 'active' && <ActionButton onClick={onCreate}><Plus size={16} className="mr-2"/>Создать опрос</ActionButton>}
+    </div>
+);
+
+// --- Main Components --- //
+
 export function Dashboard() {
   return (
     <DashboardLayout>
@@ -17,219 +66,77 @@ export function Dashboard() {
   );
 }
 
-// Старый компонент Dashboard, переименованный в SurveyList
 export function SurveyList() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [surveys, setSurveys] = useState<SurveyTemplate[]>([]);
+  const [surveys, setSurveys] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'active' | 'archived'>('active');
+  const [view, setView] = useState('active');
 
-  useEffect(() => {
-    if (user) {
-      loadSurveys();
-    }
+  const loadSurveys = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data, error } = await supabase.from('survey_templates').select('*').eq('company_id', user.id).eq('is_active', view === 'active').order('created_at', { ascending: false });
+    if (error) toast.error('Ошибка загрузки опросов: ' + error.message);
+    else setSurveys(data || []);
+    setLoading(false);
   }, [user, view]);
 
-  const loadSurveys = async () => {
-    setLoading(true);
-    const filterValue = view === 'active';
-    const { data, error } = await supabase
-      .from('survey_templates')
-      .select('*')
-      .eq('company_id', user!.id)
-      .eq('is_active', filterValue)
-      .order('created_at', { ascending: false });
+  useEffect(() => {
+    loadSurveys();
+  }, [loadSurveys]);
 
-    if (error) {
-      toast.error('Не удалось загрузить опросы: ' + error.message);
-    } else {
-      setSurveys(data || []);
-    }
-    setLoading(false);
-  };
-
-  const handleArchive = async (surveyId: string) => {
-    const { error } = await supabase
-      .from('survey_templates')
-      .update({ is_active: false })
-      .eq('id', surveyId);
-
-    if (error) {
-      toast.error('Не удалось архивировать опрос: ' + error.message);
-    } else {
-      toast.success('Опрос успешно перенесен в архив.');
+  const handleAction = async (action, surveyId, successMsg) => {
+    const { error } = await action(surveyId);
+    if (error) toast.error('Ошибка: ' + error.message);
+    else {
+      toast.success(successMsg);
       loadSurveys();
     }
   };
+
+  const handleArchive = (id) => handleAction((surveyId) => supabase.from('survey_templates').update({ is_active: false }).eq('id', surveyId), id, 'Опрос перенесен в архив.');
+  const handleRestore = (id) => handleAction((surveyId) => supabase.from('survey_templates').update({ is_active: true }).eq('id', surveyId), id, 'Опрос восстановлен.');
   
-  const handleRestore = async (surveyId: string) => {
-    const { error } = await supabase
-      .from('survey_templates')
-      .update({ is_active: true })
-      .eq('id', surveyId);
-
-    if (error) {
-      toast.error('Не удалось восстановить опрос: ' + error.message);
-    } else {
-      toast.success('Опрос успешно восстановлен.');
-      loadSurveys();
-    }
-  };
-
-  const handleDelete = async (survey: SurveyTemplate) => {
-    const { count, error: countError } = await supabase
-      .from('survey_submissions')
-      .select('*', { count: 'exact', head: true })
-      .eq('survey_template_id', survey.id);
-
-    if (countError) {
-      toast.error('Ошибка при проверке ответов: ' + countError.message);
-      return;
-    }
-
-    if (count > 0 && survey.is_active) {
-      const isConfirmed = window.confirm(
-        'У этого опроса есть ответы, поэтому его нельзя удалить. Хотите вместо этого перенести его в архив?'
-      );
-      if (isConfirmed) {
-        await handleArchive(survey.id);
-      }
-      return;
-    }
-
-    if (!survey.is_active) {
-       const promptResponse = window.prompt(
-        `ВНИМАНИЕ! Вы собираетесь навсегда удалить опрос "${survey.title}" и все его данные (включая ${count || 0} ответов). Это действие АБСОЛЮТНО необратимо. Для подтверждения введите УДАЛИТЬ НАВСЕГДА`
-      );
-      if (promptResponse === 'УДАЛИТЬ НАВСЕГДА') {
-        const { error: deleteError } = await supabase.from('survey_templates').delete().eq('id', survey.id);
-        if (deleteError) {
-          toast.error('Не удалось удалить опрос: ' + deleteError.message);
-        } else {
-          toast.success('Опрос и все его данные были навсегда удалены.');
-          loadSurveys();
-        }
-      } else {
-        toast.info('Действие отменено.');
-      }
-      return;
-    }
-    
-    const isConfirmed = window.confirm('Вы уверены, что хотите удалить этот опрос? У него нет ответов, поэтому действие необратимо.');
-    if (isConfirmed) {
-      const { error: deleteError } = await supabase.from('survey_templates').delete().eq('id', survey.id);
-      if (deleteError) {
-        toast.error('Не удалось удалить опрос: ' + deleteError.message);
-      } else {
-        toast.success('Опрос успешно удален.');
-        loadSurveys();
-      }
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
+  const handleDelete = async (survey) => {
+    toast(`Вы уверены, что хотите удалить опрос "${survey.title}"?`, {
+        action: { label: 'Удалить', onClick: async () => {
+            const { error } = await supabase.from('survey_templates').delete().eq('id', survey.id);
+            if (error) toast.error('Ошибка удаления: ' + error.message);
+            else { toast.success('Опрос удален.'); loadSurveys(); }
+        }},
+        cancel: { label: 'Отмена' }
+    })
+  }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-medium text-[#1F1F1F] tracking-tight">Мои опросы</h1>
-          <p className="text-[#5F6368] mt-1">Управляйте своими опросами и просматривайте ответы</p>
-        </div>
-        <button
-          onClick={() => navigate('/survey/create')}
-          className="hidden md:flex items-center gap-2 bg-[#1A73E8] text-white px-6 py-3 rounded-full font-medium hover:bg-[#1557B0] transition-all shadow-sm hover:shadow-md"
-        >
-          <Plus className="w-5 h-5" strokeWidth={2} />
-          Создать опрос
-        </button>
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+          <div>
+              <h1 className="text-3xl font-bold text-text-primary">Мои опросы</h1>
+              <p className="text-text-secondary mt-2">Управляйте своими опросами и просматривайте ответы.</p>
+          </div>
+          <ActionButton onClick={() => navigate('/survey/create')}><Plus size={16} className="mr-2"/>Создать опрос</ActionButton>
       </div>
 
-      <div className="mb-6">
-        <div className="flex border-b">
-          <button onClick={() => setView('active')} className={`px-4 py-2 text-sm font-medium ${view === 'active' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Активные</button>
-          <button onClick={() => setView('archived')} className={`px-4 py-2 text-sm font-medium ${view === 'archived' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Архив</button>
+      <div className="border-b border-border-subtle">
+        <div className="flex gap-4">
+          <button onClick={() => setView('active')} className={`pb-2 text-sm font-medium transition-colors ${view === 'active' ? 'border-b-2 border-primary text-primary' : 'text-text-secondary hover:text-text-primary'}`}>Активные</button>
+          <button onClick={() => setView('archived')} className={`pb-2 text-sm font-medium transition-colors ${view === 'archived' ? 'border-b-2 border-primary text-primary' : 'text-text-secondary hover:text-text-primary'}`}>Архив</button>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-[#5F6368]">Загрузка...</div>
+        <div className="text-center py-20"><Loader2 className="h-8 w-8 text-primary animate-spin mx-auto"/></div>
       ) : surveys.length === 0 ? (
-        <div className="text-center py-20">
-          <div className="w-16 h-16 bg-[#E8F0FE] rounded-2xl flex items-center justify-center mx-auto mb-6">
-            {view === 'active' ? <FileText className="w-8 h-8 text-[#1A73E8]" /> : <Inbox className="w-8 h-8 text-[#1A73E8]" />}
-          </div>
-          <h2 className="text-xl font-medium text-[#1F1F1F] mb-2">{view === 'active' ? 'Нет активных опросов' : 'Архив пуст'}</h2>
-          <p className="text-[#5F6368] mb-6">{view === 'active' ? 'Создайте свой первый опрос для начала работы' : 'Здесь будут храниться опросы, которые вы архивировали'}</p>
-          {view === 'active' && (
-            <button
-              onClick={() => navigate('/survey/create')}
-              className="inline-flex items-center gap-2 bg-[#1A73E8] text-white px-6 py-3 rounded-full font-medium hover:bg-[#1557B0] transition-all"
-            >
-              <Plus className="w-5 h-5" strokeWidth={2} />
-              Создать опрос
-            </button>
-          )}
-        </div>
+        <EmptyState view={view} onCreate={() => navigate('/survey/create')} />
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {surveys.map((survey) => (
-            <div
-              key={survey.id}
-              className="bg-white rounded-2xl border border-[#E8EAED] p-6 flex flex-col justify-between hover:shadow-lg transition-shadow"
-            >
-              <div>
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="font-medium text-[#1F1F1F] mb-1 line-clamp-2">{survey.title}</h3>
-                    {survey.description && (
-                      <p className="text-sm text-[#5F6368] line-clamp-2">{survey.description}</p>
-                    )}
-                  </div>
-                  <div className={`ml-3 px-2 py-1 rounded-md text-xs font-medium ${survey.is_active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                    {survey.is_active ? 'Активен' : 'В архиве'}
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 text-sm text-[#5F6368] mb-4">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {formatDate(survey.created_at)}
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2 pt-4 border-t border-[#E8EAED]">
-                {view === 'active' ? (
-                  <>
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/survey/${survey.id}/edit`)}><Edit3 className="w-4 h-4 mr-2" />Редактор</Button>
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/survey/${survey.id}/recipients`)}><Users className="w-4 h-4 mr-2" />Получатели</Button>
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/dashboard/survey/${survey.id}/responses`)}><FileText className="w-4 h-4 mr-2" />Ответы</Button>
-                    <Button variant="outline" size="sm" onClick={() => handleArchive(survey.id)}><Archive className="w-4 h-4 mr-2" />В архив</Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(survey)}><Trash2 className="w-4 h-4 text-gray-500 hover:text-red-600" /></Button>
-                  </>
-                ) : (
-                  <>
-                    <Button variant="outline" size="sm" onClick={() => handleRestore(survey.id)}><ArrowLeft className="w-4 h-4 mr-2" />Восстановить</Button>
-                    <Button variant="destructive" size="sm" onClick={() => handleDelete(survey)}><Trash2 className="w-4 h-4 mr-2" />Удалить навсегда</Button>
-                  </>
-                )}
-              </div>
-            </div>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {surveys.map(survey => (
+            <SurveyCard key={survey.id} survey={survey} onNavigate={navigate} onArchive={handleArchive} onRestore={handleRestore} onDelete={handleDelete} />
           ))}
         </div>
       )}
-      <button
-        onClick={() => navigate('/survey/create')}
-        className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-[#1A73E8] text-white rounded-full shadow-lg hover:bg-[#1557B0] transition-all flex items-center justify-center"
-      >
-        <Plus className="w-6 h-6" strokeWidth={2} />
-      </button>
     </div>
   );
 }

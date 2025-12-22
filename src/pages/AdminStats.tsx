@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import { AdminLayout } from '../components/AdminLayout';
 import { supabase } from '../lib/supabase';
-import { Users, ClipboardList, MessageSquare } from 'lucide-react';
+import { Users, ClipboardList, MessageSquare, Loader2, Building } from 'lucide-react';
 
-interface StatCard {
+interface StatCardProps {
   label: string;
   value: string | number;
   icon: React.ReactNode;
-  color: string;
 }
 
 interface TopCompany {
@@ -15,8 +13,22 @@ interface TopCompany {
   response_count: number;
 }
 
+const StatCard = ({ label, value, icon }: StatCardProps) => (
+  <div className="bg-surface border border-border-subtle rounded-2xl p-6 shadow-ambient">
+    <div className="flex justify-between items-start">
+      <div className="space-y-1">
+        <p className="text-text-secondary text-sm">{label}</p>
+        <p className="text-3xl font-bold text-text-primary">{value}</p>
+      </div>
+      <div className="bg-primary/10 p-3 rounded-full">
+        {icon}
+      </div>
+    </div>
+  </div>
+);
+
 export function AdminStats() {
-  const [stats, setStats] = useState<StatCard[]>([]);
+  const [stats, setStats] = useState<Omit<StatCardProps, 'icon'>[]>([]);
   const [topCompanies, setTopCompanies] = useState<TopCompany[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,43 +40,16 @@ export function AdminStats() {
     try {
       setLoading(true);
 
-      // Get company count
-      const { count: companyCount } = await supabase
-        .from('companies')
-        .select('*', { count: 'exact' });
-
-      // Get survey count
-      const { count: surveyCount } = await supabase
-        .from('survey_templates')
-        .select('*', { count: 'exact' });
-
-      // Get submission count
-      const { count: submissionCount } = await supabase
-        .from('survey_submissions')
-        .select('*', { count: 'exact' });
+      const { count: companyCount } = await supabase.from('companies').select('*', { count: 'exact' });
+      const { count: surveyCount } = await supabase.from('survey_templates').select('*', { count: 'exact' });
+      const { count: submissionCount } = await supabase.from('survey_submissions').select('*', { count: 'exact' });
 
       setStats([
-        {
-          label: 'Компаний',
-          value: companyCount || 0,
-          icon: <Users className="w-8 h-8" strokeWidth={2} />,
-          color: 'bg-blue-50 text-[#1A73E8]',
-        },
-        {
-          label: 'Опросов',
-          value: surveyCount || 0,
-          icon: <ClipboardList className="w-8 h-8" strokeWidth={2} />,
-          color: 'bg-green-50 text-green-600',
-        },
-        {
-          label: 'Ответов',
-          value: submissionCount || 0,
-          icon: <MessageSquare className="w-8 h-8" strokeWidth={2} />,
-          color: 'bg-purple-50 text-purple-600',
-        },
+        { label: 'Компаний', value: companyCount || 0 },
+        { label: 'Опросов', value: surveyCount || 0 },
+        { label: 'Ответов', value: submissionCount || 0 },
       ]);
 
-      // Fetch top companies (simplified)
       const { data: companies } = await supabase
         .from('companies')
         .select('id, name')
@@ -73,7 +58,7 @@ export function AdminStats() {
 
       const topCompaniesData: TopCompany[] = (companies || []).map((c) => ({
         name: c.name,
-        response_count: Math.floor(Math.random() * 500) + 10,
+        response_count: Math.floor(Math.random() * 500) + 10, // Placeholder
       }));
 
       setTopCompanies(topCompaniesData.sort((a, b) => b.response_count - a.response_count));
@@ -84,92 +69,67 @@ export function AdminStats() {
     }
   };
 
+  const statIcons = [
+    <Users className="w-6 h-6 text-primary" strokeWidth={1.5} />,
+    <ClipboardList className="w-6 h-6 text-primary" strokeWidth={1.5} />,
+    <MessageSquare className="w-6 h-6 text-primary" strokeWidth={1.5} />,
+  ];
+
   return (
-    <AdminLayout>
+    <div className="space-y-8">
       <div>
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-[#1F1F1F] mb-2">Статистика системы</h2>
-          <p className="text-[#5F6368]">Общий обзор活активности платформы</p>
+        <h1 className="text-3xl font-bold text-text-primary">Статистика системы</h1>
+        <p className="text-text-secondary mt-2">Общий обзор активности на платформе.</p>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="animate-spin h-10 w-10 text-primary" />
         </div>
-
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border border-[#1A73E8] border-t-transparent mx-auto mb-4"></div>
-            <p className="text-[#5F6368]">Загрузка...</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {stats.map((stat, idx) => (
+              <StatCard key={idx} {...stat} icon={statIcons[idx]} />
+            ))}
           </div>
-        ) : (
-          <>
-            {/* Stat Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              {stats.map((stat, idx) => (
-                <div
-                  key={idx}
-                  className="bg-white rounded-2xl border border-[#E8EAED] p-6"
-                >
-                  <div className={`w-14 h-14 rounded-full ${stat.color} flex items-center justify-center mb-4`}>
-                    {stat.icon}
-                  </div>
-                  <p className="text-[#5F6368] text-sm mb-1">{stat.label}</p>
-                  <p className="text-3xl font-semibold text-[#1F1F1F]">{stat.value}</p>
-                </div>
-              ))}
-            </div>
 
-            {/* Top Companies */}
-            <div className="bg-white rounded-2xl border border-[#E8EAED] p-6">
-              <h3 className="text-lg font-semibold text-[#1F1F1F] mb-6">
-                Топ компаний по активности
-              </h3>
-
-              {topCompanies.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-[#5F6368]">Нет данных</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            <div className="bg-surface border border-border-subtle rounded-2xl p-6 shadow-ambient">
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Топ компаний по активности</h3>
+              {topCompanies.length > 0 ? (
+                <ul className="space-y-2">
                   {topCompanies.map((company, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-4 hover:bg-[#F8F9FA] rounded-lg transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-[#1A73E8] text-white flex items-center justify-center font-semibold text-sm">
-                          {idx + 1}
+                    <li key={idx} className="flex items-center justify-between p-3 rounded-lg hover:bg-background">
+                      <div className="flex items-center gap-4">
+                        <div className="w-9 h-9 flex items-center justify-center rounded-full bg-background font-semibold text-text-secondary text-sm">
+                           {idx + 1}
                         </div>
-                        <p className="font-medium text-[#1F1F1F]">{company.name}</p>
+                        <p className="font-medium text-text-primary flex items-center gap-2">
+                          <Building className="w-4 h-4 text-text-secondary" />
+                          {company.name}
+                        </p>
                       </div>
-                      <p className="font-semibold text-[#1A73E8]">
-                        {company.response_count} ответов
+                      <p className="font-semibold text-primary text-sm">
+                        {company.response_count} <span className="text-text-secondary font-normal">ответов</span>
                       </p>
-                    </div>
+                    </li>
                   ))}
-                </div>
+                </ul>
+              ) : (
+                <div className="text-center py-10 text-text-secondary">Нет данных для отображения</div>
               )}
             </div>
 
-            {/* Placeholder for Charts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-              <div className="bg-white rounded-2xl border border-[#E8EAED] p-6">
-                <h3 className="text-lg font-semibold text-[#1F1F1F] mb-6">
-                  Регистрации по дням (30 дней)
-                </h3>
-                <div className="h-48 flex items-center justify-center bg-[#F8F9FA] rounded-lg">
-                  <p className="text-[#5F6368]">График в разработке</p>
+            <div className="bg-surface border border-border-subtle rounded-2xl p-6 shadow-ambient flex flex-col">
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Регистрации за 30 дней</h3>
+               <div className="flex-grow flex items-center justify-center bg-background rounded-lg">
+                  <p className="text-text-secondary">График в разработке</p>
                 </div>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-[#E8EAED] p-6">
-                <h3 className="text-lg font-semibold text-[#1F1F1F] mb-6">
-                  Активность опросов
-                </h3>
-                <div className="h-48 flex items-center justify-center bg-[#F8F9FA] rounded-lg">
-                  <p className="text-[#5F6368]">График в разработке</p>
-                </div>
-              </div>
             </div>
-          </>
-        )}
-      </div>
-    </AdminLayout>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
