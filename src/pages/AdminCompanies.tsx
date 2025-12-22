@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Search, Settings, Copy, Trash2, Lock, AlertCircle, CheckCircle, Loader2, X, ShieldCheck, Building, Mail } from 'lucide-react';
