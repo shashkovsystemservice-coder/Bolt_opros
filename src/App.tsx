@@ -1,5 +1,5 @@
 
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
@@ -18,6 +18,7 @@ import { AdminCompanies } from './pages/AdminCompanies';
 import { AdminStats } from './pages/AdminStats';
 import { AdminSecurity } from './pages/AdminSecurity';
 import { AdminSettings } from './pages/AdminSettings';
+import { AdminLayout } from './components/AdminLayout';
 
 function App() {
   return (
@@ -37,7 +38,6 @@ function App() {
             <Route index element={<Navigate to="surveys" replace />} />
             <Route path="surveys" element={<SurveyList />} />
             <Route path="contacts" element={<ContactsPage />} />
-            {/* Маршрут создания перенесен на верхний уровень */}
             <Route path="survey/:id/edit" element={<EditSurvey />} />
             <Route path="survey/:id/recipients" element={<Recipients />} />
             <Route path="survey/:id/responses" element={<Responses />} />
@@ -47,7 +47,7 @@ function App() {
           {/* Маршруты для администратора */}
           <Route
             path="/admin"
-            element={<AdminRoute><Dashboard /></AdminRoute>}
+            element={<AdminRoute><AdminLayout /></AdminRoute>}
           >
             <Route index element={<Navigate to="companies" replace />} />
             <Route path="companies" element={<AdminCompanies />} />

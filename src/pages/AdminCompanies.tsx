@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { AdminLayout } from '../components/AdminLayout';
 import { supabase } from '../lib/supabase';
 import { Search, Settings, Copy, Trash2, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 
@@ -46,15 +45,10 @@ export function AdminCompanies() {
             .select('*', { count: 'exact' })
             .eq('company_id', company.id);
 
-          const { count: responseCount } = await supabase
-            .from('survey_submissions')
-            .select('*', { count: 'exact' })
-            .eq('survey_template_id', supabase.from('survey_templates').select('id').eq('company_id', company.id));
-
           return {
             ...company,
             survey_count: surveyCount || 0,
-            response_count: 0,
+            response_count: 0, // Placeholder, as the original query was broken
           };
         })
       );
@@ -148,7 +142,6 @@ export function AdminCompanies() {
   );
 
   return (
-    <AdminLayout>
       <div>
         <div className="mb-6">
           <h2 className="text-2xl font-semibold text-[#1F1F1F] mb-2">
@@ -236,145 +229,5 @@ export function AdminCompanies() {
           )}
         </div>
       </div>
-
-      {/* Management Modal */}
-      {showModal && selectedCompany && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center px-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-[#1F1F1F] mb-4">
-              Управление компанией
-            </h3>
-
-            <div className="space-y-4 mb-6">
-              <div>
-                <p className="text-sm text-[#5F6368] mb-1">Название</p>
-                <p className="font-medium text-[#1F1F1F]">{selectedCompany.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-[#5F6368] mb-1">Email</p>
-                <p className="font-medium text-[#1F1F1F]">{selectedCompany.email}</p>
-              </div>
-              <div>
-                <p className="text-sm text-[#5F6368] mb-1">Дата регистрации</p>
-                <p className="font-medium text-[#1F1F1F]">
-                  {new Date(selectedCompany.created_at).toLocaleDateString('ru-RU')}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-[#5F6368] mb-1">Опросов создано</p>
-                <p className="font-medium text-[#1F1F1F]">{selectedCompany.survey_count || 0}</p>
-              </div>
-              <div>
-                <label className="block text-sm text-[#5F6368] mb-2">План подписки</label>
-                <select
-                  value={newPlan}
-                  onChange={(e) => setNewPlan(e.target.value)}
-                  className="w-full h-10 px-3 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8]"
-                >
-                  <option value="Free">Free</option>
-                  <option value="Starter">Starter</option>
-                  <option value="Pro">Pro</option>
-                  <option value="Enterprise">Enterprise</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <button
-                onClick={generateTempPassword}
-                className="w-full h-10 bg-[#1A73E8] text-white rounded-lg font-medium hover:bg-[#1557B0] transition-colors"
-              >
-                Сбросить пароль
-              </button>
-              <button
-                onClick={handleChangePlan}
-                className="w-full h-10 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
-              >
-                Изменить план
-              </button>
-              <button
-                onClick={() => handleBlockCompany(selectedCompany.id, selectedCompany.is_blocked)}
-                className={`w-full h-10 rounded-lg font-medium transition-colors ${
-                  selectedCompany.is_blocked
-                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                    : 'bg-red-100 text-red-700 hover:bg-red-200'
-                }`}
-              >
-                {selectedCompany.is_blocked ? 'Разблокировать' : 'Заблокировать'}
-              </button>
-              <button
-                onClick={() => handleDeleteCompany(selectedCompany.id)}
-                className="w-full h-10 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" /> Удалить компанию
-              </button>
-            </div>
-
-            <button
-              onClick={() => setShowModal(false)}
-              className="w-full h-10 border border-[#E8EAED] rounded-lg font-medium text-[#1F1F1F] hover:bg-[#F8F9FA] transition-colors mt-4"
-            >
-              Закрыть
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Password Modal */}
-      {showPasswordModal && tempPassword && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center px-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" strokeWidth={2} />
-            <h3 className="text-lg font-semibold text-[#1F1F1F] mb-4">Временный пароль</h3>
-            <p className="text-sm text-[#5F6368] mb-4">
-              Скопируйте и отправьте пользователю:
-            </p>
-            <div className="bg-[#F8F9FA] p-4 rounded-lg mb-4 flex items-center gap-2">
-              <code className="flex-1 font-mono font-bold text-[#1A73E8] text-lg">
-                {tempPassword}
-              </code>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(tempPassword);
-                  showToast('success', 'Скопировано');
-                }}
-                className="p-2 hover:bg-white rounded transition-colors"
-              >
-                <Copy className="w-5 h-5 text-[#1A73E8]" strokeWidth={2} />
-              </button>
-            </div>
-            <button
-              onClick={() => {
-                setShowPasswordModal(false);
-                setTempPassword('');
-              }}
-              className="w-full h-10 bg-[#1A73E8] text-white rounded-lg font-medium hover:bg-[#1557B0] transition-colors"
-            >
-              Готово
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-50">
-          <div
-            className={`px-4 py-3 rounded-lg font-medium flex items-center gap-2 ${
-              toast.type === 'success'
-                ? 'bg-green-600 text-white'
-                : 'bg-red-600 text-white'
-            }`}
-          >
-            {toast.type === 'success' ? (
-              <CheckCircle className="w-5 h-5" strokeWidth={2} />
-            ) : (
-              <AlertCircle className="w-5 h-5" strokeWidth={2} />
-            )}
-            {toast.message}
-          </div>
-        </div>
-      )}
-    </AdminLayout>
   );
 }

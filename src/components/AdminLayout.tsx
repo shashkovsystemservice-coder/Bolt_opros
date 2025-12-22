@@ -1,13 +1,9 @@
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Users, BarChart3, Settings, LogOut, Menu, X, Shield, LayoutDashboard } from 'lucide-react';
 
-interface AdminLayoutProps {
-  children: React.ReactNode;
-}
-
-export function AdminLayout({ children }: AdminLayoutProps) {
+export function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { logout } = useAuth();
   const location = useLocation();
@@ -96,7 +92,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </div>
 
         <div className="flex-1 overflow-auto">
-          <div className="p-6">{children}</div>
+          <div className="p-6"><Outlet /></div>
         </div>
       </div>
     </div>

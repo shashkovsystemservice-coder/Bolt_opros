@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { AdminLayout } from '../components/AdminLayout';
 import { supabase } from '../lib/supabase';
 import { Users, ClipboardList, MessageSquare } from 'lucide-react';
 
@@ -85,7 +84,6 @@ export function AdminStats() {
   };
 
   return (
-    <AdminLayout>
       <div>
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-[#1F1F1F] mb-2">Статистика системы</h2>
@@ -170,6 +168,5 @@ export function AdminStats() {
           </>
         )}
       </div>
-    </AdminLayout>
   );
 }
