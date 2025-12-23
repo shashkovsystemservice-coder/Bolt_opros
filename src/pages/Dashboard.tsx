@@ -25,7 +25,7 @@ const ActionIcon = ({ onClick, children, title }) => (
 );
 
 const SurveyRow = ({ survey, onNavigate, onArchive, onRestore, onDelete }) => (
-  <div className="flex justify-between items-center group py-4 border-b border-border-subtle">
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-4 border-b border-border-subtle">
     <div className="flex-grow pr-4">
       <h3 className="font-medium text-text-primary text-sm truncate">{survey.title}</h3>
       <p className="text-sm text-text-secondary mt-1">
@@ -33,11 +33,11 @@ const SurveyRow = ({ survey, onNavigate, onArchive, onRestore, onDelete }) => (
       </p>
     </div>
 
-    <div className="flex items-center gap-4 flex-shrink-0">
+    <div className="flex items-center justify-between sm:justify-end gap-4 flex-shrink-0 w-full sm:w-auto">
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${survey.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
           {survey.is_active ? 'Активен' : 'В архиве'}
         </span>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1">
           {survey.is_active ? (
             <>
               <ActionIcon onClick={() => onNavigate(`/dashboard/survey/${survey.id}/edit`)} title="Редактор"><Edit3 size={16}/></ActionIcon>

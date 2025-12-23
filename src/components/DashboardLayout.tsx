@@ -2,7 +2,7 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield, Users } from 'lucide-react';
+import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield, Users, ListChecks, BarChart2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AdminPasswordModal } from './AdminPasswordModal';
 import { MobileBottomNav } from './MobileBottomNav';
@@ -74,9 +74,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Опросы', path: '/dashboard' },
-    { icon: Users, label: 'Контакты', path: '/dashboard/contacts' },
-    { icon: Settings, label: 'Настройки', path: '/dashboard/settings' },
+    { icon: LayoutDashboard, label: 'Опросы', path: '/dashboard', disabled: false },
+    { icon: ListChecks, label: 'Чек-листы', path: '/checklists', disabled: true },
+    { icon: BarChart2, label: 'Отчеты', path: '/reports', disabled: true },
+    { icon: Users, label: 'Контакты', path: '/dashboard/contacts', disabled: false },
+    { icon: Settings, label: 'Настройки', path: '/dashboard/settings', disabled: false },
   ];
 
   if (isSuperAdmin) {
@@ -84,6 +86,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       icon: Shield,
       label: 'Админ-панель',
       path: '/admin/companies',
+      disabled: false,
     });
   }
 
@@ -137,9 +140,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               return (
                 <button
                   key={item.path}
-                  onClick={() => handleNavigation(item.path)}
+                  onClick={() => !item.disabled && handleNavigation(item.path)}
+                  disabled={item.disabled}
                   className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl transition-all font-medium text-sm ${
-                    itemIsActive ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-background'
+                    itemIsActive 
+                      ? 'bg-primary/10 text-primary' 
+                      : item.disabled 
+                      ? 'text-text-secondary/50 cursor-not-allowed' 
+                      : 'text-text-secondary hover:bg-background'
                   }`}
                 >
                   <item.icon className="w-5 h-5" strokeWidth={2} />

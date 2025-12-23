@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { AiSurveyModal } from '../components/AiSurveyModal';
-import { Plus, Trash2, GripVertical, ArrowLeft, Save, Sparkles, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, GripVertical, ArrowLeft, Save, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -19,7 +19,7 @@ export interface LocalQuestion {
 }
 
 // --- Styled Components ---
-const ActionButton = ({ onClick, children, variant = 'primary', size = 'md', disabled = false, loading = false }) => {
+const ActionButton = ({ onClick, children, variant = 'primary', size = 'md', disabled = false, loading = false, className = '' }) => {
     const baseClasses = "inline-flex items-center justify-center font-medium text-sm rounded-md transition-colors duration-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background";
     const sizeClasses = { md: "h-9 px-4", sm: "h-8 px-3" };
     const variantClasses = {
@@ -27,7 +27,7 @@ const ActionButton = ({ onClick, children, variant = 'primary', size = 'md', dis
         secondary: "bg-surface border border-border hover:bg-background text-text-primary focus:ring-primary",
         special: "bg-gradient-to-r from-violet-500 to-purple-500 text-white hover:opacity-90 focus:ring-violet-500",
     };
-    return <button onClick={onClick} disabled={disabled || loading} className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]}`}>{loading ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-on-primary"></div> : children}</button>;
+    return <button onClick={onClick} disabled={disabled || loading} className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}>{loading ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-on-primary"></div> : children}</button>;
 };
 
 const FormInput = ({ id, label, value, onChange, placeholder, as = 'input', rows = 3 }) => (
@@ -99,14 +99,13 @@ const CreateSurvey = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto py-8 px-4">
         <header className="mb-8">
            <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-sm text-text-secondary hover:text-primary mb-5 transition-colors">
                 <ArrowLeft size={16}/> Назад ко всем опросам
             </button>
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
             <h1 className="text-2xl font-semibold text-text-primary">Создание нового опроса</h1>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <ActionButton onClick={handleOpenAiModal} variant='special' disabled={loading}><Sparkles className="w-4 h-4 mr-2"/>Сгенерировать с AI</ActionButton>
               <ActionButton onClick={handleSaveSurvey} loading={loading} disabled={!companyId || questions.length === 0}><Save className="w-4 h-4 mr-2"/>Сохранить</ActionButton>
             </div>
@@ -157,8 +156,6 @@ const CreateSurvey = () => {
             </div>
         </div>
 
-      </div>
-
       {isAiModalOpen && companyId && <AiSurveyModal onClose={() => setIsAiModalOpen(false)} onGenerate={handleAcceptAiSurvey} />}
     </DashboardLayout>
   );
@@ -177,7 +174,8 @@ const QuestionEditor = ({ question, index, update, remove }) => {
     return (
         <motion.div layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.25, ease: 'easeInOut' }} className="bg-surface p-5 rounded-lg border border-border">
             <div className="flex items-start gap-4">
-                <GripVertical className="w-5 h-5 text-text-secondary mt-2 cursor-grab flex-shrink-0"/>
+                {/* On small screens, the grip handle might be too much. We can hide it. */}
+                <GripVertical className="w-5 h-5 text-text-secondary mt-2 cursor-grab flex-shrink-0 hidden sm:block"/>
                 <div className="w-full">
                     <input type="text" value={question.text} onChange={e => update(question.id, 'text', e.target.value)} placeholder={`Текст вопроса ${index + 1}`} className="w-full text-base font-medium bg-transparent focus:outline-none focus:text-primary"/>
                     
@@ -195,11 +193,11 @@ const QuestionEditor = ({ question, index, update, remove }) => {
                         </div>
                     </div>
                 </div>
-                <button onClick={() => remove(question.id)} className="text-text-secondary hover:text-red-500 transition-colors p-1 rounded-md"><Trash2 size={16} /></button>
+                <button onClick={() => remove(question.id)} className="text-text-secondary hover:text-red-500 transition-colors p-1 rounded-md flex-shrink-0"><Trash2 size={16} /></button>
             </div>
 
             {question.type === 'choice' && (
-                <div className="mt-4 pt-4 pl-9 border-t border-border-subtle">
+                <div className="mt-4 pt-4 pl-4 sm:pl-9 border-t border-border-subtle">
                     <h3 className="text-sm font-medium text-text-secondary mb-3">Варианты ответа</h3>
                     <div className="space-y-2">
                     {question.options.map((opt, i) => (
