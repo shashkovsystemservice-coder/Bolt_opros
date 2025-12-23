@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useNavigate, useParams } from 'react-router-dom';
-import { DashboardLayout } from '../components/DashboardLayout';
 import { Plus, Trash2, GripVertical, ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -128,66 +127,64 @@ const EditSurvey = () => {
     }
   };
 
-  if (initialLoading) return <DashboardLayout><div className="flex justify-center items-center py-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div></DashboardLayout>;
+  if (initialLoading) return <div className="flex justify-center items-center py-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
   return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto py-8 px-4">
-        <header className="mb-8">
-           <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-sm text-text-secondary hover:text-primary mb-5 transition-colors">
-                <ArrowLeft size={16}/> Назад ко всем опросам
-            </button>
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-              <h1 className="text-2xl font-semibold text-text-primary">Редактор опроса</h1>
-              <ActionButton onClick={handleSaveSurvey} loading={isSaving} disabled={questions.length === 0}><Save className="w-4 h-4 mr-2"/>Сохранить изменения</ActionButton>
-          </div>
-        </header>
-
-        <div className="border-y border-border-subtle divide-y divide-border-subtle">
-            <div className="grid md:grid-cols-3 gap-4 md:gap-8 py-8">
-                <div className="md:col-span-1">
-                    <h3 className="text-base font-semibold text-text-primary">Основная информация</h3>
-                    <p className="text-sm text-text-secondary mt-1">Название и описание вашего опроса.</p>
-                </div>
-                <div className="md:col-span-2 space-y-4">
-                     <FormInput id="title" label="Название опроса" value={title} onChange={e => setTitle(e.target.value)} placeholder="Напр., Ежегодный опрос вовлеченности" />
-                     <FormInput id="description" label="Описание (опционально)" value={description} onChange={e => setDescription(e.target.value)} placeholder="Краткое пояснение для получателей" as="textarea" />
-                </div>
-            </div>
-
-             <div className="grid md:grid-cols-3 gap-4 md:gap-8 py-8">
-                <div className="md:col-span-1">
-                    <h3 className="text-base font-semibold text-text-primary">Настройки</h3>
-                    <p className="text-sm text-text-secondary mt-1">Дополнительные параметры проведения опроса.</p>
-                </div>
-                 <div className="md:col-span-2">
-                    <div className="flex items-start gap-4 p-4 rounded-md bg-surface border border-border">
-                        <input id="isInteractive" type="checkbox" checked={isInteractive} onChange={e => setIsInteractive(e.target.checked)} className="h-4 w-4 mt-1 rounded border-gray-400 text-primary focus:ring-primary/50" />
-                        <div>
-                            <label htmlFor="isInteractive" className="font-medium text-text-primary">Интерактивный чат-режим</label>
-                            <p className="text-sm text-text-secondary mt-1">Вопросы будут задаваться по одному в формате диалога. Идеально для мобильных устройств.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-4 md:gap-8 py-8">
-                <div className="md:col-span-1">
-                     <h3 className="text-base font-semibold text-text-primary">Вопросы</h3>
-                    <p className="text-sm text-text-secondary mt-1">Создайте и настройте вопросы для вашего опроса.</p>
-                </div>
-                <div className="md:col-span-2 space-y-4">
-                    <AnimatePresence>
-                    {questions.map((q, index) => (
-                    <QuestionEditor key={q.id} question={q} index={index} update={updateQuestion} remove={removeQuestion} />
-                    ))}
-                    </AnimatePresence>
-                    <ActionButton onClick={addQuestion} variant='secondary'><Plus size={16} className="mr-2"/>Добавить вопрос</ActionButton>
-                </div>
-            </div>
+    <div className="max-w-4xl mx-auto py-8 px-4">
+      <header className="mb-8">
+         <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-sm text-text-secondary hover:text-primary mb-5 transition-colors">
+              <ArrowLeft size={16}/> Назад ко всем опросам
+          </button>
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <h1 className="text-2xl font-semibold text-text-primary">Редактор опроса</h1>
+            <ActionButton onClick={handleSaveSurvey} loading={isSaving} disabled={questions.length === 0}><Save className="w-4 h-4 mr-2"/>Сохранить изменения</ActionButton>
         </div>
+      </header>
+
+      <div className="border-y border-border-subtle divide-y divide-border-subtle">
+          <div className="grid md:grid-cols-3 gap-4 md:gap-8 py-8">
+              <div className="md:col-span-1">
+                  <h3 className="text-base font-semibold text-text-primary">Основная информация</h3>
+                  <p className="text-sm text-text-secondary mt-1">Название и описание вашего опроса.</p>
+              </div>
+              <div className="md:col-span-2 space-y-4">
+                   <FormInput id="title" label="Название опроса" value={title} onChange={e => setTitle(e.target.value)} placeholder="Напр., Ежегодный опрос вовлеченности" />
+                   <FormInput id="description" label="Описание (опционально)" value={description} onChange={e => setDescription(e.target.value)} placeholder="Краткое пояснение для получателей" as="textarea" />
+              </div>
+          </div>
+
+           <div className="grid md:grid-cols-3 gap-4 md:gap-8 py-8">
+              <div className="md:col-span-1">
+                  <h3 className="text-base font-semibold text-text-primary">Настройки</h3>
+                  <p className="text-sm text-text-secondary mt-1">Дополнительные параметры проведения опроса.</p>
+              </div>
+               <div className="md:col-span-2">
+                  <div className="flex items-start gap-4 p-4 rounded-md bg-surface border border-border">
+                      <input id="isInteractive" type="checkbox" checked={isInteractive} onChange={e => setIsInteractive(e.target.checked)} className="h-4 w-4 mt-1 rounded border-gray-400 text-primary focus:ring-primary/50" />
+                      <div>
+                          <label htmlFor="isInteractive" className="font-medium text-text-primary">Интерактивный чат-режим</label>
+                          <p className="text-sm text-text-secondary mt-1">Вопросы будут задаваться по одному в формате диалога. Идеально для мобильных устройств.</p>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-4 md:gap-8 py-8">
+              <div className="md:col-span-1">
+                   <h3 className="text-base font-semibold text-text-primary">Вопросы</h3>
+                  <p className="text-sm text-text-secondary mt-1">Создайте и настройте вопросы для вашего опроса.</p>
+              </div>
+              <div className="md:col-span-2 space-y-4">
+                  <AnimatePresence>
+                  {questions.map((q, index) => (
+                  <QuestionEditor key={q.id} question={q} index={index} update={updateQuestion} remove={removeQuestion} />
+                  ))}
+                  </AnimatePresence>
+                  <ActionButton onClick={addQuestion} variant='secondary'><Plus size={16} className="mr-2"/>Добавить вопрос</ActionButton>
+              </div>
+          </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 };
 

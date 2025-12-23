@@ -1,161 +1,151 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { supabaseAdmin } from '../_utils/supabase.ts';
+import { corsHeaders } from "../_utils/cors.ts";
 
-// The function to call Google Gemini API, now with a dynamic model name
-async function callGeminiAI(prompt: string, apiKey: string, modelName: string) {
-  const url = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`;
-  
-  const response = await fetch(
-    url,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt,
-          }],
-        }],
-        generationConfig: {
-          temperature: 0.7,
-        }
-      }),
-    }
-  );
+// We only need the API key for authentication with Google's Generative Language API
+import { GOOGLE_GEMINI_API_KEY } from "../_utils/constants.ts";
 
-  if (!response.ok) {
-    const errorBody = await response.json();
-    console.error("Google Gemini API Error Response:", errorBody);
-    // Unified error format for the client
-    const statusCode = response.status;
-    const errorMessage = errorBody.error?.message || "Unknown error";
-    throw new Error(`Google API request failed: ${statusCode} ${errorMessage}`);
-  }
-
-  const data = await response.json();
-  if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
-    let text = data.candidates[0].content.parts[0].text;
-    // Clean the response from markdown formatting
-    if (text.startsWith("```json")) {
-      text = text.substring(7, text.length - 3).trim();
-    } else if (text.startsWith("```")) {
-      text = text.substring(3, text.length - 3).trim();
-    }
-    return text;
-  }
-  throw new Error("Invalid or empty response structure from Gemini API");
-}
-
-Deno.serve(async (req: Request) => {
+serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
     const { action, data } = await req.json();
 
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY not configured in Supabase secrets.");
-    }
-    
-    // ACTION: check-model-availability
-    if (action === "check-model-availability") {
-      const { modelName } = data;
-      if (!modelName) {
-        throw new Error("modelName is required for check-model-availability action.");
-      }
-      // Make a test call to see if it succeeds or fails.
-      await callGeminiAI("test", apiKey, modelName);
-      // If it doesn't throw, it's available.
-      return new Response(JSON.stringify({ message: "Model is available" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-
-    // For all other actions, first get the system settings
-    const supabaseAdminClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? '',
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ''
-    );
-
-    const { data: settings, error: settingsError } = await supabaseAdminClient
-      .from('system_settings')
-      .select('active_ai_model, generate_survey_meta_prompt')
-      .single();
-
-    if (settingsError) throw new Error(`Database error: ${settingsError.message}`);
-    if (!settings || !settings.active_ai_model || !settings.generate_survey_meta_prompt) {
-      throw new Error("AI model or meta prompt is not configured in system settings.");
-    }
-    const activeModel = settings.active_ai_model;
-    const metaPrompt = settings.generate_survey_meta_prompt;
-
-    let result;
-
     switch (action) {
-      case "generate-survey": {
-        const { topic, questionCount } = data;
-        const prompt = metaPrompt
-          .replace('${prompt}', topic)
-          .replace('${numQuestions}', questionCount);
+      case 'discover-models': {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${GOOGLE_GEMINI_API_KEY}`;
+        const response = await fetch(url);
 
-        const rawJson = await callGeminiAI(prompt, apiKey, activeModel);
-        result = JSON.parse(rawJson);
-        break;
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Google API Error: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+
+        const fullModelData = await response.json();
+
+        return new Response(JSON.stringify(fullModelData), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      case "clean-answer": {
-        const { question, rawAnswer } = data;
-        const prompt = `Пользователь отвечал на вопрос: "${question}"\n\nОтвет пользователя (может содержать паразитные слова, повторы, быть неструктурированным): "${rawAnswer}"\n\nТвоя задача:\n1. Убрать паразитные слова (эээ, ммм, ну, короче и т.д.)\n2. Исправить очевидные ошибки транскрипции\n3. Структурировать ответ, сохраняя смысл\n4. Сделать текст читабельным и грамотным\n\nВерни только очищенный и отформатированный ответ, без дополнительных комментариев.`;
+      case 'check-model-availability': {
+        const { modelName } = data;
+        if (!modelName) {
+          return new Response(JSON.stringify({ error: "modelName is required" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400
+          });
+        }
+        
+        const normalizedModelName = modelName.startsWith('models/')
+          ? modelName.substring('models/'.length)
+          : modelName;
 
-        const cleanedText = await callGeminiAI(prompt, apiKey, activeModel);
-        result = { cleanedAnswer: cleanedText.trim() };
-        break;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${normalizedModelName}?key=${GOOGLE_GEMINI_API_KEY}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+           const errorText = await response.text();
+           let errorMessage = `Google API Error (${response.status}): ${errorText}`;
+           try {
+             const errorJson = JSON.parse(errorText);
+             if (errorJson.error && errorJson.error.message) {
+               errorMessage = errorJson.error.message;
+             }
+           } catch (e) { /* ignore parsing error, use raw text */ }
+           
+           return new Response(JSON.stringify({ error: errorMessage }), {
+             headers: { ...corsHeaders, "Content-Type": "application/json" },
+             status: 400 
+           });
+        }
+        
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      case "analyze-responses": {
-        const { surveyTitle, questions, responses } = data;
-        const prompt = `Проанализируй результаты опроса "${surveyTitle}".\n\nВопросы и ответы:\n${JSON.stringify({ questions, responses }, null, 2)}\n\nПредоставь:\n1. Краткое резюме (2-3 предложения)\n2. Ключевые инсайты и паттерны в ответах\n3. Статистику по каждому вопросу\n4. Рекомендации на основе полученных данных\n\nВерни ответ в формате JSON с полями:\n- "summary": краткое резюме\n- "insights": массив ключевых инсайтов\n- "statistics": объект со статистикой по вопросам\n- "recommendations": массив рекомендаций`;
+      case 'generate-survey': {
+        const { prompt, questionsCount, isInteractive } = data;
+        if (!prompt || !questionsCount) {
+          return new Response(JSON.stringify({ error: "prompt and questionsCount are required" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400
+          });
+        }
 
-        const rawJson = await callGeminiAI(prompt, apiKey, activeModel);
-        result = { analysis: JSON.parse(rawJson) };
-        break;
+        const { data: settings, error: settingsError } = await supabaseAdmin
+          .from('system_settings')
+          .select('active_ai_model, generate_survey_meta_prompt')
+          .single();
+
+        if (settingsError) {
+          throw new Error(`Database error: Could not fetch system settings. ${settingsError.message}`);
+        }
+
+        const { active_ai_model, generate_survey_meta_prompt } = settings;
+
+        if (!active_ai_model) {
+          throw new Error('No active AI model configured in system settings.');
+        }
+        if (!generate_survey_meta_prompt) {
+          throw new Error('No survey generation meta prompt configured in system settings.');
+        }
+        
+        // Construct the final prompt by replacing placeholders
+        const finalPrompt = generate_survey_meta_prompt
+          .replace(/\[SURVEY_TOPIC\]/gi, prompt)
+          .replace(/\[QUESTIONS_COUNT\]/gi, questionsCount.toString());
+
+        // Normalize model name for the API call
+        const modelToUse = active_ai_model.startsWith('models/')
+          ? active_ai_model.substring('models/'.length)
+          : active_ai_model;
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${GOOGLE_GEMINI_API_KEY}`;
+
+        const requestBody = {
+          contents: [{
+            parts: [{
+              text: finalPrompt
+            }]
+          }]
+        };
+
+        const geminiApiResponse = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!geminiApiResponse.ok) {
+          const errorText = await geminiApiResponse.text();
+          throw new Error(`Google API Error: ${geminiApiResponse.status} ${geminiApiResponse.statusText} - ${errorText}`);
+        }
+
+        const geminiData = await geminiApiResponse.json();
+        const generatedContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!generatedContent) {
+          throw new Error('Could not extract generated text from Google API response.');
+        }
+
+        return new Response(JSON.stringify({ generated_survey: generatedContent }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       default:
-        throw new Error(`Unknown action: ${action}`);
+        return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        });
     }
-
-    return new Response(JSON.stringify(result), {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-      },
-    });
   } catch (error) {
-    console.error('Function Error:', error.message);
-    return new Response(
-      JSON.stringify({ error: `Server-side error: ${error.message}` }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
   }
 });

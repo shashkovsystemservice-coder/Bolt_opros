@@ -1,5 +1,6 @@
+
 import { useState } from 'react';
-import { X, Shield, AlertCircle } from 'lucide-react';
+import { X, Shield, AlertCircle, Loader2 } from 'lucide-react';
 
 interface AdminPasswordModalProps {
   isOpen: boolean;
@@ -41,28 +42,21 @@ export function AdminPasswordModal({ isOpen, onClose, onSuccess }: AdminPassword
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="bg-gradient-to-r from-orange-500 to-red-500 p-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Shield className="w-6 h-6 text-white" strokeWidth={2} />
-            <h2 className="text-xl font-semibold text-white">Доступ в админ-панель</h2>
-          </div>
-          <button
-            onClick={handleClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-white" strokeWidth={2} />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm">
+        <header className="p-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5 text-slate-500" strokeWidth={2} />
+                <h2 className="text-base font-semibold text-slate-800">Доступ в админ-панель</h2>
+            </div>
+            <button onClick={handleClose} className="p-1 hover:bg-slate-100 rounded-full transition-colors">
+                <X className="w-4 h-4 text-slate-500" strokeWidth={2.5} />
+            </button>
+        </header>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <p className="text-sm text-[#5F6368]">
-            Для доступа к панели супер-администратора введите пароль
-          </p>
-
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label htmlFor="admin-password" className="block text-sm font-medium text-[#1F1F1F] mb-2">
+            <label htmlFor="admin-password" className="block text-sm font-medium text-slate-700 mb-1.5">
               Пароль администратора
             </label>
             <input
@@ -74,14 +68,14 @@ export function AdminPasswordModal({ isOpen, onClose, onSuccess }: AdminPassword
                 setError('');
               }}
               placeholder="Введите пароль"
-              className="w-full px-4 py-3 border border-[#E8EAED] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-transparent transition-all"
+              className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400 transition-all"
               disabled={isLoading}
               autoFocus
             />
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
               <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
               <p className="text-sm text-red-700">{error}</p>
             </div>
@@ -91,7 +85,7 @@ export function AdminPasswordModal({ isOpen, onClose, onSuccess }: AdminPassword
             <button
               type="button"
               onClick={handleClose}
-              className="flex-1 px-4 py-3 bg-[#F8F9FA] text-[#5F6368] rounded-lg hover:bg-[#E8EAED] transition-colors font-medium"
+              className="flex-1 h-9 px-4 bg-transparent text-slate-600 rounded-md hover:bg-slate-100 transition-colors font-medium text-sm"
               disabled={isLoading}
             >
               Отмена
@@ -99,9 +93,9 @@ export function AdminPasswordModal({ isOpen, onClose, onSuccess }: AdminPassword
             <button
               type="submit"
               disabled={!password.trim() || isLoading}
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+              className="flex-1 h-9 px-4 inline-flex items-center justify-center bg-slate-800 text-white rounded-md hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm"
             >
-              {isLoading ? 'Проверка...' : 'Войти'}
+              {isLoading ? <Loader2 className="animate-spin w-4 h-4" /> : 'Войти'}
             </button>
           </div>
         </form>

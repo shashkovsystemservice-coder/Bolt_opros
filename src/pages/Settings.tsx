@@ -9,11 +9,11 @@ import { motion } from 'framer-motion';
 // --- Reusable & Styled Components (Aligned with new design system) ---
 
 const ActionButton = ({ onClick, children, variant = 'primary', size = 'md', disabled = false, loading = false }) => {
-    const baseClasses = "inline-flex items-center justify-center font-medium text-sm rounded-md transition-colors duration-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background";
+    const baseClasses = "inline-flex items-center justify-center font-medium text-sm rounded-md transition-colors duration-200 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background";
     const sizeClasses = { md: "h-9 px-4", sm: "h-8 px-3" };
     const variantClasses = {
-        primary: "bg-primary text-on-primary hover:bg-primary/90 focus:ring-primary",
-        secondary: "bg-surface border border-border hover:bg-background text-text-primary focus:ring-primary",
+        primary: "bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-300",
+        secondary: "bg-transparent text-text-secondary hover:bg-slate-100 focus:ring-slate-300",
     };
     return <button onClick={onClick} disabled={disabled || loading} className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]}`}>{loading ? <Loader2 className="animate-spin h-5 w-5"/> : children}</button>
 };
@@ -31,7 +31,7 @@ const FormInput = ({ id, label, type = 'text', ...props }) => {
          <input
           id={id}
           type={isPassword ? (isPasswordVisible ? 'text' : 'password') : type}
-          className="w-full h-10 px-3 bg-background border border-border rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/80 focus:border-primary"
+          className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400"
           {...props}
         />
         {isPassword && (
@@ -44,12 +44,11 @@ const FormInput = ({ id, label, type = 'text', ...props }) => {
   );
 };
 
-const SettingsSection = ({ title, description, children, footer }) => (
-  <div className="py-8 border-b border-border-subtle last:border-b-0">
+const SettingsSection = ({ title, children, footer }) => (
+  <div className="py-8 border-b border-slate-200/80 last:border-b-0">
     <div className="grid md:grid-cols-3 gap-4 md:gap-8">
       <div className="md:col-span-1">
         <h3 className="text-base font-semibold text-text-primary">{title}</h3>
-        <p className="text-sm text-text-secondary mt-1">{description}</p>
       </div>
       <div className="md:col-span-2">
         <div className="space-y-5 max-w-lg">{children}</div>
@@ -117,8 +116,6 @@ export function Settings() {
     try {
       const updates = { recovery_email: recoveryEmail, security_question: securityQuestion };
       if (securityAnswer) {
-         // In a real app, hash the answer on the server or using a secure client-side library.
-         // This is a placeholder and NOT secure.
         updates.security_answer_hash = btoa(securityAnswer); 
       }
       const { error } = await supabase.from('companies').update(updates).eq('id', user.id);
@@ -158,17 +155,11 @@ export function Settings() {
 
   return (
     <div>
-        <div className="mb-8">
-            <h1 className="text-2xl font-semibold text-text-primary">Настройки</h1>
-            <p className="text-text-secondary mt-1 text-sm">Управление профилем компании и безопасностью.</p>
-        </div>
-
         <SettingsSection 
             title="Профиль компании"
-            description="Основная информация о вашей компании"
             footer={
                 <ActionButton onClick={handleSaveProfile} loading={isSavingProfile} disabled={companyName === initialCompanyName || !companyName.trim()}>
-                    <Save className="w-4 h-4 mr-2" /> Сохранить
+                    Сохранить
                 </ActionButton>
             }
         >
@@ -177,10 +168,9 @@ export function Settings() {
 
         <SettingsSection
             title="Безопасность"
-            description="Настройте способы восстановления доступа к аккаунту"
             footer={
                 <ActionButton onClick={handleSaveSecurity} loading={isSavingSecurity}>
-                    <Save className="w-4 h-4 mr-2" /> Сохранить изменения
+                    Сохранить изменения
                 </ActionButton>
             }
         >
@@ -191,11 +181,10 @@ export function Settings() {
 
         <SettingsSection
             title="Резервные коды"
-            description="Используйте для входа, если потеряете доступ к 2FA или паролю."
         >
             {backupCodes.length > 0 ? (
                 <div className="space-y-4">
-                    <div className="bg-background p-4 rounded-lg border border-border-subtle">
+                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                         <p className="text-sm text-text-secondary mb-4">Коды сгенерированы. Сохраните их в безопасном месте. Каждый код можно использовать только один раз.</p>
                         {showCodes && (
                             <motion.div
@@ -204,7 +193,7 @@ export function Settings() {
                                 className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-4"
                             >
                                {backupCodes.map((code, index) => (
-                                   <div key={index} className={`p-3 rounded-md font-mono text-sm text-center border ${code.used ? 'bg-surface text-text-secondary line-through border-border-subtle' : 'bg-surface text-text-primary border-transparent'}`}>
+                                   <div key={index} className={`p-3 rounded-md font-mono text-sm text-center border ${code.used ? 'bg-slate-100 text-slate-400 line-through border-slate-200' : 'bg-white text-slate-600 border-slate-200'}`}>
                                        {code.code}
                                    </div>
                                ))}
@@ -221,7 +210,7 @@ export function Settings() {
                     </div>
                 </div>
             ) : (
-                <div className="text-center py-6 bg-background rounded-lg border border-dashed">
+                <div className="text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-300">
                      <p className="text-text-secondary text-sm">Резервные коды еще не созданы.</p>
                 </div>
             )}
