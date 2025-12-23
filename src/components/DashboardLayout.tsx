@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AdminPasswordModal } from './AdminPasswordModal';
-import { MobileBottomNav } from './MobileBottomNav'; // Импортируем новый компонент
+import { MobileBottomNav } from './MobileBottomNav';
 
 const SUPER_ADMIN_EMAIL = 'shashkov.systemservice@gmail.com';
 
@@ -79,12 +79,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { icon: Settings, label: 'Настройки', path: '/dashboard/settings' },
   ];
 
-  // ONLY super admins should see the Admin Panel link.
   if (isSuperAdmin) {
     menuItems.push({
       icon: Shield,
       label: 'Админ-панель',
-      path: '/admin/companies', // Main entry point for super admin
+      path: '/admin/companies',
     });
   }
 
@@ -101,7 +100,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen bg-background text-text-primary">
       <header className="bg-surface border-b border-border-subtle sticky top-0 z-40 h-16">
-        <div className="h-full px-4 md:px-6 flex items-center justify-between max-w-7xl mx-auto">
+        <div className="h-full px-4 md:px-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -127,13 +126,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </header>
 
-      <div className="flex max-w-7xl mx-auto">
+      <div className="flex">
         <aside
-          className={`
-            fixed lg:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-background border-r border-border-subtle transition-transform z-30
-            ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          `}
-        >
+          className={`fixed lg:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-surface border-r border-border-subtle z-30 ${mobileMenuOpen ? 'block' : 'hidden'} lg:block`}>
           <nav className="p-4 space-y-2">
             {menuItems.map((item) => {
               const isAdminPanel = item.label === 'Админ-панель';
@@ -144,7 +139,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   key={item.path}
                   onClick={() => handleNavigation(item.path)}
                   className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl transition-all font-medium text-sm ${
-                    itemIsActive ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-surface'
+                    itemIsActive ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-background'
                   }`}
                 >
                   <item.icon className="w-5 h-5" strokeWidth={2} />
@@ -165,9 +160,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </nav>
         </aside>
 
-        {/* Добавляем pb-20 для мобильных устройств, чтобы компенсировать высоту навбара */}
-        <main className="flex-1 min-h-[calc(100vh-4rem)] p-4 md:p-6 lg:p-8 pb-24 md:pb-6 lg:pb-8">
-          {children}
+        <main className="flex-1 min-h-[calc(100vh-4rem)]">
+          <div className="max-w-7xl w-full px-4 sm:px-6 lg:px-8 py-6">
+            {children}
+           </div>
         </main>
       </div>
 
@@ -187,7 +183,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         onSuccess={handlePasswordSuccess}
       />
       
-      {/* Отображаем нижнюю навигацию */}
       <MobileBottomNav />
     </div>
   );

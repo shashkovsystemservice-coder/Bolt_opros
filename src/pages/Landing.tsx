@@ -19,7 +19,7 @@ const FeatureCard = ({ icon, title, description, index }) => (
         whileInView={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: index * 0.1 }}
         viewport={{ once: true }}
-        className="bg-surface/80 backdrop-blur-sm border border-border-subtle rounded-2xl p-8 shadow-ambient transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+        className="bg-surface/80 backdrop-blur-sm border border-border-subtle rounded-xl p-8 shadow-ambient transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
     >
         <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
             {icon}

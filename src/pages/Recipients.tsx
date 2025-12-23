@@ -6,41 +6,43 @@ import { supabase } from '../lib/supabase';
 import { generateCode } from '../utils/generateCode';
 import { getBaseUrl } from '../utils/urls';
 import { toast } from 'sonner';
-import { DashboardLayout } from '../components/DashboardLayout';
-import { Plus, Trash2, Mail, ArrowLeft, X, Copy, CheckCircle2, Link as LinkIcon, Users, UserPlus, Send, Loader2, RefreshCw, Search } from 'lucide-react';
+import { Plus, Trash2, Mail, ArrowLeft, X, Copy, Link as LinkIcon, Users, UserPlus, Loader2, RefreshCw, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- Reusable Components ---
+// --- Reusable & Styled Components ---
 const ActionButton = ({ onClick, children, loading = false, disabled = false, variant = 'primary', size = 'md' }) => {
-    const base = "inline-flex items-center justify-center font-semibold text-sm rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2";
-    const sizes = { md: "h-10 px-4", sm: "h-9 px-3" };
-    const variants = { primary: "bg-primary text-on-primary hover:bg-primary/90 focus:ring-primary", secondary: "bg-surface border border-border-subtle hover:bg-background text-text-primary focus:ring-primary" };
-    return <button onClick={onClick} disabled={disabled || loading} className={`${base} ${sizes[size]} ${variants[variant]}`}>{loading ? <Loader2 className="animate-spin h-5 w-5"/> : children}</button>;
+    const base = "inline-flex items-center justify-center font-medium text-sm rounded-md transition-colors duration-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background";
+    const sizes = { md: "h-9 px-4", sm: "h-8 px-3" };
+    const variants = { 
+        primary: "bg-primary text-on-primary hover:bg-primary/90 focus:ring-primary", 
+        secondary: "bg-surface border border-border hover:bg-background text-text-primary focus:ring-primary" 
+    };
+    return <button onClick={onClick} disabled={disabled || loading} className={`${base} ${sizes[size]} ${variants[variant]}`}>{loading ? <Loader2 className="animate-spin h-4 w-4"/> : children}</button>;
 };
 
-const Card = ({ icon, title, description, children, actions }) => (
-  <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: 'easeOut' }} className="bg-surface border border-border-subtle rounded-2xl shadow-ambient">
-    <div className="p-6 border-b border-border-subtle flex justify-between items-start gap-4">
-      <div className="flex items-start gap-5">
-        <div className="bg-primary/10 text-primary rounded-full w-10 h-10 flex-shrink-0 flex items-center justify-center">{icon}</div>
-        <div>
-          <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
-          <p className="text-sm text-text-secondary mt-1">{description}</p>
+const Section = ({ title, description, children, headerActions }) => (
+    <div className="py-8 border-b border-border-subtle last:border-b-0">
+        <div className="grid md:grid-cols-3 gap-4 md:gap-8">
+            <div className="md:col-span-1">
+                <h3 className="text-base font-semibold text-text-primary">{title}</h3>
+                <p className="text-sm text-text-secondary mt-1">{description}</p>
+            </div>
+            <div className="md:col-span-2">
+                {headerActions && <div className="flex justify-end mb-4">{headerActions}</div>}
+                <div className="bg-surface border border-border rounded-lg">
+                    {children}
+                </div>
+            </div>
         </div>
-      </div>
-      {actions && <div className="flex-shrink-0">{actions}</div>}
     </div>
-    <div className="p-4 bg-background/50">{children}</div>
-  </motion.div>
 );
 
-const RecipientStatusBadge = ({ submitted_at, additional_info }) => {
-    if (submitted_at) return <span className="px-2 py-0.5 text-xs font-medium text-green-800 bg-green-100 rounded-md">Ответил</span>;
-    if (additional_info === 'Одноразовая ссылка') return <span className="px-2 py-0.5 text-xs font-medium text-gray-700 bg-gray-200 rounded-md">Не использована</span>;
-    return <span className="px-2 py-0.5 text-xs font-medium text-amber-800 bg-amber-100 rounded-md">Ожидание</span>;
+const RecipientStatusBadge = ({ submitted_at }) => {
+    if (submitted_at) return <span className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-full">Ответил</span>;
+    return <span className="px-2 py-1 text-xs font-medium text-amber-700 bg-amber-100 rounded-full">Ожидание</span>;
 };
 
-// --- Main Component --- //
+// --- Main Component ---
 const Recipients = () => {
   const { id: survey_id } = useParams();
   const { user } = useAuth();
@@ -87,68 +89,66 @@ const Recipients = () => {
   }
 
   const getLink = (code) => `${getBaseUrl()}/survey/${survey?.unique_code}${code ? `?code=${code}` : ''}`;
-  const handleCopy = (link, id) => { navigator.clipboard.writeText(link).then(() => { setCopiedLink(id); setTimeout(() => setCopiedLink(null), 2000); }); }
+  const handleCopy = (link, id) => { navigator.clipboard.writeText(link).then(() => { setCopiedLink(id); toast.success("Ссылка скопирована!"); setTimeout(() => setCopiedLink(null), 2000); }); }
 
-  if (loading && !survey) return <DashboardLayout><div className="flex justify-center items-center py-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div></DashboardLayout>;
+  if (loading && !survey) return <div className="flex justify-center items-center py-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
   return (
-    <DashboardLayout>
-      <div className="max-w-6xl mx-auto space-y-8 px-4 py-8">
-        <header>
-            <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-text-secondary hover:text-primary mb-4 transition-colors"><ArrowLeft size={18}/> Назад ко всем опросам</button>
+      <div className="max-w-5xl mx-auto space-y-4 px-4 py-8">
+        <header className="mb-8">
+            <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-sm text-text-secondary hover:text-primary mb-5 transition-colors"><ArrowLeft size={16}/> Назад ко всем опросам</button>
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-text-primary">Получатели и ссылки</h1>
-                    <p className="text-text-secondary mt-1.5 truncate">Опрос: {survey?.title}</p>
+                    <h1 className="text-2xl font-semibold text-text-primary">Получатели и ссылки</h1>
+                    <p className="text-sm text-text-secondary mt-1 truncate">Опрос: {survey?.title}</p>
                 </div>
-                <ActionButton variant="secondary" onClick={fetchData} loading={loading}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} /></ActionButton>
+                 <ActionButton variant="secondary" onClick={fetchData} loading={loading}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} /></ActionButton>
             </div>
         </header>
 
-        <Card icon={<LinkIcon size={20} />} title="Массовая ссылка" description="Любой, у кого есть эта ссылка, может пройти опрос.">
-            <div className="flex items-center gap-2 p-2">
-                <input type="text" readOnly value={getLink()} className="flex-grow bg-background border border-border-subtle rounded-lg h-10 px-3 text-sm focus:outline-none" />
-                <ActionButton onClick={() => handleCopy(getLink(), 'public')} variant="secondary" size='sm'>{copiedLink === 'public' ? <CheckCircle2 size={16} className="text-green-500"/> : <Copy size={16}/>}</ActionButton>
+        <Section title="Массовая ссылка" description="Любой, у кого есть эта ссылка, может пройти опрос.">
+           <div className="p-4 flex items-center gap-2">
+                <input type="text" readOnly value={getLink()} className="flex-grow bg-background border border-border rounded-md h-9 px-3 text-sm focus:outline-none" />
+                <ActionButton onClick={() => handleCopy(getLink(), 'public')} variant="secondary" size='sm'><Copy size={15} className="mr-1.5"/>Скопировать</ActionButton>
             </div>
-        </Card>
+        </Section>
 
-        <Card icon={<LinkIcon size={20} />} title="Одноразовые анонимные ссылки" description="Каждая ссылка может быть использована только один раз." actions={<ActionButton onClick={handleGenerateDisposable}><Plus size={16} className="mr-2"/>Создать ссылку</ActionButton>}>
-           <div className="p-2 space-y-2">
-           <AnimatePresence>
+        <Section title="Одноразовые ссылки" description="Каждая ссылка уникальна и может быть использована только один раз." headerActions={<ActionButton onClick={handleGenerateDisposable} size="sm"><Plus size={16} className="mr-1.5"/>Создать ссылку</ActionButton>}>
+           <div className="divide-y divide-border-subtle">
            {disposableRecipients.length > 0 ? disposableRecipients.map(r => (
-                <motion.div layout key={r.id} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} className="p-2.5 rounded-lg flex items-center justify-between bg-white group hover:bg-slate-50 border border-border-subtle">
+                <div key={r.id} className="p-4 flex items-center justify-between group">
                     <div className="flex items-center gap-3"><LinkIcon size={16} className="text-text-secondary"/><span className="font-mono text-sm text-text-primary">{r.recipient_code}</span></div>
-                    <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                       <RecipientStatusBadge {...r} />
-                       <button onClick={() => handleCopy(getLink(r.recipient_code), r.id)} className="p-2 text-text-secondary hover:text-primary rounded-full hover:bg-primary/10">{copiedLink === r.id ? <CheckCircle2 size={16} className="text-green-500"/> : <Copy size={16}/>}</button>
-                       <button onClick={() => handleDeleteRecipient(r.id)} className="p-2 text-text-secondary hover:text-red-500 rounded-full hover:bg-red-500/10"><Trash2 size={16}/></button>
+                    <div className="flex items-center gap-4">
+                       {!r.submitted_at ? <span className="text-xs font-medium text-gray-500">Не использована</span> : <RecipientStatusBadge {...r} />}
+                       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                           <button onClick={() => handleCopy(getLink(r.recipient_code), r.id)} className="p-1.5 text-text-secondary hover:text-primary rounded-md hover:bg-primary/10"><Copy size={15}/></button>
+                           <button onClick={() => handleDeleteRecipient(r.id)} className="p-1.5 text-text-secondary hover:text-red-500 rounded-md hover:bg-red-500/10"><Trash2 size={15}/></button>
+                       </div>
                     </div>
-                </motion.div>
+                </div>
             )) : <div className="text-center py-10 text-text-secondary text-sm">Нет одноразовых ссылок.</div>}
-            </AnimatePresence>
            </div>
-        </Card>
+        </Section>
         
-        <Card icon={<Users size={20} />} title="Персональные получатели" description="Отправьте уникальные ссылки конкретным людям." actions={<ActionButton onClick={() => setIsModalOpen(true)}><UserPlus size={16} className="mr-2"/>Добавить из контактов</ActionButton>}>
-            <div className="p-2 space-y-2">
-            <AnimatePresence>
+        <Section icon={<Users size={20} />} title="Персональные получатели" description="Отправьте уникальные ссылки конкретным людям." headerActions={<ActionButton onClick={() => setIsModalOpen(true)} size="sm"><UserPlus size={16} className="mr-1.5"/>Добавить</ActionButton>}>
+            <div className="divide-y divide-border-subtle">
             {personalRecipients.length > 0 ? personalRecipients.map(r => (
-                <motion.div layout key={r.id} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} className="p-2.5 rounded-lg flex items-center justify-between bg-white group hover:bg-slate-50 border border-border-subtle">
-                    <div className="flex flex-col"><span className="font-semibold text-text-primary">{r.contact_person}</span><span className="text-sm text-text-secondary">{r.email}</span></div>
-                    <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div key={r.id} className="p-4 flex items-center justify-between group">
+                    <div className="flex flex-col"><p className="font-medium text-text-primary text-sm">{r.contact_person}</p><p className="text-sm text-text-secondary">{r.email}</p></div>
+                    <div className="flex items-center gap-4">
                         <RecipientStatusBadge {...r} />
-                        <button onClick={() => handleCopy(getLink(r.recipient_code), r.id)} className="p-2 text-text-secondary hover:text-primary rounded-full hover:bg-primary/10">{copiedLink === r.id ? <CheckCircle2 size={16} className="text-green-500"/> : <Copy size={16}/>}</button>
-                        <button onClick={() => handleDeleteRecipient(r.id)} className="p-2 text-text-secondary hover:text-red-500 rounded-full hover:bg-red-500/10"><Trash2 size={16}/></button>
+                         <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                            <button onClick={() => handleCopy(getLink(r.recipient_code), r.id)} className="p-1.5 text-text-secondary hover:text-primary rounded-md hover:bg-primary/10"><Copy size={15}/></button>
+                            <button onClick={() => handleDeleteRecipient(r.id)} className="p-1.5 text-text-secondary hover:text-red-500 rounded-md hover:bg-red-500/10"><Trash2 size={15}/></button>
+                        </div>
                     </div>
-                </motion.div>
+                </div>
             )) : <div className="text-center py-10 text-text-secondary text-sm">Нет персональных получателей.</div>}
-             </AnimatePresence>
             </div>
-        </Card>
+        </Section>
 
         <SelectContactsModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} surveyId={survey_id} existingRecipients={recipients} onRecipientsAdded={fetchData} />
       </div>
-    </DashboardLayout>
   );
 };
 
@@ -201,23 +201,23 @@ const SelectContactsModal = ({ isOpen, onClose, surveyId, existingRecipients, on
     return (
         <AnimatePresence>
         {isOpen && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-surface rounded-2xl shadow-xl w-full max-w-2xl h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                <header className="p-5 border-b border-border-subtle flex justify-between items-center"><h2 className="text-lg font-semibold text-text-primary">Добавить из контактов</h2><button onClick={onClose} className="p-1 rounded-full hover:bg-background"><X/></button></header>
-                <div className="p-4 border-b border-border-subtle"><div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-secondary" /><input type="text" placeholder="Поиск..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full h-10 pl-10 pr-4 bg-background border border-border-subtle rounded-lg focus:outline-none ring-primary/50 focus:ring-2"/></div></div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-surface rounded-lg shadow-xl w-full max-w-2xl h-[70vh] flex flex-col border border-border-subtle" onClick={e => e.stopPropagation()}>
+                <header className="p-5 border-b border-border-subtle flex justify-between items-center"><h2 className="text-lg font-semibold text-text-primary">Добавить из контактов</h2><button onClick={onClose} className="p-1.5 rounded-md hover:bg-background"><X size={18}/></button></header>
+                <div className="p-4 border-b border-border-subtle"><div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" /><input type="text" placeholder="Поиск по имени или email..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full h-10 pl-10 pr-4 bg-background border border-border rounded-md focus:outline-none ring-primary/80 focus:ring-2"/></div></div>
                 <div className="overflow-y-auto flex-grow p-2">
                     {loading ? <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin h-6 w-6 text-primary"/></div>
-                    : filteredContacts.length === 0 ? <div className="text-center py-10 text-text-secondary">Все контакты уже добавлены или не найдены.</div>
-                    : <div className="space-y-1">
+                    : filteredContacts.length === 0 ? <div className="text-center py-16 text-text-secondary text-sm">Все контакты уже добавлены или не найдены.</div>
+                    : <ul className="divide-y divide-border-subtle">
                         {filteredContacts.map(c => (
-                            <div key={c.id} onClick={() => handleSelect(c.id)} className={`p-3 flex items-center gap-4 rounded-lg cursor-pointer transition-colors ${selected.has(c.id) ? 'bg-primary/10' : 'hover:bg-background'}`}>
-                                <input type="checkbox" readOnly checked={selected.has(c.id)} className="h-4 w-4 rounded border-gray-400 text-primary focus:ring-primary/50 pointer-events-none"/>
-                                <div><p className="font-medium text-text-primary">{c.first_name} {c.last_name}</p><p className="text-sm text-text-secondary">{c.email}</p></div>
-                            </div>
+                            <li key={c.id} onClick={() => handleSelect(c.id)} className={`p-3 flex items-center gap-4 cursor-pointer transition-colors rounded-md ${selected.has(c.id) ? 'bg-primary/10' : 'hover:bg-background'}`}>
+                                <input type="checkbox" readOnly checked={selected.has(c.id)} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/50 pointer-events-none"/>
+                                <div><p className="font-medium text-text-primary text-sm">{c.first_name} {c.last_name}</p><p className="text-sm text-text-secondary">{c.email}</p></div>
+                            </li>
                         ))}
-                    </div>}
+                    </ul>}
                 </div>
-                <footer className="p-4 border-t border-border-subtle flex justify-end gap-3">
+                <footer className="p-4 bg-surface border-t border-border-subtle flex justify-end gap-3">
                     <ActionButton variant="secondary" onClick={onClose}>Отмена</ActionButton>
                     <ActionButton onClick={handleAddRecipients} loading={isAdding} disabled={selected.size === 0}>{`Добавить (${selected.size})`}</ActionButton>
                 </footer>

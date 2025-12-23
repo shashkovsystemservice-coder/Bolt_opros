@@ -1,43 +1,56 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
-import { Loader2, Trash2, Power, AlertCircle, CheckCircle, RefreshCw, Info, X, ArrowLeft, BrainCircuit, Settings, FileText, Bot } from 'lucide-react';
+import { Loader2, Trash2, Power, AlertCircle, CheckCircle, RefreshCw, Save, Bot } from 'lucide-react';
 
-const SettingsCard = ({ icon, title, description, children, actions }) => (
-  <div className="bg-surface border border-border-subtle rounded-2xl shadow-ambient overflow-hidden">
-    <div className="p-6 border-b border-border-subtle">
-      <div className="flex justify-between items-start gap-4">
-        <div className="flex items-start gap-4">
-          <div className="bg-background flex-shrink-0 rounded-full w-10 h-10 flex items-center justify-center">
-            {icon}
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
-            <p className="text-sm text-text-secondary mt-1">{description}</p>
-          </div>
-        </div>
-        {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
+// --- Reusable & Styled Components ---
+const ActionButton = ({ onClick, children, variant = 'primary', size = 'md', disabled = false, loading = false, className = '' }) => {
+    const baseClasses = "inline-flex items-center justify-center font-medium text-sm rounded-md transition-colors duration-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background";
+    const sizeClasses = { md: "h-9 px-4", sm: "h-8 px-3" };
+    const variantClasses = {
+        primary: "bg-primary text-on-primary hover:bg-primary/90 focus:ring-primary",
+        secondary: "bg-surface border border-border hover:bg-background text-text-primary focus:ring-primary",
+    };
+    return <button onClick={onClick} disabled={disabled || loading} className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}>{loading ? <Loader2 className="animate-spin h-4 w-4"/> : children}</button>
+};
+
+const ActionIcon = ({ onClick, children, title }) => (
+    <button onClick={onClick} title={title} className="p-1.5 text-text-secondary hover:text-red-500 rounded-md hover:bg-red-500/10 transition-colors">
+        {children}
+    </button>
+);
+
+const SettingsSection = ({ title, description, children, footer, headerActions }) => (
+  <div className="py-8 border-b border-border-subtle last:border-b-0">
+    <div className="grid md:grid-cols-3 gap-4 md:gap-8">
+      <div className="md:col-span-1">
+        <h3 className="text-base font-semibold text-text-primary">{title}</h3>
+        <p className="text-sm text-text-secondary mt-1">{description}</p>
+      </div>
+      <div className="md:col-span-2">
+        {headerActions && <div className="flex justify-end mb-4">{headerActions}</div>}
+        <div className="p-6 bg-surface border border-border rounded-lg space-y-5">{children}</div>
+        {footer && <div className="flex justify-end pt-5">{footer}</div>}
       </div>
     </div>
-    <div className="p-6 bg-background/50">{children}</div>
   </div>
 );
 
 const ModelStatusBadge = ({ status, message }) => {
   switch (status) {
     case 'checking':
-      return <Loader2 className="animate-spin h-4 w-4 text-text-secondary" />;
+      return <div className="flex items-center gap-2 text-sm text-text-secondary"><Loader2 className="animate-spin h-4 w-4" /> <span>Проверка...</span></div>;
     case 'available':
-      return <span className="flex items-center gap-1.5 text-xs font-medium text-green-600"><CheckCircle className="h-4 w-4" /> Доступна</span>;
+      return <div className="flex items-center gap-2 text-sm text-green-600"><CheckCircle className="h-4 w-4" /> <span>Доступна</span></div>;
     case 'error':
-      return <span className="flex items-center gap-1.5 text-xs font-medium text-red-600" title={message}><AlertCircle className="h-4 w-4" /> Ошибка</span>;
+      return <div className="flex items-center gap-2 text-sm text-red-600" title={message}><AlertCircle className="h-4 w-4" /> <span>Ошибка</span></div>;
     default:
-      return null;
+      return <div className="w-24"></div>;
   }
 };
 
+// --- Main Page Component ---
 export function AdminSettings() {
   const [systemModels, setSystemModels] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,30 +62,19 @@ export function AdminSettings() {
   const [settingsId, setSettingsId] = useState(null);
   const [generateSurveyMetaPrompt, setGenerateSurveyMetaPrompt] = useState('');
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
-  const [isCheckingAll, setIsCheckingAll] = useState(false);
 
   const fetchSystemData = useCallback(async () => {
     setLoading(true);
     try {
-      const [modelsRes, settingsRes] = await Promise.all([
-        supabase.from('ai_models').select('*').order('created_at'),
-        supabase.from('system_settings').select('id, active_ai_model, generate_survey_meta_prompt').single(),
-      ]);
-
-      if (modelsRes.error) throw modelsRes.error;
-      if (settingsRes.error) throw settingsRes.error;
+      const { data, error } = await supabase.from('system_settings').select('id, active_ai_model, generate_survey_meta_prompt, ai_models(*)').single();
+      if (error) throw error;
       
-      const models = modelsRes.data || [];
-      setSystemModels(models);
-      setActiveModel(settingsRes.data.active_ai_model);
-      setSettingsId(settingsRes.data.id);
-      setGenerateSurveyMetaPrompt(settingsRes.data.generate_survey_meta_prompt || '');
+      const models = data.ai_models || [];
+      setSystemModels(models.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)));
+      setActiveModel(data.active_ai_model);
+      setSettingsId(data.id);
+      setGenerateSurveyMetaPrompt(data.generate_survey_meta_prompt || '');
       
-      const initialStatuses = {};
-      models.forEach(model => { initialStatuses[model.model_name] = { status: 'checking' }; });
-      setModelStatuses(initialStatuses);
-      models.forEach(model => checkModelAvailability(model.model_name, initialStatuses));
-
     } catch (error) {
       toast.error('Ошибка загрузки системных настроек: ' + error.message);
     } finally {
@@ -80,54 +82,32 @@ export function AdminSettings() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchSystemData();
-  }, [fetchSystemData]);
-
-  const checkModelAvailability = async (modelName, currentStatuses) => {
-    const { data, error } = await supabase.functions.invoke('gemini-ai', {
-      body: { action: 'check-model-availability', data: { modelName } }
-    });
-    setModelStatuses(prev => ({
-      ...prev,
-      [modelName]: error || data.error 
-        ? { status: 'error', message: error?.message || data.error }
-        : { status: 'available' }
-    }));
-  };
+  useEffect(() => { fetchSystemData(); }, [fetchSystemData]);
 
   const handleCheckAllModels = () => {
-    setIsCheckingAll(true);
     toast.info('Запущена проверка доступности всех моделей...');
     const newStatuses = {};
-    systemModels.forEach(model => { 
-        newStatuses[model.model_name] = { status: 'checking' }; 
-    });
+    systemModels.forEach(model => { newStatuses[model.model_name] = { status: 'checking' }; });
     setModelStatuses(newStatuses);
-    systemModels.forEach(model => checkModelAvailability(model.model_name, newStatuses));
-    setTimeout(() => setIsCheckingAll(false), 2000); 
+    systemModels.forEach(model => checkModelAvailability(model.model_name));
   };
 
-  const handleShowModelList = () => {
-    const modelListText = systemModels.map(m => m.model_name).join('\n');
-    toast.message('Список доступных моделей', {
-      description: (
-        <pre className="mt-2 w-full rounded-md bg-background p-2 text-xs">
-          <code>{modelListText}</code>
-        </pre>
-      ),
-      duration: 15000,
-    });
+  const checkModelAvailability = async (modelName) => {
+    try {
+        const { data, error } = await supabase.functions.invoke('gemini-ai', {
+            body: { action: 'check-model-availability', data: { modelName } }
+        });
+        setModelStatuses(prev => ({ ...prev, [modelName]: error || data.error ? { status: 'error', message: error?.message || data.error } : { status: 'available' }}));
+    } catch (e) {
+        setModelStatuses(prev => ({ ...prev, [modelName]: { status: 'error', message: e.message }}));
+    }
   };
 
   const handleSetActiveModel = async (modelName) => {
     setIsUpdating(true);
     const { error } = await supabase.from('system_settings').update({ active_ai_model: modelName }).eq('id', settingsId);
     if (error) toast.error('Не удалось обновить модель: ' + error.message);
-    else {
-      setActiveModel(modelName);
-      toast.success(`Модель "${modelName}" активна.`);
-    }
+    else { setActiveModel(modelName); toast.success(`Модель "${modelName}" активна.`); }
     setIsUpdating(false);
   };
 
@@ -137,23 +117,18 @@ export function AdminSettings() {
     setIsAdding(true);
     const { data, error } = await supabase.from('ai_models').insert([{ model_name: newModelName.trim() }]).select().single();
     if (error) toast.error('Не удалось добавить модель: ' + error.message);
-    else {
-      setSystemModels(prev => [...prev, data]);
-      setModelStatuses(prev => ({...prev, [data.model_name]: {status: 'checking'}}));
-      checkModelAvailability(data.model_name, modelStatuses);
-      setNewModelName('');
-      toast.success(`Модель "${data.model_name}" добавлена.`);
-    }
+    else { setSystemModels(prev => [data, ...prev]); setNewModelName(''); toast.success(`Модель "${data.model_name}" добавлена.`); }
     setIsAdding(false);
   };
 
   const deleteModel = async (id, modelName) => {
+    if (activeModel === modelName) {
+        toast.error('Нельзя удалить активную модель.');
+        return;
+    }
     const { error } = await supabase.from('ai_models').delete().eq('id', id);
     if (error) toast.error('Не удалось удалить модель: ' + error.message);
-    else {
-      setSystemModels(prev => prev.filter(m => m.id !== id));
-      toast.success(`Модель "${modelName}" удалена.`);
-    }
+    else { setSystemModels(prev => prev.filter(m => m.id !== id)); toast.success(`Модель "${modelName}" удалена.`); }
   };
   
   const handleSavePrompt = async () => {
@@ -169,95 +144,80 @@ export function AdminSettings() {
   }
 
   return (
-    <div className="space-y-8">
-        <div>
-            <h1 className="text-3xl font-bold text-text-primary">Настройки</h1>
-            <p className="text-text-secondary mt-2">Управление ИИ-моделями и системными промптами.</p>
-        </div>
+    <div>
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold text-text-primary">Настройки системы</h1>
+        <p className="text-text-secondary mt-1 text-sm">Управление ИИ-моделями и системными промптами.</p>
+      </div>
 
-        {activeModel && (
-            <div className="bg-primary/10 rounded-2xl p-6 flex items-center gap-4">
-                <Bot className="w-6 h-6 text-primary" strokeWidth={2} />
-                <div>
-                    <h2 className="font-semibold text-text-primary">Активная модель в системе</h2>
-                    <p className="text-lg font-mono text-primary mt-1">{activeModel}</p>
-                </div>
-            </div>
-        )}
+      <div className="mb-8 border border-border rounded-lg p-5 flex items-center justify-between bg-primary/5">
+          <div className="flex items-center gap-4">
+              <Bot className="w-6 h-6 text-primary flex-shrink-0" strokeWidth={2} />
+              <div>
+                  <h2 className="font-medium text-text-secondary text-sm">Активная модель в системе</h2>
+                  <p className="text-base font-semibold font-mono text-primary mt-0.5">{activeModel}</p>
+              </div>
+          </div>
+      </div>
 
-        <SettingsCard 
-            icon={<BrainCircuit className="w-6 h-6 text-primary" strokeWidth={1.5} />} 
-            title="Список доступных моделей"
-            description="Добавьте, удалите или проверьте доступность ИИ-моделей."
-            actions={
-                <div className="flex items-center gap-2">
-                    <button 
-                        onClick={handleShowModelList} 
-                        className="h-9 px-3 inline-flex items-center justify-center gap-1.5 bg-background border border-border-subtle text-text-secondary font-medium text-sm rounded-lg shadow-sm hover:bg-surface transition-colors duration-200"
-                    >
-                        <Info className="h-4 w-4" />
-                        <span>Список</span>
-                    </button>
-                    <button 
-                        onClick={handleCheckAllModels} 
-                        disabled={isCheckingAll}
-                        className="h-9 px-3 inline-flex items-center justify-center gap-1.5 bg-background border border-border-subtle text-text-secondary font-medium text-sm rounded-lg shadow-sm hover:bg-surface transition-colors duration-200 disabled:opacity-50"
-                    >
-                        {isCheckingAll ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
-                        <span>Проверить все</span>
-                    </button>
-                </div>
-            }
-        >
-            <ul className="divide-y divide-border-subtle">
-                {systemModels.map(model => (
-                    <li key={model.id} className="py-3 flex justify-between items-center">
-                        <span className="font-mono text-text-primary">{model.model_name}</span>
-                        <div className="flex items-center gap-4">
-                            <ModelStatusBadge {...modelStatuses[model.model_name]} />
-                            {modelStatuses[model.model_name]?.status === 'available' && activeModel !== model.model_name && (
-                                <button onClick={() => handleSetActiveModel(model.model_name)} disabled={isUpdating} className="text-xs font-medium text-primary hover:underline disabled:opacity-50">
-                                    {isUpdating ? '...' : 'Сделать активной'}
-                                </button>
-                            )}
-                            {activeModel === model.model_name && <span className="text-xs font-semibold text-primary">Активна</span>}
-                            <button onClick={() => deleteModel(model.id, model.model_name)} className="text-text-secondary hover:text-red-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
-                        </div>
-                    </li>
-                ))}
-            </ul>
-            <form onSubmit={addModel} className="flex items-center gap-2 pt-4 mt-4 border-t border-border-subtle">
-                <input 
-                    type="text"
-                    value={newModelName}
-                    onChange={e => setNewModelName(e.target.value)}
-                    placeholder="gemini-1.5-pro-latest"
-                    className="flex-grow h-10 px-3 bg-background border border-border-subtle rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-                <button type="submit" disabled={isAdding} className="h-10 px-4 inline-flex items-center justify-center bg-primary text-on-primary font-semibold text-sm rounded-lg shadow-sm hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50">
-                    {isAdding ? <Loader2 className="animate-spin h-4 w-4" /> : 'Добавить'}
-                </button>
-            </form>
-        </SettingsCard>
+      <SettingsSection 
+          title="Управление моделями"
+          description="Добавьте, удалите или проверьте доступность ИИ-моделей."
+          headerActions={
+              <ActionButton onClick={handleCheckAllModels} variant="secondary" size="sm">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Проверить все
+              </ActionButton>
+          }
+      >
+          <ul className="divide-y divide-border-subtle -m-6">
+              {systemModels.map(model => (
+                  <li key={model.id} className="p-4 flex justify-between items-center">
+                      <span className="font-mono text-text-primary text-sm">{model.model_name}</span>
+                      <div className="flex items-center gap-4">
+                          <ModelStatusBadge {...modelStatuses[model.model_name]} />
+                          {activeModel !== model.model_name ? (
+                              <ActionButton onClick={() => handleSetActiveModel(model.model_name)} disabled={isUpdating} variant="secondary" size="sm">
+                                  <Power className="h-3 w-3 mr-1.5" /> Сделать активной
+                              </ActionButton>
+                          ) : <span className="text-xs font-semibold text-primary px-2">Активна</span>}
+                          <ActionIcon onClick={() => deleteModel(model.id, model.model_name)} title="Удалить">
+                              <Trash2 className="h-4 w-4" />
+                          </ActionIcon>
+                      </div>
+                  </li>
+              ))}
+          </ul>
+          <form onSubmit={addModel} className="flex items-center gap-2 pt-5">
+              <input 
+                  type="text"
+                  value={newModelName}
+                  onChange={e => setNewModelName(e.target.value)}
+                  placeholder="Название новой модели..."
+                  className="flex-grow h-10 px-3 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/80"
+              />
+              <ActionButton type="submit" disabled={isAdding} loading={isAdding} size="md">
+                  Добавить
+              </ActionButton>
+          </form>
+      </SettingsSection>
 
-        <SettingsCard
-            icon={<FileText className="w-6 h-6 text-primary" strokeWidth={1.5} />}
-            title="Системный промпт"
-            description="Инструкция, которую ИИ использует для создания структуры и вопросов опроса."
-            actions={
-                <button onClick={handleSavePrompt} disabled={isSavingPrompt} className="h-10 px-4 inline-flex items-center justify-center bg-primary text-on-primary font-semibold text-sm rounded-lg shadow-sm hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50">
-                    {isSavingPrompt ? <Loader2 className="animate-spin h-4 w-4" /> : 'Сохранить'}
-                </button>
-            }
-        >
-            <textarea
-                className="w-full h-72 p-4 font-mono text-sm bg-background border border-border-subtle rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
-                value={generateSurveyMetaPrompt}
-                onChange={(e) => setGenerateSurveyMetaPrompt(e.target.value)}
-                placeholder="Вы — эксперт по созданию опросов..."
-            />
-        </SettingsCard>
-
+      <SettingsSection
+          title="Системный промпт"
+          description="Инструкция, которую ИИ использует для создания структуры и вопросов опроса."
+          footer={
+              <ActionButton onClick={handleSavePrompt} disabled={isSavingPrompt} loading={isSavingPrompt}>
+                  <Save className="w-4 h-4 mr-2" /> Сохранить промпт
+              </ActionButton>
+          }
+      >
+          <textarea
+              className="w-full h-80 p-3 font-mono text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/80"
+              value={generateSurveyMetaPrompt}
+              onChange={(e) => setGenerateSurveyMetaPrompt(e.target.value)}
+              placeholder="Вы — эксперт по созданию опросов..."
+          />
+      </SettingsSection>
     </div>
   );
 }

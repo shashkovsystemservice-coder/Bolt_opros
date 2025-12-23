@@ -1,45 +1,22 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { Building2, Shield, Key, Save, Loader2, Eye, EyeOff, Download, RefreshCw } from 'lucide-react';
+import { Save, Loader2, Eye, EyeOff, Download, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
-// --- Reusable & Styled Components ---
+// --- Reusable & Styled Components (Aligned with new design system) ---
 
 const ActionButton = ({ onClick, children, variant = 'primary', size = 'md', disabled = false, loading = false }) => {
-    const baseClasses = "inline-flex items-center justify-center font-semibold text-sm rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2";
-    const sizeClasses = { md: "h-10 px-4", sm: "h-9 px-3" };
+    const baseClasses = "inline-flex items-center justify-center font-medium text-sm rounded-md transition-colors duration-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background";
+    const sizeClasses = { md: "h-9 px-4", sm: "h-8 px-3" };
     const variantClasses = {
         primary: "bg-primary text-on-primary hover:bg-primary/90 focus:ring-primary",
-        secondary: "bg-surface border border-border-subtle hover:bg-background text-text-primary focus:ring-primary",
+        secondary: "bg-surface border border-border hover:bg-background text-text-primary focus:ring-primary",
     };
     return <button onClick={onClick} disabled={disabled || loading} className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]}`}>{loading ? <Loader2 className="animate-spin h-5 w-5"/> : children}</button>
 };
-
-const SettingsCard = ({ icon, title, description, children, footer }) => (
-  <motion.div 
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.5, ease: 'easeOut' }}
-    className="bg-surface border border-border-subtle rounded-2xl shadow-ambient"
-  >
-    <div className="p-6 border-b border-border-subtle">
-      <div className="flex items-start gap-5">
-        <div className="bg-primary/10 text-primary rounded-full w-10 h-10 flex-shrink-0 flex items-center justify-center">
-          {icon}
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
-          <p className="text-sm text-text-secondary mt-1">{description}</p>
-        </div>
-      </div>
-    </div>
-    <div className="px-6 py-5 space-y-4">{children}</div>
-    {footer && <div className="px-6 py-4 bg-background/70 border-t border-border-subtle flex justify-end">{footer}</div>}
-  </motion.div>
-);
 
 const FormInput = ({ id, label, type = 'text', ...props }) => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -47,14 +24,14 @@ const FormInput = ({ id, label, type = 'text', ...props }) => {
 
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-text-secondary mb-2">
+      <label htmlFor={id} className="block text-sm font-medium text-text-primary mb-1.5">
         {label}
       </label>
       <div className="relative">
          <input
           id={id}
           type={isPassword ? (isPasswordVisible ? 'text' : 'password') : type}
-          className="w-full h-10 px-3 bg-background border border-border-subtle rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+          className="w-full h-10 px-3 bg-background border border-border rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/80 focus:border-primary"
           {...props}
         />
         {isPassword && (
@@ -66,6 +43,22 @@ const FormInput = ({ id, label, type = 'text', ...props }) => {
     </div>
   );
 };
+
+const SettingsSection = ({ title, description, children, footer }) => (
+  <div className="py-8 border-b border-border-subtle last:border-b-0">
+    <div className="grid md:grid-cols-3 gap-4 md:gap-8">
+      <div className="md:col-span-1">
+        <h3 className="text-base font-semibold text-text-primary">{title}</h3>
+        <p className="text-sm text-text-secondary mt-1">{description}</p>
+      </div>
+      <div className="md:col-span-2">
+        <div className="space-y-5 max-w-lg">{children}</div>
+        {footer && <div className="flex justify-end pt-5 max-w-lg">{footer}</div>}
+      </div>
+    </div>
+  </div>
+);
+
 
 // --- Main Component ---
 
@@ -106,9 +99,7 @@ export function Settings() {
     }
   }, [user]);
 
-  useEffect(() => {
-    loadAllSettings();
-  }, [loadAllSettings]);
+  useEffect(() => { loadAllSettings(); }, [loadAllSettings]);
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
@@ -125,7 +116,11 @@ export function Settings() {
     setIsSavingSecurity(true);
     try {
       const updates = { recovery_email: recoveryEmail, security_question: securityQuestion };
-      if (securityAnswer) { updates.security_answer_hash = btoa(securityAnswer); } // Placeholder for hashing
+      if (securityAnswer) {
+         // In a real app, hash the answer on the server or using a secure client-side library.
+         // This is a placeholder and NOT secure.
+        updates.security_answer_hash = btoa(securityAnswer); 
+      }
       const { error } = await supabase.from('companies').update(updates).eq('id', user.id);
       if (error) throw error;
       toast.success('Настройки безопасности сохранены.');
@@ -162,14 +157,13 @@ export function Settings() {
   }
 
   return (
-    <div className="space-y-8">
-        <div>
-            <h1 className="text-3xl font-bold text-text-primary">Настройки</h1>
-            <p className="text-text-secondary mt-1.5">Управление профилем компании и безопасностью.</p>
+    <div>
+        <div className="mb-8">
+            <h1 className="text-2xl font-semibold text-text-primary">Настройки</h1>
+            <p className="text-text-secondary mt-1 text-sm">Управление профилем компании и безопасностью.</p>
         </div>
 
-        <SettingsCard 
-            icon={<Building2 className="w-5 h-5" strokeWidth={2}/>}
+        <SettingsSection 
             title="Профиль компании"
             description="Основная информация о вашей компании"
             footer={
@@ -179,10 +173,9 @@ export function Settings() {
             }
         >
             <FormInput id="companyName" label="Название компании" type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
-        </SettingsCard>
+        </SettingsSection>
 
-        <SettingsCard
-            icon={<Shield className="w-5 h-5" strokeWidth={2} />}
+        <SettingsSection
             title="Безопасность"
             description="Настройте способы восстановления доступа к аккаунту"
             footer={
@@ -191,56 +184,53 @@ export function Settings() {
                 </ActionButton>
             }
         >
-             <div className="space-y-4">
-                <FormInput id="recoveryEmail" label="Резервный email" type="email" placeholder="recovery@example.com" value={recoveryEmail} onChange={(e) => setRecoveryEmail(e.target.value)} />
-                <FormInput id="securityQuestion" label="Секретный вопрос" type="text" placeholder="Девичья фамилия матери" value={securityQuestion} onChange={(e) => setSecurityQuestion(e.target.value)} />
-                <FormInput id="securityAnswer" label="Ответ на вопрос (оставьте пустым, если не меняете)" type="password" placeholder="••••••••••••" value={securityAnswer} onChange={(e) => setSecurityAnswer(e.target.value)} />
-            </div>
-        </SettingsCard>
+            <FormInput id="recoveryEmail" label="Резервный email" type="email" placeholder="recovery@example.com" value={recoveryEmail} onChange={(e) => setRecoveryEmail(e.target.value)} />
+            <FormInput id="securityQuestion" label="Секретный вопрос" type="text" placeholder="Девичья фамилия матери" value={securityQuestion} onChange={(e) => setSecurityQuestion(e.target.value)} />
+            <FormInput id="securityAnswer" label="Ответ на вопрос (оставьте пустым, если не меняете)" type="password" placeholder="••••••••••••" value={securityAnswer} onChange={(e) => setSecurityAnswer(e.target.value)} />
+        </SettingsSection>
 
-        <SettingsCard
-            icon={<Key className="w-5 h-5" strokeWidth={2} />}
+        <SettingsSection
             title="Резервные коды"
-            description="Используйте для входа, если потеряете доступ к 2FA"
-            footer={
-                <ActionButton onClick={generateBackupCodes} loading={isGeneratingCodes} variant="secondary">
-                    <RefreshCw className="w-4 h-4 mr-2" /> Сгенерировать новые
-                </ActionButton>
-            }
+            description="Используйте для входа, если потеряете доступ к 2FA или паролю."
         >
             {backupCodes.length > 0 ? (
                 <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-background p-3 rounded-lg">
-                        <p className="text-sm text-text-secondary">Коды сгенерированы. Сохраните их в безопасном месте.</p>
-                        <div className="flex gap-2">
+                    <div className="bg-background p-4 rounded-lg border border-border-subtle">
+                        <p className="text-sm text-text-secondary mb-4">Коды сгенерированы. Сохраните их в безопасном месте. Каждый код можно использовать только один раз.</p>
+                        {showCodes && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-4"
+                            >
+                               {backupCodes.map((code, index) => (
+                                   <div key={index} className={`p-3 rounded-md font-mono text-sm text-center border ${code.used ? 'bg-surface text-text-secondary line-through border-border-subtle' : 'bg-surface text-text-primary border-transparent'}`}>
+                                       {code.code}
+                                   </div>
+                               ))}
+                            </motion.div>
+                        )}
+                         <div className="flex flex-col sm:flex-row gap-3">
                             <ActionButton size="sm" variant="secondary" onClick={() => setShowCodes(!showCodes)}>
-                               {showCodes ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                               {showCodes ? <EyeOff className="w-4 h-4 mr-2"/> : <Eye className="w-4 h-4 mr-2"/>} {showCodes ? 'Скрыть' : 'Показать'}
                             </ActionButton>
                             <ActionButton size="sm" variant="secondary" onClick={downloadBackupCodes}>
-                               <Download className="w-4 h-4"/>
+                               <Download className="w-4 h-4 mr-2"/> Скачать
                             </ActionButton>
                         </div>
                     </div>
-                    {showCodes && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2"
-                        >
-                           {backupCodes.map((code, index) => (
-                               <div key={index} className={`p-3 rounded-lg font-mono text-sm text-center border ${code.used ? 'bg-surface text-text-secondary line-through border-border-subtle' : 'bg-surface text-text-primary border-transparent'}`}>
-                                   {code.code}
-                               </div>
-                           ))}
-                        </motion.div>
-                    )}
                 </div>
             ) : (
-                <div className="text-center py-6 bg-background rounded-lg">
-                     <p className="text-text-secondary">Резервные коды еще не созданы.</p>
+                <div className="text-center py-6 bg-background rounded-lg border border-dashed">
+                     <p className="text-text-secondary text-sm">Резервные коды еще не созданы.</p>
                 </div>
             )}
-        </SettingsCard>
+             <div className="flex justify-start pt-5">
+                 <ActionButton onClick={generateBackupCodes} loading={isGeneratingCodes} variant="secondary">
+                    <RefreshCw className="w-4 h-4 mr-2" /> {backupCodes.length > 0 ? 'Сгенерировать новые' : 'Сгенерировать коды'}
+                </ActionButton>
+            </div>
+        </SettingsSection>
 
     </div>
   );
