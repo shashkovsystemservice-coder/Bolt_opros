@@ -1,166 +1,212 @@
 
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Bot, Cpu, Users, BarChartBig, Check, Briefcase, UserCheck, MessageSquare, Sparkles } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React from 'react';
 
-// --- UI Components for Enterprise Look --- //
-const PrimaryButton = ({ children, className = '' }) => (
-  <button className={`inline-flex items-center justify-center h-11 px-6 text-sm font-semibold text-white bg-primary rounded-md shadow-sm transition-transform duration-200 ease-in-out hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 ${className}`}>
+// --- Компоненты для вёрстки ---
+
+const Container = ({ children, className }: { children: React.ReactNode, className?: string }) => (
+  <div className={`max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 ${className}`}>
     {children}
-  </button>
+  </div>
 );
 
-const SecondaryButton = ({ children, className = '' }) => (
-  <button className={`inline-flex items-center justify-center h-11 px-6 text-sm font-medium text-text-primary bg-background border border-border rounded-md shadow-sm transition-colors duration-200 ease-in-out hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 ${className}`}>
-    {children}
-  </button>
-);
+const Button = ({ children, href, variant = 'primary' }: { children: React.ReactNode, href: string, variant?: 'primary' | 'secondary' }) => {
+  const baseClasses = "inline-block text-center px-6 py-3 rounded-md font-medium transition-colors duration-200";
+  const variants = {
+    primary: "bg-gray-800 text-white hover:bg-gray-700",
+    secondary: "bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50"
+  };
+  return <a href={href} className={`${baseClasses} ${variants[variant]}`}>{children}</a>;
+};
 
-// --- Main Landing Page Component --- //
+// --- КОМПОНЕНТ СТРАНИЦЫ ---
+
 export function Landing() {
-  const navigate = useNavigate();
-
   return (
-    <div className="bg-background text-text-primary font-sans antialiased">
-      {/* --- Header --- */}
-      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/90 backdrop-blur-sm">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-          <Link to="/" className="flex items-center gap-2.5">
-            <Bot className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold tracking-tight">Survey Pro</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link to="/auth" className="hidden sm:block text-sm font-medium text-text-secondary hover:text-primary transition-colors">Посмотреть демо</Link>
-            <Link to="/auth" className="hidden sm:block text-sm font-medium text-text-secondary hover:text-primary transition-colors">Войти</Link>
-            <PrimaryButton onClick={() => navigate('/auth')}>Начать бесплатно</PrimaryButton>
+    <div className="bg-white font-sans text-gray-800">
+
+      {/* 
+        ЗАДАЧА: HERO. Позиционирование через ситуацию, а не абстрактные функции.
+        Сразу даём понять, для каких задач предназначен инструмент.
+      */}
+      <header className="border-b border-gray-200">
+        <Container className="py-20 md:py-28 text-center">
+          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 max-w-3xl mx-auto">
+            Платформа для структурированного сбора данных
+            <br />
+            и управленческой диагностики
+          </h1>
+          <p className="mt-6 text-lg text-gray-600 max-w-2xl mx-auto">
+            Для ситуаций, когда важно сначала разобраться,
+            а уже потом принимать решения.
+          </p>
+          <div className="mt-10 flex justify-center gap-4">
+            <Button href="/auth" variant="primary">Начать работу</Button>
+            <Button href="#how-it-works" variant="secondary">Как это работает</Button>
           </div>
-        </div>
+        </Container>
       </header>
 
       <main>
-
-        {/* --- 1. Hero Block --- */}
-        <section className="relative pt-20 pb-10 md:pt-28 md:pb-16">
-          <div className="container mx-auto px-4 text-center max-w-4xl mx-auto">
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: 'easeOut' }}
-              className="text-4xl md:text-5xl font-bold tracking-tighter leading-tight"
-            >
-              Платформа для исследований, которая находит в ответах готовые выводы
-            </motion.h1>
-            <motion.p 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}
-              className="mx-auto mt-6 max-w-2xl text-lg text-text-secondary"
-            >
-              Survey Pro использует ИИ для систематизации качественных данных, выявления паттернов и формирования рекомендаций, чтобы вы могли принимать решения быстрее.
-            </motion.p>
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2, ease: 'easeOut' }}
-              className="mt-8 flex items-center justify-center gap-4"
-            >
-              <PrimaryButton onClick={() => navigate('/auth')}>Начать бесплатно <ArrowRight className="ml-2 h-4 w-4"/></PrimaryButton>
-              <SecondaryButton>Посмотреть демо</SecondaryButton>
-            </motion.div>
-          </div>
+        {/* 
+          ЗАДАЧА: SCENARIO ENTRY. Создать узнавание.
+          Показать, что мы понимаем, с какими реальными запросами приходят пользователи.
+        */}
+        <section className="py-16 md:py-20 bg-gray-50">
+            <Container>
+                <div className="text-center">
+                    <h2 className="text-xl font-semibold text-gray-700">Типичные ситуации для диагностики</h2>
+                </div>
+                <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+                    <div className="bg-white p-4 border border-gray-200 rounded-lg text-sm">Продажи есть, но роста нет</div>
+                    <div className="bg-white p-4 border border-gray-200 rounded-lg text-sm">Команда работает, но результат неясен</div>
+                    <div className="bg-white p-4 border border-gray-200 rounded-lg text-sm">Хочу понять, что именно требует изменений</div>
+                    <div className="bg-white p-4 border border-gray-200 rounded-lg text-sm">Нужно принять решение, но не хватает картины</div>
+                </div>
+            </Container>
         </section>
 
-        {/* --- NEW BLOCK: Manifesto --- */}
-        <section className="py-20 md:py-28 bg-surface">
-          <div className="container mx-auto px-4">
-            <div className="max-w-2xl mx-auto text-left">
-                <h2 className="text-3xl font-bold tracking-tight text-center">Проблема не в данных, а в их интерпретации</h2>
-                <div className="mt-8 space-y-6 text-md text-text-secondary">
-                  <p>Мы годами работали в продуктовых командах и видели одну и ту же картину: сотни и тысячи открытых ответов лежат в таблицах мёртвым грузом. У команд никогда не хватает времени, чтобы вручную проанализировать этот объём качественных данных.</p>
-                  <p>Существующие инструменты предлагают поверхностные решения вроде облаков тегов. Но такой подход часто вводит в заблуждение, упуская контекст и реальную боль пользователя. Неверная интерпретация опаснее, чем её отсутствие.</p>
-                  <p>Поэтому мы создали Survey Pro. Мы верим, что ценность — не в сборе данных, а в качестве выводов. Мы спроектировали платформу, которая берёт на себя самую сложную часть работы, чтобы вы могли сфокусироваться на принятии верных решений.</p>
-                </div>
+        {/* 
+          ЗАДАЧА: LAYER 1 — ПЛАТФОРМА. Показать ядро — универсальный инструментарий.
+          Фокус на контроле, структуре и самостоятельности.
+        */}
+        <section className="py-16 md:py-24">
+          <Container>
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <h2 className="text-2xl font-semibold">Возможности платформы для самостоятельной работы</h2>
+                <p className="mt-4 text-gray-600">Создавайте и используйте инструменты для сбора данных, которые соответствуют вашим задачам. Вы полностью контролируете процесс.</p>
+                <ul className="mt-6 space-y-4 text-gray-700">
+                  <li className="flex items-start"><span className="text-blue-600 mt-1 mr-3 font-semibold">✓</span><span><b>Конструктор форм:</b> Создавайте опросы, чек-листы и формы с разными типами вопросов.</span></li>
+                  <li className="flex items-start"><span className="text-blue-600 mt-1 mr-3 font-semibold">✓</span><span><b>Сбор данных:</b> Организуйте сбор данных внутри компании или с внешними участниками.</span></li>
+                  <li className="flex items-start"><span className="text-blue-600 mt-1 mr-3 font-semibold">✓</span><span><b>Анализ результатов:</b> Просматривайте собранные данные в реальном времени и выгружайте их для дальнейшего анализа.</span></li>
+                </ul>
+              </div>
+              <div className="bg-gray-50 p-8 rounded-lg border border-gray-200 font-mono text-sm text-gray-800">
+                <p className="text-gray-500">// Пример структуры простого опроса</p>
+                <pre className="mt-4 text-xs overflow-auto">
+                  <code>
+{`
+survey: {
+  id: "team-feedback-q3",
+  title: "Обратная связь по итогам квартала",
+  questions: [
+    { 
+      type: "rating", 
+      text: "Оцените качество взаимодействия в команде" 
+    },
+    { 
+      type: "text", 
+      text: "Какие процессы можно улучшить?"
+    }
+  ]
+}
+`}
+                  </code>
+                </pre>
+              </div>
             </div>
-          </div>
+          </Container>
         </section>
 
-        {/* --- How Analysis Works --- */}
-        <section className="py-20 md:py-28">
-            <div className="container mx-auto px-4">
-                <div className="text-center max-w-2xl mx-auto">
-                    <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Как Survey Pro превращает ответы в выводы</h2>
-                </div>
-                <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto text-center md:text-left">
-                    <div className="flex flex-col md:flex-row items-center gap-6">
-                        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-surface rounded-lg border border-border text-primary font-bold text-lg">1</div>
-                        <div>
-                            <h3 className="font-semibold text-text-primary">Сбор количественных и открытых ответов</h3>
-                            <p className="text-sm text-text-secondary mt-1">Вы запускаете опрос, а платформа собирает структурированные данные и текстовые ответы.</p>
-                        </div>
-                    </div>
-                    <div className="flex flex-col md:flex-row items-center gap-6">
-                        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-surface rounded-lg border border-border text-primary font-bold text-lg">2</div>
-                        <div>
-                            <h3 className="font-semibold text-text-primary">ИИ-анализ тем, настроений и сегментов</h3>
-                            <p className="text-sm text-text-secondary mt-1">ИИ обрабатывает массив ответов, группируя их по темам, определяя тональность и находя скрытые поведенческие сегменты.</p>
-                        </div>
-                    </div>
-                    <div className="flex flex-col md:flex-row items-center gap-6">
-                        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-surface rounded-lg border border-border text-primary font-bold text-lg">3</div>
-                        <div>
-                            <h3 className="font-semibold text-text-primary">Формирование отчёта с инсайтами</h3>
-                            <p className="text-sm text-text-secondary mt-1">Вы получаете интерактивный отчёт, где ключевые выводы и рекомендации уже сформулированы ИИ.</p>
-                        </div>
-                    </div>
-                </div>
+        {/* 
+          ЗАДАЧА: LAYER 2 — ЭКСПЕРТНЫЕ СЦЕНАРИИ. Показать дополнительный слой ценности.
+          Это не просто конструктор, а инструмент с готовыми аналитическими рамками.
+        */}
+        <section className="py-16 md:py-24 bg-gray-50">
+          <Container>
+            <div className="text-center">
+              <h2 className="text-2xl font-semibold">Экспертные аналитические сценарии</h2>
+              <p className="mt-4 text-gray-600 max-w-2xl mx-auto">Для сложных задач, где простого опроса недостаточно. Сценарии — это готовые системы диагностики, которые помогают не только собрать данные, но и осмысленно их интерпретировать.</p>
             </div>
+            <div className="mt-12 grid md:grid-cols-2 gap-8">
+              <article className="bg-white p-6 border border-gray-200 rounded-lg">
+                <h3 className="font-semibold">Что это такое?</h3>
+                <p className="mt-2 text-sm text-gray-600">Это система вопросов и метрик для диагностики конкретной управленческой задачи, например, «Анализ причин оттока» или «Оценка зрелости процессов».</p>
+              </article>
+              <article className="bg-white p-6 border border-gray-200 rounded-lg">
+                <h3 className="font-semibold">Как это помогает в анализе?</h3>
+                <p className="mt-2 text-sm text-gray-600">Сценарий подсвечивает ключевые метрики, показывает распределения и даёт профессиональные ориентиры для размышлений, но не генерирует автоматических советов.</p>
+              </article>
+            </div>
+          </Container>
+        </section>
+        
+        {/* 
+          ЗАДАЧА: ПРОЦЕСС. Сделать продукт предсказуемым.
+        */}
+        <section id="how-it-works" className="py-16 md:py-24">
+          <Container>
+            <div className="text-center">
+              <h2 className="text-2xl font-semibold">Процесс работы</h2>
+            </div>
+            <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-8 text-center">
+              <div>
+                <div className="text-2xl font-bold text-blue-600">1</div>
+                <h3 className="mt-2 font-semibold">Выбор инструмента</h3>
+                <p className="mt-1 text-sm text-gray-600">Создайте свою форму с нуля или выберите готовый экспертный сценарий.</p>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-blue-600">2</div>
+                <h3 className="mt-2 font-semibold">Сбор данных</h3>
+                <p className="mt-1 text-sm text-gray-600">Пригласите участников и соберите информацию в структурированном виде.</p>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-blue-600">3</div>
+                <h3 className="mt-2 font-semibold">Анализ результатов</h3>
+                <p className="mt-1 text-sm text-gray-600">Изучите данные самостоятельно или используйте аналитическую рамку сценария.</p>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-blue-600">4</div>
+                <h3 className="mt-2 font-semibold">Принятие решений</h3>
+                <p className="mt-1 text-sm text-gray-600">На основе анализа сформулируйте выводы и спланируйте дальнейшие действия.</p>
+              </div>
+            </div>
+          </Container>
         </section>
 
-        {/* --- Example Insights --- */}
-        <section className="py-20 md:py-24 bg-surface">
-          <div className="container mx-auto px-4">
-            <div className="text-center max-w-2xl mx-auto">
-              <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Примеры управленческих выводов</h2>
-              <p className="mt-4 text-lg text-text-secondary">Это не облака тегов. Survey Pro предоставляет инсайты, на основе которых можно действовать.</p>
+        {/* 
+          ЗАДАЧА: ГРАНИЦЫ. Укрепить доверие через честность.
+        */}
+        <section className="py-16 md:py-24 bg-gray-50">
+          <Container>
+            <div className="text-center">
+              <h2 className="text-2xl font-semibold">Границы ответственности</h2>
             </div>
-            <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[ 
-                { title: 'Выявлен поведенческий паттерн', insight: 'Пользователи, которые пропускают шаг импорта контактов, на 40% реже конвертируются в платящих. Это указывает на критичность этого шага для восприятия ценности.' },
-                { title: 'Найдена причина оттока', insight: 'В 65% ответов от ушедших клиентов упоминается “сложная интеграция с бухгалтерией”. Проблема не в цене, а в процессе внедрения.' },
-                { title: 'Обнаружен новый сегмент', insight: 'Сегмент «Малые маркетинговые агентства» (12% аудитории) использует функцию отчетов в 3 раза чаще остальных. Это возможность для нового тарифного плана.' },
-                { title: 'Сформулирована рекомендация', insight: 'Рекомендуется упростить главный дашборд и убрать виджеты, которые используют менее 5% пользователей, чтобы повысить фокус на ключевых данных.' },
-              ].map(item => (
-                <div key={item.title} className="bg-background p-6 rounded-lg shadow-card border border-border flex flex-col">
-                    <h3 className="font-semibold text-text-primary mb-2">{item.title}</h3>
-                    <p className="text-sm text-text-secondary flex-grow">{item.insight}</p>
-                </div>
-              ))}
+            <div className="mt-8 max-w-2xl mx-auto text-gray-700 bg-white border border-yellow-400 rounded-lg p-6">
+              <p className="font-semibold text-gray-900">Платформа — это инструмент для повышения качества решений, а не их автоматическая замена.</p>
+              <ul className="mt-4 list-disc list-inside text-sm space-y-2">
+                <li>Инструмент предоставляет данные и модели, но не генерирует готовых ответов.</li>
+                <li>Интерпретация результатов и принятие решений всегда остаётся на стороне пользователя.</li>
+                <li>Экспертные сценарии не могут учесть уникальный контекст каждой компании без его дополнительного анализа.</li>
+              </ul>
             </div>
-          </div>
+          </Container>
         </section>
-
-        {/* --- Analysis Principles (rewritten) --- */}
-        <section className="py-20 md:py-24 bg-background">
-          <div className="container mx-auto px-4">
-            <div className="text-center max-w-3xl mx-auto">
-              <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Принципы нашего анализа</h2>
-              <p className="mt-4 text-lg text-text-secondary">Мы относимся к интерпретации данных так же серьёзно, как и вы. Мы спроектировали нашу модель для минимизации искажений и предоставления проверяемых выводов.</p>
-            </div>
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              {[
-                { title: 'Контекст и сегменты', text: 'Вывод всегда учитывает, кто говорит. Ответ «сложно» от нового пользователя и от опытного — это разные проблемы, и система разделяет их, предотвращая неверные обобщения.' },
-                { title: 'Анализ смысла, не ключевых слов', text: 'Модель отличает сарказм от похвалы. Ответ «Отличная цена, спасибо» будет классифицирован как негативный, если контекст указывает на иронию, что исключает ошибки поверхностного анализа.' },
-                { title: 'Прозрачность и проверяемость', text: 'Каждый вывод подкреплен реальными анонимными цитатами. Вы можете в любой момент проверить, на каких именно ответах основана рекомендация, и убедиться в её релевантности.' },
-              ].map(item => (
-                <div key={item.title} className="bg-surface p-6 rounded-lg shadow-card border border-border flex flex-col">
-                    <h3 className="font-semibold text-text-primary mb-3">{item.title}</h3>
-                    <p className="text-sm text-text-secondary flex-grow">{item.text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
+        
       </main>
 
-      <footer className="py-12 bg-background border-t border-border">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-text-secondary">&copy; {new Date().getFullYear()} Survey Pro. Все права защищены.</p>
-        </div>
+      {/*
+        ЗАДАЧА: LAYER 3 (АВТОРСТВО) и Финальный CTA.
+      */}
+      <footer className="border-t border-gray-200">
+        <Container className="py-16">
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="md:col-span-2">
+              <h3 className="text-lg font-semibold">Готовы начать работу?</h3>
+              <p className="mt-2 text-gray-600">Если вам нужен спокойный и структурированный подход к диагностике, платформа может стать вашим рабочим инструментом.</p>
+              <div className="mt-6">
+                <Button href="/auth" variant="primary">Начать работу</Button>
+              </div>
+            </div>
+            <div>
+              <h4 className="font-semibold">Об авторстве сценариев</h4>
+              <p className="mt-2 text-sm text-gray-600">Экспертные сценарии разработаны автором платформы на основе опыта в управленческом консалтинге. Они отражают профессиональный аналитический подход и не являются автоматическими рекомендациями.</p>
+            </div>
+          </div>
+          <div className="mt-16 pt-8 border-t border-gray-200 text-center text-sm text-gray-500">
+            <p>&copy; {new Date().getFullYear()} Platform. Все права защищены.</p>
+          </div>
+        </Container>
       </footer>
     </div>
   );
