@@ -76,24 +76,53 @@ const CreateSurvey = () => {
   const handleSaveSurvey = async () => {
     if (!title.trim()) { toast.error('Название опроса не может быть пустым.'); return; }
     if (questions.length === 0) { toast.error('Добавьте хотя бы один вопрос.'); return; }
-    if (!companyId) { toast.error('Не удалось определить ID компании.'); return; }
+    if (!companyId) { toast.error('Не удалось определить ID компании. Попробуйте перезайти в аккаунт.'); return; }
 
     setLoading(true);
 
     try {
-      const { data: survey, error: surveyError } = await supabase.from('survey_templates').insert([{ title, description, company_id: companyId, is_interactive: isInteractive, is_active: true }]).select().single();
+      const unique_code = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+      const { data: survey, error: surveyError } = await supabase.from('survey_templates').insert([{ 
+        title, 
+        description, 
+        company_id: companyId, 
+        is_interactive: isInteractive, 
+        is_active: true,
+        unique_code: unique_code
+      }]).select().single();
+      
       if (surveyError) throw surveyError;
 
-      const questionsToInsert = questions.map((q, i) => ({ survey_template_id: survey.id, question_text: q.text, question_type: q.type, is_required: q.required, question_order: i + 1, choice_options: q.type === 'choice' ? q.options : null }));
+      const questionsToInsert = questions.map((q, i) => ({ 
+          survey_template_id: survey.id, 
+          question_text: q.text, 
+          question_type: q.type, 
+          is_required: q.required, 
+          question_order: i + 1, 
+          options: q.type === 'choice' ? q.options : null 
+      }));
+      
       const { error: questionsError } = await supabase.from('question_templates').insert(questionsToInsert);
       
       if (questionsError) {
         await supabase.from('survey_templates').delete().eq('id', survey.id); // Rollback
         throw questionsError;
       }
+      
       toast.success('Опрос успешно сохранен!');
       navigate('/dashboard');
-    } catch (err: any) { toast.error(`Ошибка сохранения: ${err.message}`); }
+
+    } catch (err: any) { 
+      console.error("Ошибка при сохранении опроса:", err);
+      if (err.message.includes('unique_code')) {
+        toast.error(`Ошибка: Не удалось сгенерировать уникальный код. Попробуйте еще раз.`);
+      } else if (err.message.includes('violates row-level security policy')) {
+          toast.error('Ошибка прав доступа. Убедитесь, что вы авторизованы и имеете права на создание опроса.');
+      } else {
+        toast.error(`Ошибка сохранения: ${err.message}`); 
+      }
+    }
     finally { setLoading(false); }
   };
 

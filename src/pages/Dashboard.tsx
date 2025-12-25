@@ -144,17 +144,16 @@ const SurveyDropdownMenu = ({ survey, onNavigate, onArchive, onRestore, onDelete
   </Menu>
 );
 
-const EmptyState = ({ onClearSearch, hasSearch }) => (
+const EmptyState = ({ onClearSearch, hasSearch, message }) => (
     <div className="text-center py-12">
         <div className="mx-auto mb-4 bg-surface-contrast w-12 h-12 flex items-center justify-center rounded-full">
-            <Search size={24} className="text-text-secondary"/>
+            <FileText size={24} className="text-text-secondary"/>
         </div>
-        <h3 className="text-md font-semibold text-text-primary mb-1">Ничего не найдено</h3>
-        <p className="text-text-secondary mb-5 text-sm">По вашему запросу ничего не найдено.</p>
+        <h3 className="text-md font-semibold text-text-primary mb-1">{message.title}</h3>
+        <p className="text-text-secondary mb-5 text-sm">{message.description}</p>
         {hasSearch && <ActionButton onClick={onClearSearch} variant="secondary" size="sm">Очистить поиск</ActionButton>}
     </div>
 );
-
 
 export function Dashboard() {
   return (
@@ -169,25 +168,15 @@ export function SurveyList() {
   const navigate = useNavigate();
   const [surveys, setSurveys] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('my'); // 'my' or 'shared'
+  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'archived'
   const [searchTerm, setSearchTerm] = useState('');
 
   const loadSurveys = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-
-    // Temporary fix for the 'shared' view
-    if (view === 'shared') {
-        setSurveys([]);
-        setLoading(false);
-        return;
-    }
-
     try {
         let query = supabase.from('survey_templates').select('*');
-       
         query = query.eq('company_id', user.id);
-       
         if (searchTerm) {
           query = query.ilike('title', `%${searchTerm}%`);
         }
@@ -198,11 +187,11 @@ export function SurveyList() {
         setSurveys(data || []);
     } catch (err) {
         toast.error('Ошибка загрузки опросов: ' + err.message)
-        setSurveys([]); // Clear surveys on error to avoid showing stale data
+        setSurveys([]);
     } finally {
         setLoading(false);
     }
-  }, [user, view, searchTerm]);
+  }, [user, searchTerm]);
 
   useEffect(() => { loadSurveys(); }, [loadSurveys]);
 
@@ -229,29 +218,49 @@ export function SurveyList() {
     })
   }
 
-  const filteredSurveys = surveys; // Search is now done in the query
+  const filteredSurveys = surveys.filter(survey => {
+      return activeTab === 'active' ? survey.is_active : !survey.is_active;
+  });
+
+  const emptyStateMessages = {
+      active: {
+          title: "Активных опросов нет",
+          description: "Создайте новый опрос, чтобы начать собирать данные."
+      },
+      archived: {
+          title: "Архив пуст",
+          description: "Здесь будут отображаться опросы, которые вы архивировали."
+      },
+      search: {
+          title: "Ничего не найдено",
+          description: "По вашему запросу ничего не найдено."
+      }
+  };
+
+  const getEmptyStateMessage = () => {
+      if (searchTerm) return emptyStateMessages.search;
+      return activeTab === 'active' ? emptyStateMessages.active : emptyStateMessages.archived;
+  }
 
   return (
     <div>
       <header className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
-        <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-text-primary">Playground</h1>
-        </div>
+        <h1 className="text-xl font-semibold text-text-primary">Мои опросы</h1>
         <div className="flex items-center gap-3">
           <SearchInput value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-          <ActionButton onClick={() => navigate('/survey/create')}><Plus size={16} className="mr-1.5"/>Новый опрос</ActionButton>
+          <ActionButton onClick={() => navigate('/survey/create')} variant="secondary"><Plus size={16} className="mr-1.5"/>Новый опрос</ActionButton>
         </div>
       </header>
 
-      <div className="flex items-center gap-1 mb-4">
-        <TabButton text="Мои опросы" isActive={view === 'my'} onClick={() => setView('my')} />
-        <TabButton text="Доступные мне" isActive={view === 'shared'} onClick={() => setView('shared')} />
+      <div className="flex items-center gap-1 mb-4 border-b border-border-contrast">
+        <TabButton text="Активные" isActive={activeTab === 'active'} onClick={() => setActiveTab('active')} />
+        <TabButton text="Архивные" isActive={activeTab === 'archived'} onClick={() => setActiveTab('archived')} />
       </div>
 
       {loading ? (
         <div className="text-center py-20"><Loader2 className="h-7 w-7 text-primary animate-spin mx-auto"/></div>
       ) : filteredSurveys.length === 0 ? (
-        <EmptyState onClearSearch={() => setSearchTerm('')} hasSearch={!!searchTerm}/>
+        <EmptyState onClearSearch={() => setSearchTerm('')} hasSearch={!!searchTerm} message={getEmptyStateMessage()}/>
       ) : (
         <div className="border border-border-contrast rounded-xl">
            <div className="divide-y divide-border-contrast">
@@ -275,10 +284,10 @@ export function SurveyList() {
 const TabButton = ({ text, isActive, onClick }) => (
   <button 
     onClick={onClick} 
-    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+    className={`px-3 py-1.5 text-sm font-medium transition-colors border-b-2 ${ 
       isActive 
-        ? 'bg-surface-soft text-text-primary' 
-        : 'text-text-secondary hover:bg-surface-soft/50'
+        ? 'border-primary text-text-primary' 
+        : 'border-transparent text-text-secondary hover:border-border-contrast hover:text-text-primary'
     }`}
   >
     {text}
