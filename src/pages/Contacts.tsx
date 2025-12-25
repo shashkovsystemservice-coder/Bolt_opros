@@ -9,11 +9,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 // --- Reusable & Styled Components (Redesigned for consistency) --- //
 
 const ActionButton = ({ onClick, children, variant = 'primary', size = 'md', disabled = false, loading = false }) => {
-    const baseClasses = "inline-flex items-center justify-center font-medium text-sm rounded-md transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background";
+    const baseClasses = "whitespace-nowrap inline-flex items-center justify-center font-medium text-sm rounded-md transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background";
     const sizeClasses = { md: "h-9 px-4", sm: "h-8 px-3" };
     const variantClasses = {
-        primary: "bg-primary text-on-primary hover:bg-primary/90 focus:ring-primary",
-        secondary: "bg-surface border border-border hover:bg-background text-text-primary focus:ring-primary",
+        primary: "bg-surface-contrast border border-border-contrast hover:bg-background-contrast text-text-primary focus-visible:ring-primary",
+        accent: "bg-primary text-on-primary hover:bg-primary/90 focus:ring-primary",
         ghost: "hover:bg-surface text-text-secondary focus:ring-primary/50"
     };
     return <button onClick={onClick} disabled={disabled || loading} className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]}`}>{loading ? <Loader2 className="animate-spin h-5 w-5"/> : children}</button>
@@ -231,8 +231,8 @@ export function Contacts() {
               <FormInput id="email" label="Email" type="email" required value={formState.email} onChange={handleInputChange} />
               <FormInput id="phone" label="Телефон (опционально)" value={formState.phone} onChange={handleInputChange} />
               <div className="flex justify-end pt-3 gap-3">
-                  <ActionButton variant='secondary' type="button" onClick={closeModal}>Отмена</ActionButton>
-                  <ActionButton loading={isSubmitting} type="submit">{editingContact ? 'Сохранить' : 'Создать контакт'}</ActionButton>
+                  <ActionButton variant='ghost' type="button" onClick={closeModal}>Отмена</ActionButton>
+                  <ActionButton loading={isSubmitting} variant="accent" type="submit">{editingContact ? 'Сохранить' : 'Создать контакт'}</ActionButton>
               </div>
           </form>
       </Modal>

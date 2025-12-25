@@ -9,11 +9,18 @@ import { generateCode } from '../utils/generateCode';
 import { toast } from 'sonner';
 
 // --- Reusable Components ---
-const ActionButton = ({ onClick, children, loading = false, disabled = false, className = '' }) => (
-    <button onClick={onClick} disabled={disabled || loading} className={`w-full h-11 inline-flex items-center justify-center font-semibold text-sm rounded-md transition-colors duration-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background bg-primary text-on-primary hover:bg-primary/90 focus:ring-primary ${className}`}>
-        {loading ? <Loader2 className="animate-spin h-5 w-5"/> : children}
-    </button>
-);
+const ActionButton = ({ onClick, children, variant = 'primary', loading = false, disabled = false, className = '' }) => {
+    const baseClasses = "w-full h-11 inline-flex items-center justify-center font-semibold text-sm rounded-md transition-colors duration-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background";
+    const variantClasses = {
+        primary: "bg-surface-contrast border border-border-contrast hover:bg-background-contrast text-text-primary focus:ring-primary",
+        accent: "bg-primary text-on-primary hover:bg-primary/90 focus:ring-primary",
+    };
+    return (
+        <button onClick={onClick} disabled={disabled || loading} className={`${baseClasses} ${variantClasses[variant]} ${className}`}>
+            {loading ? <Loader2 className="animate-spin h-5 w-5"/> : children}
+        </button>
+    );
+};
 
 const FormInput = ({ icon, ...props }) => (
     <div className="relative">
@@ -31,7 +38,7 @@ const ErrorState = ({ message, onRetry }) => (
             <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-6" strokeWidth={1.5} />
             <h2 className="text-xl font-semibold text-text-primary mb-3">Произошла ошибка</h2>
             <p className="text-text-secondary mb-8">{message}</p>
-            {onRetry && <ActionButton onClick={onRetry}>Попробовать снова</ActionButton>}
+            {onRetry && <ActionButton onClick={onRetry} variant="accent">Попробовать снова</ActionButton>}
         </div>
     </div>
 );
@@ -181,7 +188,7 @@ export function SurveyForm() {
           <div className="min-h-screen bg-background py-12 px-4 flex items-center justify-center">
             <div className="max-w-md w-full space-y-8">
               <div className="text-center"><ClipboardList className="w-12 h-12 text-primary mx-auto mb-4" strokeWidth={1.5} /><h1 className="text-2xl font-semibold text-text-primary">{survey?.title}</h1>{survey?.description && <p className="text-text-secondary mt-2">{survey.description}</p>}</div>
-              <div className="bg-surface rounded-lg border border-border p-8"><h2 className="text-xl font-semibold text-center text-text-primary mb-6">Представьтесь, чтобы продолжить</h2><form onSubmit={handleIdentificationSubmit} className="space-y-4"><FormInput icon={<User size={18}/>} type="text" value={respondentInfo.name} onChange={(e) => setRespondentInfo({ ...respondentInfo, name: e.target.value })} placeholder="Ваше ФИО" required /><FormInput icon={<Mail size={18}/>} type="email" value={respondentInfo.email} onChange={(e) => setRespondentInfo({ ...respondentInfo, email: e.target.value })} placeholder="Ваш Email" /><FormInput icon={<Building size={18}/>} type="text" value={respondentInfo.company} onChange={(e) => setRespondentInfo({ ...respondentInfo, company: e.target.value })} placeholder="Название компании"/><div className="pt-2"><ActionButton type="submit" loading={isSubmitting}>{isSubmitting ? "Загрузка..." : "Начать опрос"}</ActionButton></div></form></div>
+              <div className="bg-surface rounded-lg border border-border p-8"><h2 className="text-xl font-semibold text-center text-text-primary mb-6">Представьтесь, чтобы продолжить</h2><form onSubmit={handleIdentificationSubmit} className="space-y-4"><FormInput icon={<User size={18}/>} type="text" value={respondentInfo.name} onChange={(e) => setRespondentInfo({ ...respondentInfo, name: e.target.value })} placeholder="Ваше ФИО" required /><FormInput icon={<Mail size={18}/>} type="email" value={respondentInfo.email} onChange={(e) => setRespondentInfo({ ...respondentInfo, email: e.target.value })} placeholder="Ваш Email" /><FormInput icon={<Building size={18}/>} type="text" value={respondentInfo.company} onChange={(e) => setRespondentInfo({ ...respondentInfo, company: e.target.value })} placeholder="Название компании"/><div className="pt-2"><ActionButton variant="accent" type="submit" loading={isSubmitting}>{isSubmitting ? "Загрузка..." : "Начать опрос"}</ActionButton></div></form></div>
             </div>
           </div>
       );
