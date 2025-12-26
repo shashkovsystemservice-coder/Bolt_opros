@@ -1,10 +1,10 @@
 
 import React from 'react';
 
-// --- Компоненты для вёрстки ---
+// --- Компоненты для вёрстки (без изменений) ---
 
 const Container = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={`max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 ${className}`}>
+  <div className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 ${className}`}>
     {children}
   </div>
 );
@@ -18,196 +18,198 @@ const Button = ({ children, href, variant = 'primary' }: { children: React.React
   return <a href={href} className={`${baseClasses} ${variants[variant]}`}>{children}</a>;
 };
 
-// --- КОМПОНЕНТ СТРАНИЦЫ ---
+
+// --- НОВАЯ ВЕРСИЯ ГЛАВНОЙ СТРАНИЦЫ: ВВЕДЕНИЕ В ИНСТРУМЕНТ ---
 
 export function Landing() {
   return (
     <div className="bg-white font-sans text-gray-800">
 
-      {/* 
-        ЗАДАЧА: HERO. Позиционирование через ситуацию, а не абстрактные функции.
-        Сразу даём понять, для каких задач предназначен инструмент.
+      {/*
+        1. HERO-БЛОК
+        Комментарий: Спокойный, инструментальный вход. Заголовок определяет функцию, а не обещает результат.
       */}
       <header className="border-b border-gray-200">
-        <Container className="py-20 md:py-28 text-center">
-          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 max-w-3xl mx-auto">
-            Платформа для структурированного сбора данных
-            <br />
-            и управленческой диагностики
+        <Container className="py-24 md:py-32 text-center">
+          <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-gray-900">
+            Инструмент для прояснения ситуации
           </h1>
           <p className="mt-6 text-lg text-gray-600 max-w-2xl mx-auto">
-            Для ситуаций, когда важно сначала разобраться,
-            а уже потом принимать решения.
+            Структурированный сбор данных и диагностические сценарии для работы с неопределённостью.
           </p>
           <div className="mt-10 flex justify-center gap-4">
-            <Button href="/auth" variant="primary">Начать работу</Button>
-            <Button href="#how-it-works" variant="secondary">Как это работает</Button>
+            <Button href="/auth" variant="primary">Начать диагностику</Button>
+            <Button href="#example" variant="secondary">Посмотреть пример</Button>
           </div>
         </Container>
       </header>
 
       <main>
-        {/* 
-          ЗАДАЧА: SCENARIO ENTRY. Создать узнавание.
-          Показать, что мы понимаем, с какими реальными запросами приходят пользователи.
+
+        {/*
+          2. БЛОК «Опрос, чек-лист, сценарий — в чём разница?»
+          Комментарий: Чёткое разделение понятий, которое подчёркивает аналитическую ценность сценария.
         */}
-        <section className="py-16 md:py-20 bg-gray-50">
+        <section className="py-20 md:py-24 bg-gray-50">
+          <Container>
+            <div className="text-center">
+              <h2 className="text-3xl font-semibold">Опрос, чек-лист, сценарий — в чём разница?</h2>
+            </div>
+            <div className="mt-12 grid md:grid-cols-3 gap-8 text-left">
+              <div className="p-6 bg-white border border-gray-200 rounded-lg">
+                <h4 className="font-semibold">Опрос</h4>
+                <p className="mt-2 text-sm text-gray-600">Фиксирует мнения и ответы на прямые вопросы.</p>
+              </div>
+              <div className="p-6 bg-white border border-gray-200 rounded-lg">
+                <h4 className="font-semibold">Чек-лист</h4>
+                <p className="mt-2 text-sm text-gray-600">Проверяет соответствие и факт выполнения.</p>
+              </div>
+              <div className="p-6 bg-white border border-blue-200 rounded-lg ring-1 ring-blue-500">
+                <h4 className="font-semibold text-blue-800">Диагностический сценарий</h4>
+                <p className="mt-2 text-sm text-gray-600">Выявляет структуру состояния, связи и напряжения в системе. Это не форма, а логика анализа.</p>
+              </div>
+            </div>
+          </Container>
+        </section>
+
+        {/*
+          3. БЛОК «Платформа — это рабочее пространство»
+          Комментарий: Позиционирование платформы как среды для мышления, с использованием ключевых слов.
+        */}
+        <section className="py-20 md:py-24">
             <Container>
-                <div className="text-center">
-                    <h2 className="text-xl font-semibold text-gray-700">Типичные ситуации для диагностики</h2>
-                </div>
-                <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-                    <div className="bg-white p-4 border border-gray-200 rounded-lg text-sm">Продажи есть, но роста нет</div>
-                    <div className="bg-white p-4 border border-gray-200 rounded-lg text-sm">Команда работает, но результат неясен</div>
-                    <div className="bg-white p-4 border border-gray-200 rounded-lg text-sm">Хочу понять, что именно требует изменений</div>
-                    <div className="bg-white p-4 border border-gray-200 rounded-lg text-sm">Нужно принять решение, но не хватает картины</div>
+                <div className="grid md:grid-cols-2 gap-12 items-center">
+                    <div>
+                        <h2 className="text-3xl font-semibold">Платформа — это рабочее пространство</h2>
+                        <p className="mt-4 text-gray-600">Это интерфейс для мышления, а не его замена. Платформа не даёт советов, а предоставляет <span class="font-medium">рамку</span> для структурирования вопросов, сбора данных и <span class="font-medium">фиксации</span> целостной <span class="font-medium">картины</span> состояния для дальнейшего анализа.</p>
+                    </div>
+                    <div className="font-mono text-sm text-gray-800 bg-gray-100 p-6 rounded-lg border border-gray-200">
+                        <p className="text-gray-500">// Сценарий как аналитическая рамка</p>
+                        <pre className="mt-4 text-xs overflow-auto">
+{`
+scenario: {
+  name: "Анализ узких мест",
+  metrics: ["скорость", "качество"],
+  questions: [
+    { target: "скорость", ... },
+    { target: "качество", ... },
+  ]
+}
+`}
+                        </pre>
+                    </div>
                 </div>
             </Container>
         </section>
 
-        {/* 
-          ЗАДАЧА: LAYER 1 — ПЛАТФОРМА. Показать ядро — универсальный инструментарий.
-          Фокус на контроле, структуре и самостоятельности.
+        {/*
+          4. ПРИМЕР
+          Комментарий: Демонстрация образа мышления. Фокус на том, какой точный вопрос становится возможно задать.
         */}
-        <section className="py-16 md:py-24">
+        <section id="example" className="py-20 md:py-24 bg-gray-50">
           <Container>
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div>
-                <h2 className="text-2xl font-semibold">Возможности платформы для самостоятельной работы</h2>
-                <p className="mt-4 text-gray-600">Создавайте и используйте инструменты для сбора данных, которые соответствуют вашим задачам. Вы полностью контролируете процесс.</p>
-                <ul className="mt-6 space-y-4 text-gray-700">
-                  <li className="flex items-start"><span className="text-blue-600 mt-1 mr-3 font-semibold">✓</span><span><b>Конструктор форм:</b> Создавайте опросы, чек-листы и формы с разными типами вопросов.</span></li>
-                  <li className="flex items-start"><span className="text-blue-600 mt-1 mr-3 font-semibold">✓</span><span><b>Сбор данных:</b> Организуйте сбор данных внутри компании или с внешними участниками.</span></li>
-                  <li className="flex items-start"><span className="text-blue-600 mt-1 mr-3 font-semibold">✓</span><span><b>Анализ результатов:</b> Просматривайте собранные данные в реальном времени и выгружайте их для дальнейшего анализа.</span></li>
+            <div className="text-center">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-blue-600">Пример диагностического мышления</h2>
+                <h3 className="mt-3 text-3xl font-semibold">Сценарий «Диагностика выгорания команды»</h3>
+            </div>
+            <div className="mt-12 bg-white border border-gray-200 rounded-lg p-8">
+                <h4 className="font-semibold">Анализируемые оси</h4>
+                <p className="mt-2 text-gray-600">Сценарий измеряет три системных фактора:</p>
+                <ul className="mt-4 grid md:grid-cols-3 gap-6">
+                    <li><span className="font-semibold text-gray-900">1. Истощение:</span> Ощущение исчерпанности ресурсов.</li>
+                    <li><span className="font-semibold text-gray-900">2. Цинизм:</span> Отстранённое отношение к работе.</li>
+                    <li><span className="font-semibold text-gray-900">3. Неэффективность:</span> Ощущение некомпетентности.</li>
                 </ul>
-              </div>
-              <div className="bg-gray-50 p-8 rounded-lg border border-gray-200 font-mono text-sm text-gray-800">
-                <p className="text-gray-500">// Пример структуры простого опроса</p>
-                <pre className="mt-4 text-xs overflow-auto">
-                  <code>
-{`
-survey: {
-  id: "team-feedback-q3",
-  title: "Обратная связь по итогам квартала",
-  questions: [
-    { 
-      type: "rating", 
-      text: "Оцените качество взаимодействия в команде" 
-    },
-    { 
-      type: "text", 
-      text: "Какие процессы можно улучшить?"
-    }
-  ]
-}
-`}
-                  </code>
-                </pre>
-              </div>
+                <div className="mt-8 pt-8 border-t border-gray-200">
+                    <h4 className="font-semibold">Что проясняется</h4>
+                    <p className="mt-2 text-gray-600">Вместо общего «все устали», появляется карта напряжений. Она позволяет задать точный вопрос:</p>
+                    <p className="mt-4 text-lg font-medium text-gray-900 bg-yellow-50 p-4 rounded-md">
+                        «Данные показывают высокий уровень неэффективности при умеренном истощении. Вероятно, проблема не в нагрузке, а в том, что команда не видит ценности своей работы. Почему так происходит?»
+                    </p>
+                </div>
             </div>
           </Container>
         </section>
 
-        {/* 
-          ЗАДАЧА: LAYER 2 — ЭКСПЕРТНЫЕ СЦЕНАРИИ. Показать дополнительный слой ценности.
-          Это не просто конструктор, а инструмент с готовыми аналитическими рамками.
+        {/*
+          5. ПРОЦЕСС РАБОТЫ
+          Комментарий: Сухое, констатирующее описание шагов.
         */}
-        <section className="py-16 md:py-24 bg-gray-50">
+        <section className="py-20 md:py-24">
+            <Container>
+                <div className="text-center">
+                    <h2 className="text-3xl font-semibold">Процесс работы</h2>
+                </div>
+                <div className="mt-12 grid sm:grid-cols-4 gap-8 text-center">
+                    <div><div className="text-4xl font-bold text-gray-200">1</div><h3 className="mt-2 font-semibold">Выбор рамки</h3><p className="mt-1 text-sm text-gray-600">Выбор готового сценария или создание своей структуры.</p></div>
+                    <div><div className="text-4xl font-bold text-gray-200">2</div><h3 className="mt-2 font-semibold">Сбор данных</h3><p className="mt-1 text-sm text-gray-600">Организация сбора информации от участников.</p></div>
+                    <div><div className="text-4xl font-bold text-gray-200">3</div><h3 className="mt-2 font-semibold">Прояснение картины</h3><p className="mt-1 text-sm text-gray-600">Анализ данных для фиксации состояния системы.</p></div>
+                    <div><div className="text-4xl font-bold text-gray-200">4</div><h3 className="mt-2 font-semibold">Основа для решений</h3><p className="mt-1 text-sm text-gray-600">Использование картины для формулирования гипотез.</p></div>
+                </div>
+            </Container>
+        </section>
+
+        {/*
+          6. БЛОК «Инструмент даёт структуру, а не ответы»
+          Комментарий: Критически важный блок для управления ожиданиями пользователя.
+        */}
+        <section className="py-20 md:py-24 bg-gray-50">
           <Container>
             <div className="text-center">
-              <h2 className="text-2xl font-semibold">Экспертные аналитические сценарии</h2>
-              <p className="mt-4 text-gray-600 max-w-2xl mx-auto">Для сложных задач, где простого опроса недостаточно. Сценарии — это готовые системы диагностики, которые помогают не только собрать данные, но и осмысленно их интерпретировать.</p>
+              <h2 className="text-3xl font-semibold">Инструмент даёт структуру, а не ответы</h2>
             </div>
             <div className="mt-12 grid md:grid-cols-2 gap-8">
-              <article className="bg-white p-6 border border-gray-200 rounded-lg">
-                <h3 className="font-semibold">Что это такое?</h3>
-                <p className="mt-2 text-sm text-gray-600">Это система вопросов и метрик для диагностики конкретной управленческой задачи, например, «Анализ причин оттока» или «Оценка зрелости процессов».</p>
-              </article>
-              <article className="bg-white p-6 border border-gray-200 rounded-lg">
-                <h3 className="font-semibold">Как это помогает в анализе?</h3>
-                <p className="mt-2 text-sm text-gray-600">Сценарий подсвечивает ключевые метрики, показывает распределения и даёт профессиональные ориентиры для размышлений, но не генерирует автоматических советов.</p>
-              </article>
-            </div>
-          </Container>
-        </section>
-        
-        {/* 
-          ЗАДАЧА: ПРОЦЕСС. Сделать продукт предсказуемым.
-        */}
-        <section id="how-it-works" className="py-16 md:py-24">
-          <Container>
-            <div className="text-center">
-              <h2 className="text-2xl font-semibold">Процесс работы</h2>
-            </div>
-            <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-8 text-center">
-              <div>
-                <div className="text-2xl font-bold text-blue-600">1</div>
-                <h3 className="mt-2 font-semibold">Выбор инструмента</h3>
-                <p className="mt-1 text-sm text-gray-600">Создайте свою форму с нуля или выберите готовый экспертный сценарий.</p>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-blue-600">2</div>
-                <h3 className="mt-2 font-semibold">Сбор данных</h3>
-                <p className="mt-1 text-sm text-gray-600">Пригласите участников и соберите информацию в структурированном виде.</p>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-blue-600">3</div>
-                <h3 className="mt-2 font-semibold">Анализ результатов</h3>
-                <p className="mt-1 text-sm text-gray-600">Изучите данные самостоятельно или используйте аналитическую рамку сценария.</p>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-blue-600">4</div>
-                <h3 className="mt-2 font-semibold">Принятие решений</h3>
-                <p className="mt-1 text-sm text-gray-600">На основе анализа сформулируйте выводы и спланируйте дальнейшие действия.</p>
-              </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <h3 className="font-semibold text-gray-900">Что инструмент даёт:</h3>
+                    <ul className="mt-4 list-disc list-inside text-gray-700 space-y-2">
+                        <li>Структуру для мышления</li>
+                        <li>Карту фактического состояния системы</li>
+                        <li>Прояснение реальных проблемных зон</li>
+                        <li>Надёжную опору для анализа</li>
+                    </ul>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <h3 className="font-semibold text-gray-900">Чего инструмент не делает:</h3>
+                    <ul className="mt-4 list-disc list-inside text-gray-700 space-y-2">
+                        <li>Не генерирует готовые решения</li>
+                        <li>Не даёт автоматических советов</li>
+                        <li>Не заменяет вашу экспертизу</li>
+                        <li>Не является источником «правды»</li>
+                    </ul>
+                </div>
             </div>
           </Container>
         </section>
 
-        {/* 
-          ЗАДАЧА: ГРАНИЦЫ. Укрепить доверие через честность.
+        {/*
+          7. ГРАНИЦЫ ОТВЕТСТВЕННОСТИ
+          Комментарий: Ключевой блок для построения доверия с профессиональной аудиторией.
         */}
-        <section className="py-16 md:py-24 bg-gray-50">
+        <section className="py-20 md:py-24">
           <Container>
-            <div className="text-center">
-              <h2 className="text-2xl font-semibold">Границы ответственности</h2>
-            </div>
-            <div className="mt-8 max-w-2xl mx-auto text-gray-700 bg-white border border-yellow-400 rounded-lg p-6">
-              <p className="font-semibold text-gray-900">Платформа — это инструмент для повышения качества решений, а не их автоматическая замена.</p>
-              <ul className="mt-4 list-disc list-inside text-sm space-y-2">
-                <li>Инструмент предоставляет данные и модели, но не генерирует готовых ответов.</li>
-                <li>Интерпретация результатов и принятие решений всегда остаётся на стороне пользователя.</li>
-                <li>Экспертные сценарии не могут учесть уникальный контекст каждой компании без его дополнительного анализа.</li>
-              </ul>
+            <div className="text-center max-w-3xl mx-auto bg-yellow-50 p-8 border border-yellow-300 rounded-lg">
+                <h2 className="text-2xl font-semibold">Границы ответственности</h2>
+                <p className="mt-4 text-gray-700">Это не консультация, не автоматический анализ и не экспертное заключение. Это инструмент. Качество выводов полностью зависит от аналитических способностей пользователя и его знания уникального контекста. Ответственность за интерпретацию данных и принятые на их основе решения всегда остаётся на стороне человека.</p>
             </div>
           </Container>
         </section>
-        
+
       </main>
 
       {/*
-        ЗАДАЧА: LAYER 3 (АВТОРСТВО) и Финальный CTA.
+        8. ФИНАЛ
+        Комментарий: Спокойное приглашение в рабочую среду.
       */}
-      <footer className="border-t border-gray-200">
-        <Container className="py-16">
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="md:col-span-2">
-              <h3 className="text-lg font-semibold">Готовы начать работу?</h3>
-              <p className="mt-2 text-gray-600">Если вам нужен спокойный и структурированный подход к диагностике, платформа может стать вашим рабочим инструментом.</p>
-              <div className="mt-6">
-                <Button href="/auth" variant="primary">Начать работу</Button>
-              </div>
-            </div>
-            <div>
-              <h4 className="font-semibold">Об авторстве сценариев</h4>
-              <p className="mt-2 text-sm text-gray-600">Экспертные сценарии разработаны автором платформы на основе опыта в управленческом консалтинге. Они отражают профессиональный аналитический подход и не являются автоматическими рекомендациями.</p>
-            </div>
-          </div>
-          <div className="mt-16 pt-8 border-t border-gray-200 text-center text-sm text-gray-500">
-            <p>&copy; {new Date().getFullYear()} Platform. Все права защищены.</p>
+      <footer className="border-t border-gray-200 bg-gray-50">
+        <Container className="py-20 text-center">
+          <h2 className="text-3xl font-semibold">Если важно сначала разобраться, а не действовать вслепую</h2>
+          <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">Этот инструмент может быть полезен.</p>
+          <div className="mt-8">
+            <Button href="/auth" variant="primary">Перейти в рабочее пространство</Button>
           </div>
         </Container>
       </footer>
+
     </div>
   );
 }
