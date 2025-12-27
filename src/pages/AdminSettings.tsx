@@ -2,9 +2,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
-import { Loader2, Trash2, Power, AlertCircle, CheckCircle, RefreshCw, Save, PlusCircle, Bot, SlidersHorizontal, DownloadCloud, XCircle } from 'lucide-react';
+import { Loader2, Trash2, Power, AlertCircle, CheckCircle, RefreshCw, Save, PlusCircle, Bot, SlidersHorizontal, DownloadCloud, XCircle, FileText } from 'lucide-react';
 
-// --- Styled Components (consistent with the new design) ---
+// --- Styled Components ---
 
 const Card = ({ children, className = '' }) => (
     <div className={`bg-white border border-slate-200/80 rounded-lg ${className}`}>{children}</div>
@@ -51,14 +51,14 @@ const ModelStatus = ({ status, message }) => {
 // --- Main Page Component ---
 export function AdminSettings() {
   const [systemModels, setSystemModels] = useState([]);
+  const [metaPrompts, setMetaPrompts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newModelName, setNewModelName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [modelStatuses, setModelStatuses] = useState({});
   const [activeModel, setActiveModel] = useState('');
   const [settingsId, setSettingsId] = useState(null);
-  const [generateSurveyMetaPrompt, setGenerateSurveyMetaPrompt] = useState('');
-  const [isSavingPrompt, setIsSavingPrompt] = useState(false);
+  const [savingPromptId, setSavingPromptId] = useState(null);
   const [isCheckingAll, setIsCheckingAll] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -66,9 +66,10 @@ export function AdminSettings() {
   const fetchSystemData = useCallback(async () => {
     setLoading(true);
     try {
-      const [settingsResult, modelsResult] = await Promise.all([
-        supabase.from('system_settings').select('id, active_ai_model, generate_survey_meta_prompt').single(),
-        supabase.from('ai_models').select('*')
+      const [settingsResult, modelsResult, promptsResult] = await Promise.all([
+        supabase.from('system_settings').select('id, active_ai_model').single(),
+        supabase.from('ai_models').select('*'),
+        supabase.from('meta_prompts').select('*').order('created_at'),
       ]);
 
       const { data: settingsData, error: settingsError } = settingsResult;
@@ -77,13 +78,18 @@ export function AdminSettings() {
       const { data: modelsData, error: modelsError } = modelsResult;
       if (modelsError) throw modelsError;
 
+      const { data: promptsData, error: promptsError } = promptsResult;
+      if (promptsError) throw promptsError;
+
       if (settingsData) {
         setActiveModel(settingsData.active_ai_model);
         setSettingsId(settingsData.id);
-        setGenerateSurveyMetaPrompt(settingsData.generate_survey_meta_prompt || '');
       }
       if (modelsData) {
         setSystemModels(modelsData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+      }
+      if (promptsData) {
+        setMetaPrompts(promptsData);
       }
 
     } catch (error) {
@@ -94,6 +100,28 @@ export function AdminSettings() {
   }, []);
 
   useEffect(() => { fetchSystemData(); }, [fetchSystemData]);
+
+  const handlePromptTextChange = (promptId, newText) => {
+    setMetaPrompts(currentPrompts =>
+        currentPrompts.map(p =>
+            p.id === promptId ? { ...p, prompt_text: newText } : p
+        )
+    );
+  };
+
+  const handleSavePrompt = async (promptId) => {
+    const promptToSave = metaPrompts.find(p => p.id === promptId);
+    if (!promptToSave) return;
+
+    setSavingPromptId(promptId);
+    const { error } = await supabase.from('meta_prompts').update({ prompt_text: promptToSave.prompt_text }).eq('id', promptId);
+    if (error) {
+        toast.error(`Не удалось сохранить промпт "${promptToSave.prompt_name}": ${error.message}`);
+    } else {
+        toast.success(`Промпт "${promptToSave.prompt_name}" обновлен.`);
+    }
+    setSavingPromptId(null);
+  };
 
   const checkModelAvailability = useCallback(async (modelName) => {
     if (!modelName || typeof modelName !== 'string' || !modelName.startsWith('models/')) {
@@ -267,17 +295,6 @@ export function AdminSettings() {
     }
   };
   
-  const handleSavePrompt = async () => {
-    setIsSavingPrompt(true);
-    const { error } = await supabase.from('system_settings').update({ generate_survey_meta_prompt: generateSurveyMetaPrompt }).eq('id', settingsId);
-    if (error) {
-        toast.error('Не удалось сохранить промпт: ' + error.message);
-    } else {
-        toast.success('Системный промпт обновлен.');
-    }
-    setIsSavingPrompt(false);
-  };
-
   const activeModelObject = activeModel ? systemModels.find(m => m.model_name === activeModel) : null;
 
   if (loading) {
@@ -291,6 +308,7 @@ export function AdminSettings() {
             <h1 className="text-2xl font-semibold text-slate-800">Настройки ИИ-моделей</h1>
         </div>
 
+        {/* Active Model Card - unchanged */}
         <Card>
             <CardContent className="flex items-center gap-4 bg-green-50/50">
                  <Bot className="w-8 h-8 text-green-600 flex-shrink-0" strokeWidth={2} />
@@ -302,6 +320,7 @@ export function AdminSettings() {
             </CardContent>
         </Card>
 
+        {/* AI Models List Card - unchanged */}
         <Card>
             <CardHeader 
                 title="Список доступных моделей" 
@@ -367,24 +386,37 @@ export function AdminSettings() {
             </form>
         </Card>
 
-        <Card>
-            <CardHeader 
-                title="Управление мета-промптами"
-                description="Это 'системный промпт', который используется для генерации опросов."
-            />
-            <CardContent>
-                <textarea
-                    className="w-full h-80 p-3 font-mono text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400/80"
-                    value={generateSurveyMetaPrompt}
-                    onChange={(e) => setGenerateSurveyMetaPrompt(e.target.value)}
-                />
-            </CardContent>
-             <div className="p-5 border-t border-slate-200/80 bg-slate-50/50 rounded-b-lg flex justify-end">
-                <ActionButton onClick={handleSavePrompt} disabled={isSavingPrompt} loading={isSavingPrompt}>
-                    <Save className="w-4 h-4 mr-2" /> Сохранить
-                </ActionButton>
-            </div>
-        </Card>
+        {/* --- NEW Meta Prompts Section --- */}
+        <div className="flex items-center gap-3">
+            <FileText className="w-6 h-6 text-slate-700"/>
+            <h2 className="text-xl font-semibold text-slate-800">Управление мета-промптами</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {metaPrompts.map(prompt => (
+                <Card key={prompt.id}>
+                    <CardHeader title={prompt.prompt_name} description={prompt.notes} />
+                    <CardContent>
+                        <textarea
+                            className="w-full h-60 p-3 font-mono text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400/80"
+                            value={prompt.prompt_text}
+                            onChange={(e) => handlePromptTextChange(prompt.id, e.target.value)}
+                        />
+                    </CardContent>
+                    <div className="p-5 border-t border-slate-200/80 bg-slate-50/50 rounded-b-lg flex justify-end">
+                        <ActionButton onClick={() => handleSavePrompt(prompt.id)} disabled={savingPromptId === prompt.id} loading={savingPromptId === prompt.id}>
+                            <Save className="w-4 h-4 mr-2" /> Сохранить
+                        </ActionButton>
+                    </div>
+                </Card>
+            ))}
+            {metaPrompts.length === 0 && (
+                <div className="md:col-span-2 text-center py-10">
+                    <p className="text-sm text-slate-500">Список системных промптов пуст.</p>
+                    <p className="text-sm text-slate-400 mt-1">Промпты должны быть добавлены напрямую в таблицу `meta_prompts`.</p>
+                </div>
+            )}
+        </div>
     </div>
   );
 }

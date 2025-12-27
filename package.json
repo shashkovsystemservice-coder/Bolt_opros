@@ -17,6 +17,7 @@
     "@supabase/supabase-js": "^2.57.4",
     "@tailwindcss/forms": "^0.5.11",
     "@types/exceljs": "^0.5.3",
+    "@types/react-scroll": "^1.8.10",
     "antd": "^6.1.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -27,6 +28,7 @@
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "react-router-dom": "^7.10.1",
+    "react-scroll": "^1.9.3",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0"
   },

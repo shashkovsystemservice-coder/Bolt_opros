@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, BarChart3, Settings, LogOut, Menu, X, Shield, LayoutDashboard } from 'lucide-react';
+import { Users, BarChart3, Settings, LogOut, Menu, X, Shield, LayoutDashboard, Database } from 'lucide-react';
 
 function SidebarContent() {
   const { logout } = useAuth();
@@ -12,6 +12,7 @@ function SidebarContent() {
   const menuItems = [
     { path: '/admin/companies', label: 'Компании', icon: Users },
     { path: '/admin/stats', label: 'Статистика', icon: BarChart3 },
+    { path: '/admin/structure', label: 'Структура опросов', icon: Database },
     { path: '/admin/security', label: 'Безопасность', icon: Shield },
     { path: '/admin/settings', label: 'Настройки', icon: Settings },
   ];
@@ -80,6 +81,7 @@ export function AdminLayout() {
   const menuItems = [
     { path: '/admin/companies', label: 'Компании', icon: Users },
     { path: '/admin/stats', label: 'Статистика', icon: BarChart3 },
+    { path: '/admin/structure', label: 'Структура опросов', icon: Database },
     { path: '/admin/security', label: 'Безопасность', icon: Shield },
     { path: '/admin/settings', label: 'Настройки', icon: Settings },
   ];

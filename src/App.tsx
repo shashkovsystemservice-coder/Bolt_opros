@@ -18,6 +18,7 @@ import { AdminCompanies } from './pages/AdminCompanies';
 import { AdminStats } from './pages/AdminStats';
 import { AdminSecurity } from './pages/AdminSecurity';
 import { AdminSettings } from './pages/AdminSettings';
+import AdminSurveyStructurePage from './pages/AdminSurveyStructure';
 import { AdminLayout } from './components/AdminLayout';
 
 function App() {
@@ -52,6 +53,7 @@ function App() {
             <Route index element={<Navigate to="companies" replace />} />
             <Route path="companies" element={<AdminCompanies />} />
             <Route path="stats" element={<AdminStats />} />
+            <Route path="structure" element={<AdminSurveyStructurePage />} />
             <Route path="security" element={<AdminSecurity />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
