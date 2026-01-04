@@ -1,7 +1,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { PlusCircle, Trash2, Save, AlertTriangle, Info, Plus } from 'lucide-react';
+import { PlusCircle, Trash2, Save, AlertTriangle, Info, Plus, BrainCircuit, Timer, Scale } from 'lucide-react';
+import { calculateQuestionCapacity, getQuestionComposition, calculateCognitiveBurdenIndex, isBurdenTooHigh } from '../lib/surveyFormulas';
 
 // 1. Типы данных
 type SurveyAxisValue = {
@@ -22,7 +23,124 @@ type SurveyAxis = {
   survey_axis_values: SurveyAxisValue[];
 };
 
-// 2. Компонент для редактирования одного значения
+// 2. Компонент Калькулятора (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+const SurveySimulator = ({ axes }: { axes: SurveyAxis[] }) => {
+  const [time, setTime] = useState(15); // в минутах
+  const [purpose, setPurpose] = useState(''); // Начальное значение пустое
+  const [complexity, setComplexity] = useState(3); // от 1 до 5
+
+  // Ищем ось по названию, это надежнее
+  const purposeAxis = axes.find(a => a.title === 'Цель опроса');
+
+  // Эффект для установки значения по умолчанию, когда данные загрузятся
+  useEffect(() => {
+    if (purposeAxis && purposeAxis.survey_axis_values.length > 0 && !purpose) {
+      setPurpose(purposeAxis.survey_axis_values[0].value_code);
+    }
+  }, [purposeAxis, purpose]);
+
+  // --- Расчеты в реальном времени ---
+  const totalTimeInSeconds = time * 60;
+  
+  // Сопоставление кодов из вашей БД с типами для формул
+  const purposeMap: { [key: string]: 'Exploratory' | 'Descriptive' | 'Other' } = {
+    research: 'Exploratory',   // из вашего поля "код"
+    assessment: 'Descriptive',
+    diagnostics: 'Exploratory',
+    // можно добавить другие
+  };
+  const currentPurpose = purposeMap[purpose] || 'Other';
+
+  const estimatedQuestions = [
+    { baseTime: 15, modalityFactor: 1, depthFactor: complexity * 0.5 },
+    { baseTime: 20, modalityFactor: 1, depthFactor: complexity * 0.5 },
+    { baseTime: 45, modalityFactor: 1, depthFactor: complexity * 0.5 },
+  ];
+
+  const capacity = calculateQuestionCapacity({ totalTime: totalTimeInSeconds, questions: estimatedQuestions });
+  const composition = getQuestionComposition(currentPurpose);
+  const burdenIndex = calculateCognitiveBurdenIndex({ totalQuestions: capacity, complexityFactor: complexity, totalTime: totalTimeInSeconds });
+  const isOverloaded = isBurdenTooHigh(burdenIndex, 0.8);
+
+  return (
+    <div className="mb-10 p-6 bg-white rounded-xl shadow-md border border-gray-200">
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">Калькулятор-симулятор опроса</h2>
+      <p className="text-gray-600 mb-6">Смоделируйте параметры, чтобы оценить объем и сложность будущего опроса.</p>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div>
+          <label htmlFor="survey-time" className="block text-sm font-medium text-gray-700">Время на прохождение (мин)</label>
+          <input 
+            type="number"
+            id="survey-time"
+            value={time}
+            onChange={e => setTime(Number(e.target.value))}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+        </div>
+        <div>
+          <label htmlFor="survey-purpose" className="block text-sm font-medium text-gray-700">Цель опроса</label>
+          <select
+            id="survey-purpose"
+            value={purpose}
+            onChange={e => setPurpose(e.target.value)}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            disabled={!purposeAxis || purposeAxis.survey_axis_values.length === 0}
+          >
+            {purposeAxis && purposeAxis.survey_axis_values.length > 0 ? (
+              purposeAxis.survey_axis_values.map(val => (
+                <option key={val.value_code} value={val.value_code}>{val.label}</option>
+              ))
+            ) : (
+              <option>Цели не определены</option>
+            )}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="survey-complexity" className="block text-sm font-medium text-gray-700">Сложность для респондента (1-5)</label>
+          <input 
+            type="range"
+            id="survey-complexity"
+            min="1" max="5" step="0.5"
+            value={complexity}
+            onChange={e => setComplexity(Number(e.target.value))}
+            className="mt-2 w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+          />
+           <div className='text-center text-sm text-gray-500 mt-1'>{complexity.toFixed(1)}</div>
+        </div>
+      </div>
+
+      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Рекомендации</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-center">
+          <div className='p-4 bg-white rounded-lg shadow-sm'>
+            <Timer className='mx-auto h-8 w-8 text-blue-500 mb-2' />
+            <p className='text-sm text-gray-500'>Рекомендуемое кол-во вопросов</p>
+            <p className='text-2xl font-bold text-gray-900'>{isFinite(capacity) ? `~${capacity}` : "N/A"}</p>
+          </div>
+          <div className='p-4 bg-white rounded-lg shadow-sm'>
+            <Scale className='mx-auto h-8 w-8 text-green-500 mb-2' />
+            <p className='text-sm text-gray-500'>Идеальное соотношение</p>
+            <p className='text-base font-medium text-gray-800 whitespace-nowrap'>{`${Math.round(composition.open*100)}% откр / ${Math.round(composition.scaled*100)}% шкал`}</p>
+          </div>
+          <div className={`p-4 bg-white rounded-lg shadow-sm border-2 ${isOverloaded ? 'border-red-400' : 'border-transparent'}`}>
+            <BrainCircuit className={`mx-auto h-8 w-8 mb-2 ${isOverloaded ? 'text-red-500' : 'text-yellow-500'}`} />
+            <p className='text-sm text-gray-500'>Индекс нагрузки</p>
+            <p className={`text-2xl font-bold ${isOverloaded ? 'text-red-600' : 'text-gray-900'}`}>{burdenIndex.toFixed(2)}</p>
+          </div>
+        </div>
+        {isOverloaded && (
+          <div className="mt-4 text-center p-3 bg-red-50 text-red-700 rounded-md text-sm">
+            <AlertTriangle className='inline-block h-5 w-5 mr-2'/>
+            <strong>Предупреждение:</strong> Опрос может быть слишком сложным. Попробуйте увеличить время или снизить сложность.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// 3. Компонент для редактирования одного значения
 const AxisValueEditor = ({ value, onUpdate, onDelete }: { value: SurveyAxisValue, onUpdate: (field: keyof SurveyAxisValue, new_value: string | number) => void, onDelete: () => void }) => {
   return (
     <div className="grid grid-cols-12 gap-x-4 gap-y-2 py-3 items-center">
@@ -65,11 +183,11 @@ const AxisValueEditor = ({ value, onUpdate, onDelete }: { value: SurveyAxisValue
   );
 };
 
-// 3. Компонент для редактирования одного параметра (оси)
+// 4. Компонент для редактирования одного параметра (оси)
 const AxisEditor = ({ axis, onSave, onUpdate, onDeleteNew }: { axis: SurveyAxis, onSave: (axisData: SurveyAxis) => Promise<void>, onUpdate: (updatedAxis: SurveyAxis) => void, onDeleteNew?: () => void }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isNew = axis.id < 0; // Определяем, новый ли это параметр
+  const isNew = axis.id < 0; 
 
   const handleUpdateAxis = (field: keyof SurveyAxis, value: string) => {
     onUpdate({ ...axis, [field]: value });
@@ -194,7 +312,7 @@ const AxisEditor = ({ axis, onSave, onUpdate, onDeleteNew }: { axis: SurveyAxis,
 };
 
 
-// 4. Основной компонент страницы
+// 5. Основной компонент страницы
 const AdminSurveyStructurePage = () => {
   const [axes, setAxes] = useState<SurveyAxis[]>([]);
   const [loading, setLoading] = useState(true);
@@ -230,7 +348,7 @@ const AdminSurveyStructurePage = () => {
   const handleAddNewAxis = () => {
       const newOrder = axes.length > 0 ? Math.max(...axes.map(a => a.order)) + 1 : 1;
       const newAxis: SurveyAxis = {
-          id: -Date.now(), // Временный ID
+          id: -Date.now(), 
           title: '',
           description: '',
           code: '',
@@ -245,60 +363,45 @@ const AdminSurveyStructurePage = () => {
   };
 
   const handleSaveAxis = async (axisData: SurveyAxis) => {
-    // Проверяем, это новый параметр или существующий
     const isNew = axisData.id < 0;
 
     if (isNew) {
-      // --- ЛОГИКА СОЗДАНИЯ НОВОГО --- 
       const maxOrder = axes.length > 0 ? Math.max(...axes.filter(a => a.id > 0).map(a => a.order)) : 0;
-
       const { data: newAxisData, error: axisError } = await supabase
         .from('survey_axes')
-        .insert({ 
-            title: axisData.title, 
-            description: axisData.description, 
-            code: axisData.code, 
-            order: maxOrder + 1 
-        })
+        .insert({ title: axisData.title, description: axisData.description, code: axisData.code, order: maxOrder + 1 })
         .select()
         .single();
 
       if (axisError) throw new Error(`Ошибка при создании параметра: ${axisError.message}`);
       if (!newAxisData) throw new Error('Не удалось получить данные нового параметра после создания.');
 
-      // Если есть значения для добавления
       if (axisData.survey_axis_values.length > 0) {
         const valuesToInsert = axisData.survey_axis_values.map((value, index) => ({
-            axis_id: newAxisData.id, // Используем ID только что созданного параметра
+            axis_id: newAxisData.id,
             label: value.label,
             description: value.description,
             value_code: value.value_code,
             order: index + 1
         }));
-
         const { error: valuesError } = await supabase.from('survey_axis_values').insert(valuesToInsert);
         if (valuesError) throw new Error(`Ошибка при добавлении значений: ${valuesError.message}`);
       }
-
     } else {
-      // --- ЛОГИКА ОБНОВЛЕНИЯ СУЩЕСТВУЮЩЕГО --- 
       const { error: axisError } = await supabase
         .from('survey_axes')
         .update({ title: axisData.title, description: axisData.description, code: axisData.code })
         .eq('id', axisData.id);
-
       if (axisError) throw new Error(`Ошибка при обновлении параметра: ${axisError.message}`);
 
       const existingValueIds = axisData.survey_axis_values.map(v => v.id).filter(id => id > 0);
       if (existingValueIds.length > 0) {
-          const { data: valuesToDelete } = await supabase
-            .from('survey_axis_values').select('id').eq('axis_id', axisData.id).not('id', 'in', `(${existingValueIds.join(',')})`);
-          
+          const { data: valuesToDelete } = await supabase.from('survey_axis_values').select('id').eq('axis_id', axisData.id).not('id', 'in', `(${existingValueIds.join(',')})`);
           if (valuesToDelete && valuesToDelete.length > 0) {
               const { error: deleteError } = await supabase.from('survey_axis_values').delete().in('id', valuesToDelete.map(v => v.id));
               if (deleteError) throw new Error(`Ошибка при удалении старых значений: ${deleteError.message}`);
           }
-      } else { // Если все значения были удалены
+      } else { 
 				const { error: deleteAllError } = await supabase.from('survey_axis_values').delete().eq('axis_id', axisData.id);
 				if(deleteAllError) throw new Error(`Ошибка при удалении всех старых значений: ${deleteAllError.message}`);
 			}
@@ -313,7 +416,6 @@ const AdminSurveyStructurePage = () => {
       if (firstError) throw new Error(`Ошибка при обновлении/вставке значений: ${firstError.error!.message}`);
     }
 
-    // После успешного сохранения перезагружаем данные
     await fetchSurveyStructure();
   };
   
@@ -347,6 +449,9 @@ const AdminSurveyStructurePage = () => {
             </button>
           </div>
         </header>
+
+        {/* === ИНТЕРАКТИВНЫЙ БЛОК-КАЛЬКУЛЯТОР === */}
+        <SurveySimulator axes={axes} />
 
         <div className="space-y-8">
           {axes.map((axis) => (
