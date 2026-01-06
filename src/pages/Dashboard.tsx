@@ -1,27 +1,25 @@
 
 import { useEffect, useState, useCallback, Fragment } from 'react';
-import { useNavigate, Outlet } from 'react-router-dom';
+import { useNavigate, Outlet, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { toast } from 'sonner';
-import { Plus, Search, Users, Edit, Trash2, Archive, ArrowLeft, Loader2, MoreHorizontal, FileText, Clock, ChevronDown, CheckCircle, GripVertical } from 'lucide-react';
+import { Plus, Search, Users, Edit, Trash2, Archive, ArrowLeft, Loader2, MoreHorizontal, FileText, Clock, ChevronDown, CheckCircle, GripVertical, Wand2 } from 'lucide-react';
 import { Menu, Transition } from '@headlessui/react';
 
 // --- Reusable & Styled Components (Google AI Studio Style) --- //
 
-const ActionButton = ({ onClick, children, variant = 'primary', size = 'md', disabled = false, loading = false }) => {
+const ActionButton = ({ children, variant = 'primary', size = 'md', disabled = false, loading = false, as: Component = 'button', ...props }) => {
     const baseClasses = "whitespace-nowrap inline-flex items-center justify-center font-medium text-sm rounded-md transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2";
     const sizeClasses = { md: "h-9 px-4", sm: "h-8 px-3 text-xs" };
     const variantClasses = {
-        // High-contrast, solid button for primary actions (e.g. Save, Submit)
         solid: "bg-gray-800 text-white hover:bg-gray-700 focus:ring-gray-800",
-        // Outlined button for secondary actions (e.g. Create New, Add)
         primary: "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-400",
-        // Subtle button for less important actions
         ghost: "bg-transparent hover:bg-gray-100 text-gray-600 focus:ring-gray-400",
+        accent: "bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500",
     };
-    return <button onClick={onClick} disabled={disabled || loading} className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]}`}>{loading ? <Loader2 className="animate-spin h-4 w-4"/> : children}</button>
+    return <Component disabled={disabled || loading} className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]}`} {...props}>{loading ? <Loader2 className="animate-spin h-4 w-4"/> : children}</Component>
 };
 
 const SearchInput = ({ value, onChange }) => (
@@ -205,6 +203,7 @@ export function SurveyList() {
         <div className="flex items-center gap-3">
           <SearchInput value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           <ActionButton onClick={() => navigate('/survey/create')}><Plus size={16} className="mr-1.5"/>Новый опрос</ActionButton>
+          <ActionButton as={Link} to="/create-survey-wizard" variant="accent"><Wand2 size={16} className="mr-1.5"/>Создать с Мастером</ActionButton>
         </div>
       </header>
 

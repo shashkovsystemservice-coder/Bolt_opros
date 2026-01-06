@@ -1,5 +1,5 @@
 
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
@@ -19,6 +19,7 @@ import { AdminStats } from './pages/AdminStats';
 import { AdminSecurity } from './pages/AdminSecurity';
 import { AdminSettings } from './pages/AdminSettings';
 import AdminSurveyStructurePage from './pages/AdminSurveyStructure';
+import SurveyGeneratorWizard from './pages/SurveyGeneratorWizard'; // Импортируем новый компонент
 import { AdminLayout } from './components/AdminLayout';
 
 function App() {
@@ -58,8 +59,10 @@ function App() {
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 
-          {/* Защищенные маршруты для работы с опросами (должны быть до /survey/:id) */}
+          {/* Защищенные маршруты для работы с опросами */}
           <Route path="/survey/create" element={<ProtectedRoute><CreateSurvey /></ProtectedRoute>} />
+          <Route path="/create-survey-wizard" element={<ProtectedRoute><SurveyGeneratorWizard /></ProtectedRoute>} /> {/* Новый маршрут */}
+
 
           {/* Отдельный маршрут для прохождения опроса (публичный) */}
           <Route path="/survey/:id" element={<SurveyForm />} />

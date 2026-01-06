@@ -1,8 +1,7 @@
 
 import { LocalQuestion } from '../pages/CreateSurvey';
-import { supabase } from './supabase'; // Use the central supabase client
+import { supabase } from './supabase';
 
-// Interface for the raw response from the AI Function
 interface AIQuestionResponse {
   question: string;
   type: 'text' | 'number' | 'rating' | 'choice' | 'radio' | 'checkbox' | 'scale' | 'email';
@@ -15,40 +14,27 @@ interface AISurveyResponse {
   questions: AIQuestionResponse[];
 }
 
-// Interface for the structured data our service will return
 export interface GeneratedSurvey {
     questions: Omit<LocalQuestion, 'id'>[];
     title: string;
     description: string;
 }
 
-/**
- * Generates a survey using the AI backend function.
- * This is the central point for all AI-based survey generation.
- * 
- * @param prompt The main subject of the survey (this was 'topic' before).
- * @param questionCount The number of questions to generate.
- * @returns A promise that resolves to a structured survey object.
- */
 export async function generateSurveyWithAI(prompt: string, questionCount: number): Promise<GeneratedSurvey> {
     
-    // Use the invoke method from supabase-js for better error handling and auth
     const { data: functionData, error: functionError } = await supabase.functions.invoke('gemini-ai', {
         body: {
             action: 'generate-survey',
             data: {
-                prompt: prompt, // CORRECTED: Was 'topic', now it is 'prompt' to match the server.
+                prompt: prompt,
                 questionsCount: questionCount,
             },
         },
     });
 
     if (functionError) {
-        // The functionError can be a FetchError, FunctionError, etc.
-        // We try to get a meaningful message from it.
         const message = functionError.message || 'Не удалось связаться с AI-сервисом.';
         console.error("[AI Service] Function invocation error:", functionError);
-        // Check for specific backend error message embedded in the response
         if ((functionError as any).context?.body) {
              try {
                 const ctxBody = JSON.parse((functionError as any).context.body);
@@ -69,7 +55,6 @@ export async function generateSurveyWithAI(prompt: string, questionCount: number
 
     let result: AISurveyResponse;
     try {
-        // Sometimes the AI might return the JSON wrapped in markdown, let's clean it up.
         const cleanedText = rawText.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
         result = JSON.parse(cleanedText);
     } catch (e: any) {
@@ -81,9 +66,8 @@ export async function generateSurveyWithAI(prompt: string, questionCount: number
         throw new Error('AI не смог сгенерировать вопросы по вашему запросу. Попробуйте переформулировать тему.');
     }
 
-    // Map the flexible API response to our strict LocalQuestion structure
     const questions: Omit<LocalQuestion, 'id'>[] = result.questions.map((q) => {
-        let type: LocalQuestion['type'] = 'text'; // Default to text
+        let type: LocalQuestion['type'] = 'text';
 
         if (['radio', 'checkbox', 'choice'].includes(q.type)) type = 'choice';
         else if (['rating', 'scale'].includes(q.type)) type = 'rating';
@@ -94,7 +78,7 @@ export async function generateSurveyWithAI(prompt: string, questionCount: number
             text: q.question,
             type,
             required: true,
-            options: type === 'choice' ? (q.options || []) : [], // Ensure options are empty for non-choice questions
+            options: type === 'choice' ? (q.options || []) : [],
         };
     });
 
