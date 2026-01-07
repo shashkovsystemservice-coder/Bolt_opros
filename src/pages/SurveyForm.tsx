@@ -4,9 +4,10 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { SurveyTemplate, QuestionTemplate, SurveyRecipient } from '../types/database';
 import { InteractiveSurveyChat } from '../components/InteractiveSurveyChat';
-import { ClipboardList, CheckCircle2, Download, Printer, Eye, User, Mail, Building, Lock, AlertTriangle, Loader2, FileSpreadsheet } from 'lucide-react';
+import { ClipboardList, CheckCircle2, Download, Eye, User, Mail, Building, Lock, AlertTriangle, Loader2, FileSpreadsheet, FileText } from 'lucide-react';
 import { generateCode } from '../utils/generateCode';
 import { toast } from 'sonner';
+import { generateSurveyFormPdf } from '../lib/pdfExport';
 
 // --- Reusable Components ---
 const ActionButton = ({ onClick, children, variant = 'primary', loading = false, disabled = false, className = '' }) => {
@@ -117,20 +118,12 @@ const SubmittedState = ({ survey, questions, answers, recipient }: { survey: Sur
             </html>`;
     };
 
-    const handlePrint = () => {
-        const content = getHtmlContent();
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-            printWindow.document.write(content);
-            printWindow.document.close();
-            printWindow.focus();
-            setTimeout(() => {
-                printWindow.print();
-                printWindow.close();
-            }, 250);
-        } else {
-            toast.error('Не удалось открыть окно для печати. Пожалуйста, разрешите всплывающие окна для этого сайта.');
-        }
+    const handleExportPdf = () => {
+      if (!survey) {
+        toast.error('Данные опроса не загружены');
+        return;
+      }
+      generateSurveyFormPdf(survey, questions, answers, recipient);
     };
 
     const handleDownloadHtml = () => {
@@ -200,9 +193,9 @@ const SubmittedState = ({ survey, questions, answers, recipient }: { survey: Sur
                         <FileSpreadsheet className="w-4 h-4 mr-2" />
                         CSV (Excel)
                     </ActionButton>
-                    <ActionButton onClick={handlePrint} variant='primary' className="text-xs px-2">
-                        <Printer className="w-4 h-4 mr-2" />
-                        Печать / PDF
+                    <ActionButton onClick={handleExportPdf} variant='primary' className="text-xs px-2">
+                        <FileText className="w-4 h-4 mr-2" />
+                        PDF
                     </ActionButton>
                 </div>
 

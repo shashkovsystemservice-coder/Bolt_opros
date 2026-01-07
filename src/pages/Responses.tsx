@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { SurveyTemplate, SurveySubmission, SubmissionAnswer, SurveyRecipient } from '../types/database';
 import { toast } from 'sonner';
-import { Download, Search, ChevronDown, ChevronUp, Mail, Calendar, Maximize2, Minimize2, List, Table2, BarChart3, Sparkles, Loader2, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react';
+import { Download, Search, ChevronDown, ChevronUp, Mail, Calendar, Maximize2, Minimize2, List, Table2, BarChart3, Sparkles, Loader2, ArrowLeft, RefreshCw, AlertCircle, FileText } from 'lucide-react';
+import { generateResponsesPdf } from '../lib/pdfExport';
 
 // --- Type Definitions ---
 interface SubmissionWithDetails extends SurveySubmission {
@@ -119,6 +120,14 @@ export function Responses() {
     toast.success("Экспорт начался");
   };
 
+  const handleExportPdf = () => {
+    if (!survey) {
+        toast.error('Опрос не загружен');
+        return;
+    }
+    generateResponsesPdf(survey, filteredSubmissions, searchTerm);
+  };
+
   const generateAiAnalysis = async () => {
     setLoadingAiAnalysis(true);
     setAiError('');
@@ -163,7 +172,8 @@ export function Responses() {
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <SegmentedControl value={viewMode} onChange={setViewMode} options={[{value: 'list', label: 'Список', icon: List}, {value: 'table', label: 'Таблица', icon: Table2}, {value: 'analytics', label: 'Аналитика', icon: BarChart3}]} />
             <div className="flex items-center gap-2">
-                <ActionButton onClick={exportCSV} disabled={submissions.length === 0} variant="secondary"><Download className="w-4 h-4 mr-2" />Экспорт CSV</ActionButton>
+                <ActionButton onClick={exportCSV} disabled={submissions.length === 0} variant="secondary"><Download className="w-4 h-4 mr-2" />CSV</ActionButton>
+                <ActionButton onClick={handleExportPdf} disabled={submissions.length === 0} variant="secondary"><FileText className="w-4 h-4 mr-2" />PDF</ActionButton>
                 <ActionButton onClick={loadData} loading={loading} variant="secondary"><RefreshCw className="w-4 h-4" /></ActionButton>
             </div>
         </div>
