@@ -19,8 +19,9 @@ import { AdminStats } from './pages/AdminStats';
 import { AdminSecurity } from './pages/AdminSecurity';
 import { AdminSettings } from './pages/AdminSettings';
 import AdminSurveyStructurePage from './pages/AdminSurveyStructure';
-import SurveyGeneratorWizard from './pages/SurveyGeneratorWizard'; // Импортируем новый компонент
+import SurveyGeneratorWizard from './pages/SurveyGeneratorWizard';
 import { AdminLayout } from './components/AdminLayout';
+import { AllResponses } from './pages/AllResponses';
 
 function App() {
   return (
@@ -40,6 +41,7 @@ function App() {
             <Route index element={<Navigate to="surveys" replace />} />
             <Route path="surveys" element={<SurveyList />} />
             <Route path="contacts" element={<ContactsPage />} />
+            <Route path="responses" element={<AllResponses />} />
             <Route path="survey/:id/edit" element={<EditSurvey />} />
             <Route path="survey/:id/recipients" element={<Recipients />} />
             <Route path="survey/:id/responses" element={<Responses />} />
@@ -61,7 +63,7 @@ function App() {
 
           {/* Защищенные маршруты для работы с опросами */}
           <Route path="/survey/create" element={<ProtectedRoute><CreateSurvey /></ProtectedRoute>} />
-          <Route path="/create-survey-wizard" element={<ProtectedRoute><SurveyGeneratorWizard /></ProtectedRoute>} /> {/* Новый маршрут */}
+          <Route path="/create-survey-wizard" element={<ProtectedRoute><SurveyGeneratorWizard /></ProtectedRoute>} />
 
 
           {/* Отдельный маршрут для прохождения опроса (публичный) */}

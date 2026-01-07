@@ -2,7 +2,7 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield, Users, ListChecks, BarChart2 } from 'lucide-react';
+import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield, Users, ListChecks, BarChart2, MessageSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AdminPasswordModal } from './AdminPasswordModal';
 import { MobileBottomNav } from './MobileBottomNav';
@@ -73,29 +73,43 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   };
 
-  const menuItems = [
-    { icon: LayoutDashboard, label: 'Опросы', path: '/dashboard', disabled: false },
-    { icon: ListChecks, label: 'Чек-листы', path: '/checklists', disabled: true },
-    { icon: BarChart2, label: 'Отчеты', path: '/reports', disabled: true },
-    { icon: Users, label: 'Контакты', path: '/dashboard/contacts', disabled: false },
-    { icon: Settings, label: 'Настройки', path: '/dashboard/settings', disabled: false },
+  const menuGroups = [
+    {
+      title: 'СОЗДАНИЕ',
+      items: [
+        { icon: LayoutDashboard, label: 'Опросы', path: '/dashboard', disabled: false },
+        { icon: ListChecks, label: 'Чек-листы', path: '/checklists', disabled: true },
+        { icon: BarChart2, label: 'Отчеты', path: '/reports', disabled: true },
+      ]
+    },
+    {
+      title: 'ДАННЫЕ',
+      items: [
+        { icon: MessageSquare, label: 'Ответы', path: '/dashboard/responses', disabled: false },
+        { icon: Users, label: 'Контакты', path: '/dashboard/contacts', disabled: false },
+      ]
+    },
+    {
+      title: 'УПРАВЛЕНИЕ',
+      items: [
+        { icon: Settings, label: 'Настройки', path: '/dashboard/settings', disabled: false },
+      ]
+    }
   ];
 
-  if (isSuperAdmin) {
-    menuItems.push({
-      icon: Shield,
-      label: 'Админ-панель',
-      path: '/admin/companies',
-      disabled: false,
-    });
-  }
+  const adminMenuItem = {
+    icon: Shield,
+    label: 'Админ-панель',
+    path: '/admin/companies',
+    disabled: false,
+  };
 
   const isActive = (path: string) => {
     const { pathname } = location;
     if (path === '/dashboard') {
-      return pathname.startsWith('/dashboard') && !pathname.startsWith('/dashboard/contacts') && !pathname.startsWith('/dashboard/settings');
+      return pathname === '/dashboard';
     }
-    return pathname === path;
+    return pathname.startsWith(path);
   };
   
   const isAdminActive = () => location.pathname.startsWith('/admin');
@@ -132,31 +146,53 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex">
         <aside
           className={`fixed lg:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-surface border-r border-border-subtle z-30 ${mobileMenuOpen ? 'block' : 'hidden'} lg:block`}>
-          <nav className="p-4 space-y-2">
-            {menuItems.map((item) => {
-              const isAdminPanel = item.label === 'Админ-панель';
-              const itemIsActive = isAdminPanel ? isAdminActive() : isActive(item.path);
+          <nav className="p-4 flex flex-col h-full">
+            <div className="flex-grow">
+              {menuGroups.map((group, idx) => (
+                <div key={idx}>
+                  <div className="text-xs font-semibold text-text-secondary uppercase px-4 pt-6 pb-2">
+                    {group.title}
+                  </div>
+                  {group.items.map(item => (
+                    <button
+                      key={item.path}
+                      onClick={() => handleNavigation(item.path)}
+                      disabled={item.disabled}
+                      className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl transition-all font-medium text-sm ${
+                        isActive(item.path)
+                          ? 'bg-primary/10 text-primary' 
+                          : item.disabled 
+                          ? 'text-text-secondary/50 cursor-not-allowed' 
+                          : 'text-text-secondary hover:bg-background'
+                      }`}
+                    >
+                      <item.icon className="w-5 h-5" strokeWidth={2}/>
+                      <span>{item.label}</span>
+                    </button>
+                  ))}
+                  {idx < menuGroups.length - 1 && <div className="border-t border-border my-2" />}
+                </div>
+              ))}
+              {isSuperAdmin && (
+                <div>
+                  <div className="border-t border-border my-2" />
+                  <button
+                    onClick={() => handleNavigation(adminMenuItem.path)}
+                    disabled={adminMenuItem.disabled}
+                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl transition-all font-medium text-sm ${
+                      isAdminActive()
+                        ? 'bg-primary/10 text-primary' 
+                        : 'text-text-secondary hover:bg-background'
+                    }`}
+                  >
+                    <adminMenuItem.icon className="w-5 h-5" strokeWidth={2}/>
+                    <span>{adminMenuItem.label}</span>
+                  </button>
+                </div>
+              )}
+            </div>
 
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => !item.disabled && handleNavigation(item.path)}
-                  disabled={item.disabled}
-                  className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl transition-all font-medium text-sm ${
-                    itemIsActive 
-                      ? 'bg-primary/10 text-primary' 
-                      : item.disabled 
-                      ? 'text-text-secondary/50 cursor-not-allowed' 
-                      : 'text-text-secondary hover:bg-background'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" strokeWidth={2} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-
-            <div className="pt-4">
+            <div className="border-t-2 border-border mt-4 pt-4">
               <button
                 onClick={handleSignOut}
                 className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-text-secondary hover:bg-red-500/10 hover:text-red-600 transition-all font-medium text-sm"
