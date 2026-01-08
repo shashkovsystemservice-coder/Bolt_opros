@@ -5,89 +5,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { toast } from 'sonner';
-import { Plus, Search, Users, Edit, Trash2, Archive, ArrowLeft, Loader2, MoreHorizontal, FileText, Clock, ChevronDown, CheckCircle, GripVertical, Wand2 } from 'lucide-react';
+import { Plus, Search, Users, Edit, Trash2, Archive, ArrowLeft, Loader2, MoreHorizontal, FileText, Wand2, ChevronRight } from 'lucide-react';
 import { Menu, Transition } from '@headlessui/react';
 
-// --- Reusable & Styled Components (Google AI Studio Style) --- //
-
-const ActionButton = ({ children, variant = 'primary', size = 'md', disabled = false, loading = false, as: Component = 'button', ...props }) => {
-    const baseClasses = "whitespace-nowrap inline-flex items-center justify-center font-medium text-sm rounded-md transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2";
-    const sizeClasses = { md: "h-9 px-4", sm: "h-8 px-3 text-xs" };
-    const variantClasses = {
-        solid: "bg-gray-800 text-white hover:bg-gray-700 focus:ring-gray-800",
-        primary: "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-400",
-        ghost: "bg-transparent hover:bg-gray-100 text-gray-600 focus:ring-gray-400",
-        accent: "bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500",
-    };
-    return <Component disabled={disabled || loading} className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]}`} {...props}>{loading ? <Loader2 className="animate-spin h-4 w-4"/> : children}</Component>
-};
-
-const SearchInput = ({ value, onChange }) => (
-    <div className="relative w-full max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-            type="text"
-            placeholder="Искать опросы..."
-            value={value}
-            onChange={onChange}
-            className="w-full h-9 pl-9 pr-3 bg-white border border-gray-300 rounded-md text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
-        />
-    </div>
-);
-
-
-const SurveyCard = ({ survey, onNavigate, onArchive, onRestore, onDelete }) => {
-    return (
-        <div className="group relative flex items-center justify-between p-3 pr-4 border-b border-gray-200 last:border-b-0 hover:bg-gray-50 transition-colors">
-            <div className="flex items-center gap-4">
-                 <div className="hidden sm:flex items-center justify-center w-8 h-8 bg-gray-100 rounded-lg">
-                    <FileText size={16} className="text-gray-500" />
-                </div>
-                <div>
-                    <h3 className="font-medium text-gray-800 text-sm truncate">{survey.title}</h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                        Создан: {new Date(survey.created_at).toLocaleDateString('ru-RU')}
-                    </p>
-                </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-                <span className={`hidden md:inline-block text-xs font-medium px-2 py-1 rounded-full ${survey.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                  {survey.is_active ? 'Активен' : 'В архиве'}
-                </span>
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
-                     {survey.is_active ? (
-                        <>
-                            <ActionIcon onClick={() => onNavigate(`/dashboard/survey/${survey.id}/edit`)} title="Редактор"><Edit size={16}/></ActionIcon>
-                            <ActionIcon onClick={() => onNavigate(`/dashboard/survey/${survey.id}/recipients`)} title="Ссылки"><Users size={16}/></ActionIcon>
-                            <ActionIcon onClick={() => onArchive(survey.id)} title="Архивировать"><Archive size={16}/></ActionIcon>
-                        </>
-                    ) : (
-                        <>
-                            <ActionIcon onClick={() => onRestore(survey.id)} title="Восстановить"><ArrowLeft size={16}/></ActionIcon>
-                            <ActionIcon onClick={() => onDelete(survey)} title="Удалить"><Trash2 size={16}/></ActionIcon>
-                        </>
-                    )}
-                </div>
-                <SurveyDropdownMenu survey={survey} onNavigate={onNavigate} onArchive={onArchive} onRestore={onRestore} onDelete={onDelete} />
-            </div>
-        </div>
-    );
-};
-
-const ActionIcon = ({ onClick, children, title }) => (
-    <button onClick={onClick} title={title} className="p-1.5 text-gray-500 hover:text-gray-800 rounded-md hover:bg-gray-200 transition-colors">
-        {children}
-    </button>
-);
-
 const SurveyDropdownMenu = ({ survey, onNavigate, onArchive, onRestore, onDelete }) => (
-  <Menu as="div" className="relative">
-    <Menu.Button className="p-1.5 text-gray-500 hover:text-gray-800 rounded-md hover:bg-gray-200 transition-colors">
+  <Menu as="div" className="relative z-10">
+    <Menu.Button className="p-1.5 text-gray-500 hover:text-gray-800 rounded-md hover:bg-gray-100 transition-colors">
       <MoreHorizontal size={16} />
     </Menu.Button>
     <Transition as={Fragment} enter="transition ease-out duration-100" enterFrom="transform opacity-0 scale-95" enterTo="transform opacity-100 scale-100" leave="transition ease-in duration-75" leaveFrom="transform opacity-100 scale-100" leaveTo="transform opacity-0 scale-95">
-      <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right bg-white border border-gray-200 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+      <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right bg-white border border-gray-200 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
         <div className="py-1">
           {survey.is_active ? (
             <>
@@ -107,14 +34,31 @@ const SurveyDropdownMenu = ({ survey, onNavigate, onArchive, onRestore, onDelete
   </Menu>
 );
 
-const EmptyState = ({ onClearSearch, hasSearch, message }) => (
-    <div className="text-center py-16">
+const SurveyCard = ({ survey, onNavigate, onArchive, onRestore, onDelete }) => {
+    return (
+        <div className="bg-surface-primary border border-border-subtle rounded-lg p-4">
+            <div className="flex justify-between items-start">
+                <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-semibold mb-1 break-words pr-2">{survey.title}</h3>
+                    <p className="text-sm text-text-secondary">Создан: {new Date(survey.created_at).toLocaleDateString('ru-RU')}</p>
+                </div>
+                <SurveyDropdownMenu survey={survey} onNavigate={onNavigate} onArchive={onArchive} onRestore={onRestore} onDelete={onDelete} />
+            </div>
+        </div>
+    );
+};
+
+const EmptyState = ({ onClearSearch, hasSearch, message, onCreate }) => (
+    <div className="text-center py-16 bg-white border border-gray-200 rounded-lg">
         <div className="mx-auto mb-4 bg-gray-100 w-12 h-12 flex items-center justify-center rounded-full">
             <FileText size={24} className="text-gray-500"/>
         </div>
         <h3 className="text-md font-semibold text-gray-800 mb-1">{message.title}</h3>
         <p className="text-gray-500 mb-5 text-sm">{message.description}</p>
-        {hasSearch && <ActionButton onClick={onClearSearch} variant="ghost" size="sm">Очистить поиск</ActionButton>}
+        {hasSearch ? 
+            <button onClick={onClearSearch} className="text-sm font-medium text-primary hover:underline">Очистить поиск</button> : 
+            (message.title === "Активных опросов нет" && <button onClick={onCreate} className="inline-flex items-center justify-center h-9 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90"><Plus size={16} className="mr-1.5"/>Создать опрос</button>)
+        }
     </div>
 );
 
@@ -131,7 +75,7 @@ export function SurveyList() {
   const navigate = useNavigate();
   const [surveys, setSurveys] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'archived'
+  const [activeTab, setActiveTab] = useState('active');
   const [searchTerm, setSearchTerm] = useState('');
 
   const loadSurveys = useCallback(async () => {
@@ -198,41 +142,51 @@ export function SurveyList() {
 
   return (
     <div>
-      <header className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
-        <h1 className="text-xl font-semibold text-gray-900">Мои опросы</h1>
-        <div className="flex items-center gap-3">
-          <SearchInput value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-          <ActionButton onClick={() => navigate('/survey/create')}><Plus size={16} className="mr-1.5"/>Новый опрос</ActionButton>
-          <ActionButton as={Link} to="/create-survey-wizard" variant="accent"><Wand2 size={16} className="mr-1.5"/>Создать с Мастером</ActionButton>
-        </div>
-      </header>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Мои опросы</h1>
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                      type="text"
+                      placeholder="Искать опросы..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full h-9 pl-9 pr-3 bg-white border border-gray-300 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  />
+              </div>
+              <button onClick={() => navigate('/survey/create')} className="w-full sm:w-auto inline-flex items-center justify-center h-9 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90">
+                  <Plus size={16} className="mr-1.5"/>Новый опрос
+              </button>
+          </div>
+      </div>
 
       <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-            <TabButton text="Активные" isActive={activeTab === 'active'} onClick={() => setActiveTab('active')} />
-            <TabButton text="Архивные" isActive={activeTab === 'archived'} onClick={() => setActiveTab('archived')} />
-          </nav>
+          <div className="overflow-x-auto pb-2">
+              <nav className="-mb-px flex gap-2">
+                  <TabButton text="Активные" isActive={activeTab === 'active'} onClick={() => setActiveTab('active')} />
+                  <TabButton text="Архивные" isActive={activeTab === 'archived'} onClick={() => setActiveTab('archived')} />
+              </nav>
+          </div>
       </div>
 
       <div className="mt-6">
       {loading ? (
         <div className="text-center py-20"><Loader2 className="h-7 w-7 text-gray-400 animate-spin mx-auto"/></div>
       ) : filteredSurveys.length === 0 ? (
-        <EmptyState onClearSearch={() => setSearchTerm('')} hasSearch={!!searchTerm} message={getEmptyStateMessage()}/>
+        <EmptyState onClearSearch={() => setSearchTerm('')} hasSearch={!!searchTerm} message={getEmptyStateMessage()} onCreate={() => navigate('/survey/create')}/>
       ) : (
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-           <div className="divide-y divide-gray-200">
-              {filteredSurveys.map(survey => (
-                <SurveyCard 
-                  key={survey.id} 
-                  survey={survey} 
-                  onNavigate={navigate} 
-                  onArchive={handleArchive} 
-                  onRestore={handleRestore} 
-                  onDelete={handleDelete} 
-                />
-              ))}
-           </div>
+        <div className="space-y-4">
+           {filteredSurveys.map(survey => (
+             <SurveyCard 
+               key={survey.id} 
+               survey={survey} 
+               onNavigate={navigate} 
+               onArchive={handleArchive} 
+               onRestore={handleRestore} 
+               onDelete={handleDelete} 
+             />
+           ))}
         </div>
       )}
       </div>
@@ -243,10 +197,10 @@ export function SurveyList() {
 const TabButton = ({ text, isActive, onClick }) => (
   <button 
     onClick={onClick} 
-    className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors ${ 
+    className={`whitespace-nowrap py-2 px-4 border-b-2 font-medium text-sm transition-colors ${ 
       isActive 
-        ? 'border-gray-800 text-gray-900' 
-        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+        ? 'border-primary text-primary' 
+        : 'border-transparent text-text-secondary hover:border-gray-300 hover:text-text-primary'
     }`}
   >
     {text}
