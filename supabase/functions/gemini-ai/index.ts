@@ -34,10 +34,11 @@ serve(async (req) => {
             .from('meta_prompts')
             .select('prompt_text')
             .eq('is_active', true)
+            .eq('generation_mode', 'survey')
             .limit(1);
 
         if (promptError) throw new Error(`Database error fetching prompts: ${promptError.message}`);
-        if (!activePrompts || activePrompts.length === 0) throw new Error('No active meta prompt found in the database.');
+        if (!activePrompts || activePrompts.length === 0) throw new Error('No active meta prompt found for survey generation.');
         
         const active_meta_prompt = activePrompts[0].prompt_text;
         if (!active_meta_prompt) throw new Error('Active meta prompt text is empty.');
