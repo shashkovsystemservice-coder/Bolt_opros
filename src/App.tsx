@@ -6,8 +6,14 @@ import { AdminRoute } from './components/AdminRoute';
 import { Landing } from './pages/Landing';
 import { Auth } from './pages/Auth';
 import { ResetPassword } from './pages/ResetPassword';
-import { Dashboard, SurveyList } from './pages/Dashboard';
-import CreateSurvey from './pages/CreateSurvey';
+
+// Новые импорты страниц
+import { InstrumentsPage, InstrumentList } from './pages/InstrumentsPage';
+import CreateInstrumentPage from './pages/CreateInstrumentPage';
+import ManualCreator from './pages/ManualCreator'; // Новый компонент для ручного создания
+import DataPage from './pages/DataPage';
+import AnalysisPage from './pages/AnalysisPage';
+
 import EditSurvey from './pages/EditSurvey';
 import Recipients from './pages/Recipients';
 import ContactsPage from './pages/Contacts';
@@ -28,31 +34,35 @@ function App() {
     <Router>
       <AuthProvider>
         <Routes>
-          {/* Публичные маршруты */}
+          {/* --- Публичные маршруты --- */}
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/survey/:id" element={<SurveyForm />} />
 
-          {/* Основной защищенный маршрут с вложенными страницами */}
-          <Route
-            path="/dashboard"
-            element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
-          >
-            <Route index element={<Navigate to="surveys" replace />} />
-            <Route path="surveys" element={<SurveyList />} />
-            <Route path="contacts" element={<ContactsPage />} />
-            <Route path="responses" element={<AllResponses />} />
-            <Route path="survey/:id/edit" element={<EditSurvey />} />
-            <Route path="survey/:id/recipients" element={<Recipients />} />
-            <Route path="survey/:id/responses" element={<Responses />} />
-            <Route path="settings" element={<Settings />} />
+          {/* --- Основные защищенные маршруты --- */}
+          <Route path="/instruments" element={<ProtectedRoute><InstrumentsPage /></ProtectedRoute>}>
+            <Route index element={<InstrumentList />} />
+            <Route path=":id/edit" element={<EditSurvey />} />
+            <Route path=":id/recipients" element={<Recipients />} />
+            <Route path=":id/responses" element={<Responses />} />
           </Route>
 
-          {/* Маршруты для администратора */}
-          <Route
-            path="/admin"
-            element={<AdminRoute><AdminLayout /></AdminRoute>}
-          >
+          <Route path="/instruments/new" element={<ProtectedRoute><CreateInstrumentPage /></ProtectedRoute>} />
+          <Route path="/instruments/create/manual" element={<ProtectedRoute><ManualCreator /></ProtectedRoute>} />
+          <Route path="/create-survey-wizard" element={<ProtectedRoute><SurveyGeneratorWizard /></ProtectedRoute>} />
+
+          <Route path="/data" element={<ProtectedRoute><DataPage /></ProtectedRoute>}>
+            <Route index element={<Navigate to="responses" replace />} />
+            <Route path="responses" element={<AllResponses />} />
+            <Route path="contacts" element={<ContactsPage />} />
+          </Route>
+
+          <Route path="/analysis" element={<ProtectedRoute><AnalysisPage /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+          {/* --- Маршруты для администратора --- */}
+          <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
             <Route index element={<Navigate to="companies" replace />} />
             <Route path="companies" element={<AdminCompanies />} />
             <Route path="stats" element={<AdminStats />} />
@@ -60,16 +70,9 @@ function App() {
             <Route path="security" element={<AdminSecurity />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
-
-          {/* Защищенные маршруты для работы с опросами */}
-          <Route path="/survey/create" element={<ProtectedRoute><CreateSurvey /></ProtectedRoute>} />
-          <Route path="/create-survey-wizard" element={<ProtectedRoute><SurveyGeneratorWizard /></ProtectedRoute>} />
-
-
-          {/* Отдельный маршрут для прохождения опроса (публичный) */}
-          <Route path="/survey/:id" element={<SurveyForm />} />
           
-          {/* Перенаправление для всех остальных случаев */}
+          {/* --- Редиректы и фолбэки --- */}
+          <Route path="/dashboard" element={<Navigate to="/instruments" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

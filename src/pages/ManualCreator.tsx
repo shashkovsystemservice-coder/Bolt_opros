@@ -4,8 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/DashboardLayout';
-import { AiSurveyModal } from '../components/AiSurveyModal';
-import { Plus, Trash2, GripVertical, ArrowLeft, Save, Sparkles, Loader2 } from 'lucide-react';
+import { Plus, Trash2, GripVertical, ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -18,16 +17,14 @@ export interface LocalQuestion {
   options: string[];
 }
 
-// --- Styled Components (Google AI Studio Style) ---
-const ActionButton = ({ onClick, children, variant = 'primary', size = 'md', disabled = false, loading = false, className = '' }) => {
+// --- Styled Components ---
+const ActionButton = ({ onClick, children, variant = 'primary', disabled = false, loading = false, className = '' }) => {
     const baseClasses = "whitespace-nowrap inline-flex items-center justify-center font-medium text-sm rounded-md transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2";
-    const sizeClasses = { md: "h-9 px-4", sm: "h-8 px-3 text-xs" };
     const variantClasses = {
         solid: "bg-gray-800 text-white hover:bg-gray-700 focus:ring-gray-800",
         primary: "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-400",
-        special: "bg-gradient-to-r from-violet-500 to-purple-500 text-white hover:opacity-90 focus:ring-violet-500", // Keep special for AI
     };
-    return <button onClick={onClick} disabled={disabled || loading} className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}>{loading ? <Loader2 className="animate-spin h-4 w-4"/> : children}</button>;
+    return <button onClick={onClick} disabled={disabled || loading} className={`${baseClasses} h-9 px-4 ${variantClasses[variant]} ${className}`}>{loading ? <Loader2 className="animate-spin h-4 w-4"/> : children}</button>;
 };
 
 const FormInput = ({ id, label, value, onChange, placeholder, as = 'input', rows = 3 }) => (
@@ -42,7 +39,7 @@ const FormInput = ({ id, label, value, onChange, placeholder, as = 'input', rows
 );
 
 // --- Main Page Component ---
-const CreateSurvey = () => {
+const ManualCreator = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -53,28 +50,17 @@ const CreateSurvey = () => {
   
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   useEffect(() => {
     if (user) setCompanyId(user.id);
   }, [user]);
 
-  const handleOpenAiModal = () => setIsAiModalOpen(true);
-  const handleAcceptAiSurvey = (aiQuestions: Omit<LocalQuestion, 'id'>[], topic: string, interactive: boolean, desc: string) => {
-    setTitle(topic);
-    setDescription(desc);
-    setIsInteractive(interactive);
-    setQuestions(aiQuestions.map(q => ({ ...q, id: crypto.randomUUID() })));
-    setIsAiModalOpen(false);
-    toast.success("Опрос сгенерирован!");
-  };
-
   const addQuestion = () => setQuestions([...questions, { id: crypto.randomUUID(), text: '', type: 'text', required: true, options: [] }]);
   const removeQuestion = (id: string) => setQuestions(questions.filter(q => q.id !== id));
   const updateQuestion = (id: string, field: keyof LocalQuestion, value: any) => setQuestions(questions.map(q => (q.id === id ? { ...q, [field]: value } : q)));
 
-  const handleSaveSurvey = async () => {
-    if (!title.trim()) { toast.error('Название опроса не может быть пустым.'); return; }
+  const handleSaveInstrument = async () => {
+    if (!title.trim()) { toast.error('Название инструмента не может быть пустым.'); return; }
     if (questions.length === 0) { toast.error('Добавьте хотя бы один вопрос.'); return; }
     if (!companyId) { toast.error('Не удалось определить ID компании. Попробуйте перезайти в аккаунт.'); return; }
 
@@ -83,7 +69,7 @@ const CreateSurvey = () => {
     try {
       const unique_code = Math.random().toString(36).substring(2, 10).toUpperCase();
 
-      const { data: survey, error: surveyError } = await supabase.from('survey_templates').insert([{ 
+      const { data: instrument, error: instrumentError } = await supabase.from('survey_templates').insert([{ 
         title, 
         description, 
         company_id: companyId, 
@@ -92,10 +78,10 @@ const CreateSurvey = () => {
         unique_code: unique_code
       }]).select().single();
       
-      if (surveyError) throw surveyError;
+      if (instrumentError) throw instrumentError;
 
       const questionsToInsert = questions.map((q, i) => ({ 
-          survey_template_id: survey.id, 
+          survey_template_id: instrument.id, 
           question_text: q.text, 
           question_type: q.type, 
           is_required: q.required, 
@@ -106,19 +92,19 @@ const CreateSurvey = () => {
       const { error: questionsError } = await supabase.from('question_templates').insert(questionsToInsert);
       
       if (questionsError) {
-        await supabase.from('survey_templates').delete().eq('id', survey.id); // Rollback
+        await supabase.from('survey_templates').delete().eq('id', instrument.id); // Rollback
         throw questionsError;
       }
       
-      toast.success('Опрос успешно сохранен!');
-      navigate('/dashboard');
+      toast.success('Инструмент успешно сохранен!');
+      navigate('/instruments');
 
     } catch (err: any) { 
-      console.error("Ошибка при сохранении опроса:", err);
+      console.error("Ошибка при сохранении инструмента:", err);
       if (err.message.includes('unique_code')) {
         toast.error(`Ошибка: Не удалось сгенерировать уникальный код. Попробуйте еще раз.`);
       } else if (err.message.includes('violates row-level security policy')) {
-          toast.error('Ошибка прав доступа. Убедитесь, что вы авторизованы и имеете права на создание опроса.');
+          toast.error('Ошибка прав доступа. Убедитесь, что вы авторизованы и имеете права на создание инструмента.');
       } else {
         toast.error(`Ошибка сохранения: ${err.message}`); 
       }
@@ -129,14 +115,13 @@ const CreateSurvey = () => {
   return (
     <DashboardLayout>
         <header className="mb-8">
-           <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors">
-                <ArrowLeft size={16}/> Назад ко всем опросам
+           <button onClick={() => navigate('/instruments/new')} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors">
+                <ArrowLeft size={16}/> Назад к выбору способа
             </button>
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-            <h1 className="text-2xl font-semibold text-gray-900">Создание нового опроса</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">Новый инструмент (ручной)</h1>
             <div className="flex flex-col sm:flex-row gap-2">
-              <ActionButton onClick={handleOpenAiModal} variant='special' disabled={loading}><Sparkles className="w-4 h-4 mr-2"/>Сгенерировать с AI</ActionButton>
-              <ActionButton onClick={handleSaveSurvey} variant="solid" loading={loading} disabled={!companyId || questions.length === 0}><Save className="w-4 h-4 mr-2"/>Сохранить</ActionButton>
+              <ActionButton onClick={handleSaveInstrument} variant="solid" loading={loading} disabled={!companyId || questions.length === 0}><Save className="w-4 h-4 mr-2"/>Сохранить</ActionButton>
             </div>
           </div>
         </header>
@@ -145,10 +130,10 @@ const CreateSurvey = () => {
             <div className="grid md:grid-cols-3 gap-4 md:gap-8 py-8">
                 <div className="md:col-span-1">
                     <h3 className="text-base font-semibold text-gray-800">Основная информация</h3>
-                    <p className="text-sm text-gray-500 mt-1">Название и описание вашего опроса.</p>
+                    <p className="text-sm text-gray-500 mt-1">Название и описание вашего инструмента.</p>
                 </div>
                 <div className="md:col-span-2 space-y-4">
-                     <FormInput id="title" label="Название опроса" value={title} onChange={e => setTitle(e.target.value)} placeholder="Напр., Ежегодный опрос вовлеченности" />
+                     <FormInput id="title" label="Название инструмента" value={title} onChange={e => setTitle(e.target.value)} placeholder="Напр., Ежегодный опрос вовлеченности" />
                      <FormInput id="description" label="Описание (опционально)" value={description} onChange={e => setDescription(e.target.value)} placeholder="Краткое пояснение для получателей" as="textarea" />
                 </div>
             </div>
@@ -156,14 +141,14 @@ const CreateSurvey = () => {
              <div className="grid md:grid-cols-3 gap-4 md:gap-8 py-8">
                 <div className="md:col-span-1">
                     <h3 className="text-base font-semibold text-gray-800">Настройки</h3>
-                    <p className="text-sm text-gray-500 mt-1">Дополнительные параметры проведения опроса.</p>
+                    <p className="text-sm text-gray-500 mt-1">Дополнительные параметры.</p>
                 </div>
                  <div className="md:col-span-2">
                     <div className="flex items-start gap-4 p-4 rounded-md bg-white border border-gray-200">
                         <input id="isInteractive" type="checkbox" checked={isInteractive} onChange={e => setIsInteractive(e.target.checked)} className="h-4 w-4 mt-1 rounded border-gray-300 text-gray-600 focus:ring-gray-500" />
                         <div>
                             <label htmlFor="isInteractive" className="font-medium text-gray-800">Интерактивный чат-режим</label>
-                            <p className="text-sm text-gray-500 mt-1">Вопросы будут задаваться по одному в формате диалога. Идеально для мобильных устройств.</p>
+                            <p className="text-sm text-gray-500 mt-1">Вопросы будут задаваться по одному в формате диалога.</p>
                         </div>
                     </div>
                 </div>
@@ -172,7 +157,7 @@ const CreateSurvey = () => {
             <div className="grid md:grid-cols-3 gap-4 md:gap-8 py-8">
                 <div className="md:col-span-1">
                      <h3 className="text-base font-semibold text-gray-800">Вопросы</h3>
-                    <p className="text-sm text-gray-500 mt-1">Создайте и настройте вопросы для вашего опроса.</p>
+                    <p className="text-sm text-gray-500 mt-1">Создайте и настройте вопросы для вашего инструмента.</p>
                 </div>
                 <div className="md:col-span-2 space-y-4">
                     <AnimatePresence>
@@ -184,8 +169,6 @@ const CreateSurvey = () => {
                 </div>
             </div>
         </div>
-
-      {isAiModalOpen && companyId && <AiSurveyModal onClose={() => setIsAiModalOpen(false)} onGenerate={handleAcceptAiSurvey} />}
     </DashboardLayout>
   );
 };
@@ -242,4 +225,4 @@ const QuestionEditor = ({ question, index, update, remove }) => {
     )
 }
 
-export default CreateSurvey;
+export default ManualCreator;

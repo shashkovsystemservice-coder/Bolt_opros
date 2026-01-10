@@ -2,7 +2,7 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield, Users, ListChecks, BarChart2, MessageSquare } from 'lucide-react';
+import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield, Users, BarChart2, MessageSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AdminPasswordModal } from './AdminPasswordModal';
 import { MobileBottomNav } from './MobileBottomNav';
@@ -75,24 +75,28 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const menuGroups = [
     {
-      title: 'СОЗДАНИЕ',
+      title: '',
       items: [
-        { icon: LayoutDashboard, label: 'Опросы', path: '/dashboard', disabled: false },
-        { icon: ListChecks, label: 'Чек-листы', path: '/checklists', disabled: true },
-        { icon: BarChart2, label: 'Отчеты', path: '/reports', disabled: true },
+        { icon: LayoutDashboard, label: 'Инструменты', path: '/instruments', disabled: false },
       ]
     },
     {
       title: 'ДАННЫЕ',
       items: [
-        { icon: MessageSquare, label: 'Ответы', path: '/dashboard/responses', disabled: false },
-        { icon: Users, label: 'Контакты', path: '/dashboard/contacts', disabled: false },
+        { icon: MessageSquare, label: 'Ответы', path: '/data/responses', disabled: false },
+        { icon: Users, label: 'Контакты', path: '/data/contacts', disabled: false },
+      ]
+    },
+    {
+      title: '',
+      items: [
+        { icon: BarChart2, label: 'Аналитика', path: '/analysis', disabled: true },
       ]
     },
     {
       title: 'УПРАВЛЕНИЕ',
       items: [
-        { icon: Settings, label: 'Настройки', path: '/dashboard/settings', disabled: false },
+        { icon: Settings, label: 'Настройки', path: '/settings', disabled: false },
       ]
     }
   ];
@@ -105,11 +109,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const isActive = (path: string) => {
-    const { pathname } = location;
-    if (path === '/dashboard') {
-      return pathname === '/dashboard';
-    }
-    return pathname.startsWith(path);
+    return location.pathname.startsWith(path);
   };
   
   const isAdminActive = () => location.pathname.startsWith('/admin');
@@ -150,9 +150,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="flex-grow">
               {menuGroups.map((group, idx) => (
                 <div key={idx}>
-                  <div className="text-xs font-semibold text-text-secondary uppercase px-4 pt-6 pb-2">
-                    {group.title}
-                  </div>
+                  {group.title && (
+                    <div className="text-xs font-semibold text-text-secondary uppercase px-4 pt-6 pb-2">
+                      {group.title}
+                    </div>
+                  )}
                   {group.items.map(item => (
                     <button
                       key={item.path}
@@ -167,7 +169,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                       }`}
                     >
                       <item.icon className="w-5 h-5" strokeWidth={2}/>
-                      <span>{item.label}</span>
+                      <span>{item.label}{item.disabled && location.pathname !== '/analysis' ? '' : (item.disabled ? ' (скоро)' : '')}</span>
                     </button>
                   ))}
                   {idx < menuGroups.length - 1 && <div className="border-t border-border my-2" />}
