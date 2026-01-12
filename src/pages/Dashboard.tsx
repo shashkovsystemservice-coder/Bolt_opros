@@ -1,13 +1,14 @@
 
 import { useEffect, useState, useCallback, Fragment } from 'react';
-import { useNavigate, Outlet, Link } from 'react-router-dom';
+import { useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { toast } from 'sonner';
-import { Plus, Search, Users, Edit, Trash2, Archive, ArrowLeft, Loader2, MoreHorizontal, FileText, Wand2, ChevronRight } from 'lucide-react';
+import { Plus, Search, Users, Edit, Trash2, Archive, ArrowLeft, Loader2, MoreHorizontal, FileText } from 'lucide-react';
 import { Menu, Transition } from '@headlessui/react';
 
+// ... (Components like SurveyDropdownMenu, SurveyCard, EmptyState remain unchanged) ...
 const SurveyDropdownMenu = ({ survey, onNavigate, onArchive, onRestore, onDelete }) => (
   <Menu as="div" className="relative z-10">
     <Menu.Button className="p-1.5 text-gray-500 hover:text-gray-800 rounded-md hover:bg-gray-100 transition-colors">
@@ -87,9 +88,7 @@ export function SurveyList() {
         if (searchTerm) {
           query = query.ilike('title', `%${searchTerm}%`);
         }
-
         const { data, error } = await query.order('created_at', { ascending: false });
-
         if (error) throw error;
         setSurveys(data || []);
     } catch (err) {
@@ -105,10 +104,7 @@ export function SurveyList() {
   const handleAction = async (action, surveyId, successMsg) => {
     const { error } = await action(surveyId);
     if (error) toast.error('Ошибка: ' + error.message);
-    else {
-      toast.success(successMsg);
-      loadSurveys();
-    }
+    else { toast.success(successMsg); loadSurveys(); }
   };
 
   const handleArchive = (id) => handleAction((surveyId) => supabase.from('survey_templates').update({ is_active: false }).eq('id', surveyId), id, 'Опрос перенесен в архив.');
@@ -125,9 +121,7 @@ export function SurveyList() {
     })
   }
 
-  const filteredSurveys = surveys.filter(survey => {
-      return activeTab === 'active' ? survey.is_active : !survey.is_active;
-  });
+  const filteredSurveys = surveys.filter(survey => activeTab === 'active' ? survey.is_active : !survey.is_active);
 
   const emptyStateMessages = {
       active: { title: "Активных опросов нет", description: "Создайте новый опрос, чтобы начать собирать данные." },
@@ -155,8 +149,8 @@ export function SurveyList() {
                       className="w-full h-9 pl-9 pr-3 bg-white border border-gray-300 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
                   />
               </div>
-              <button onClick={() => navigate('/survey/create')} className="w-full sm:w-auto inline-flex items-center justify-center h-9 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90">
-                  <Plus size={16} className="mr-1.5"/>Новый опрос
+              <button onClick={() => navigate('/survey/create')} className="w-full sm:w-auto inline-flex items-center justify-center h-9 px-4 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600">
+                  <Plus size={16} className="mr-1.5"/>Контрольная кнопка
               </button>
           </div>
       </div>
@@ -178,14 +172,7 @@ export function SurveyList() {
       ) : (
         <div className="space-y-4">
            {filteredSurveys.map(survey => (
-             <SurveyCard 
-               key={survey.id} 
-               survey={survey} 
-               onNavigate={navigate} 
-               onArchive={handleArchive} 
-               onRestore={handleRestore} 
-               onDelete={handleDelete} 
-             />
+             <SurveyCard key={survey.id} survey={survey} onNavigate={navigate} onArchive={handleArchive} onRestore={handleRestore} onDelete={handleDelete} />
            ))}
         </div>
       )}

@@ -2,7 +2,21 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ClipboardList, LayoutDashboard, Settings, LogOut, Menu, X, Shield, Users, ListChecks, BarChart2, MessageSquare } from 'lucide-react';
+import { 
+  Settings, 
+  LogOut, 
+  Menu, 
+  X, 
+  Shield, 
+  BarChart2, 
+  Folder, 
+  FileText, 
+  CheckSquare, 
+  Award, 
+  Inbox, 
+  PlusSquare, 
+  Home
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AdminPasswordModal } from './AdminPasswordModal';
 import { MobileBottomNav } from './MobileBottomNav';
@@ -75,26 +89,33 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const menuGroups = [
     {
-      title: 'СОЗДАНИЕ',
+      title: 'DESIGN LAB (КОНСТРУКТОР)',
       items: [
-        { icon: LayoutDashboard, label: 'Опросы', path: '/dashboard', disabled: false },
-        { icon: ListChecks, label: 'Чек-листы', path: '/checklists', disabled: true },
-        { icon: BarChart2, label: 'Отчеты', path: '/reports', disabled: true },
+        { icon: PlusSquare, label: 'Новый опрос', path: '/instruments/create', disabled: false, isPrimary: true },
+        { icon: Folder, label: 'Blueprints', path: '/blueprints', disabled: true },
       ]
     },
     {
-      title: 'ДАННЫЕ',
+      title: 'REGISTRY (БИБЛИОТЕКА)',
       items: [
-        { icon: MessageSquare, label: 'Ответы', path: '/dashboard/responses', disabled: false },
-        { icon: Users, label: 'Контакты', path: '/dashboard/contacts', disabled: false },
+        { icon: FileText, label: 'Surveys', path: '/dashboard', disabled: false },
+        { icon: CheckSquare, label: 'Checklists', path: '/checklists', disabled: true },
+        { icon: Award, label: 'Standards', path: '/standards', disabled: true },
       ]
     },
     {
-      title: 'УПРАВЛЕНИЕ',
+      title: 'DATA HUB (ДАННЫЕ)',
       items: [
-        { icon: Settings, label: 'Настройки', path: '/dashboard/settings', disabled: false },
+        { icon: Inbox, label: 'Responses', path: '/dashboard/responses', disabled: false },
+        { icon: BarChart2, label: 'Reports', path: '/reports', disabled: true },
       ]
-    }
+    },
+    {
+        title: 'УПРАВЛЕНИЕ',
+        items: [
+          { icon: Settings, label: 'Настройки', path: '/dashboard/settings', disabled: false },
+        ]
+      }
   ];
 
   const adminMenuItem = {
@@ -107,7 +128,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const isActive = (path: string) => {
     const { pathname } = location;
     if (path === '/dashboard') {
-      return pathname === '/dashboard';
+      return pathname === '/dashboard' || pathname === '/';
     }
     return pathname.startsWith(path);
   };
@@ -115,29 +136,29 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const isAdminActive = () => location.pathname.startsWith('/admin');
 
   return (
-    <div className="min-h-screen bg-background text-text-primary">
-      <header className="bg-surface border-b border-border-subtle sticky top-0 z-40 h-16">
+    <div className="min-h-screen bg-gray-100">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 h-16">
         <div className="h-full px-4 md:px-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 hover:bg-background rounded-full transition-colors"
+              className="lg:hidden p-2 hover:bg-gray-100 rounded-full transition-colors"
             >
               {mobileMenuOpen ? (
-                <X className="w-5 h-5 text-text-secondary" strokeWidth={2.5} />
+                <X className="w-5 h-5 text-gray-600" strokeWidth={2.5} />
               ) : (
-                <Menu className="w-5 h-5 text-text-secondary" strokeWidth={2.5} />
+                <Menu className="w-5 h-5 text-gray-600" strokeWidth={2.5} />
               )}
             </button>
             <div className="flex items-center gap-3">
-              <ClipboardList className="w-7 h-7 text-primary" strokeWidth={2} />
-              <span className="text-xl font-semibold text-text-primary tracking-tight">Survey Pro</span>
+              <FileText className="w-7 h-7 text-blue-600" strokeWidth={2} />
+              <span className="text-xl font-semibold text-gray-800 tracking-tight">Survey Pro</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <div className="text-sm font-medium text-text-primary">{companyName}</div>
-              <div className="text-xs text-text-secondary">{user?.email}</div>
+              <div className="text-sm font-medium text-gray-800">{companyName}</div>
+              <div className="text-xs text-gray-500">{user?.email}</div>
             </div>
           </div>
         </div>
@@ -145,12 +166,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       <div className="flex">
         <aside
-          className={`fixed lg:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-surface border-r border-border-subtle z-30 ${mobileMenuOpen ? 'block' : 'hidden'} lg:block`}>
+          className={`fixed lg:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-white border-r border-gray-200 z-30 ${mobileMenuOpen ? 'block' : 'hidden'} lg:block`}>
           <nav className="p-4 flex flex-col h-full">
             <div className="flex-grow">
+                <button
+                    disabled={true}
+                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-lg font-medium text-sm mb-4 text-gray-400 cursor-not-allowed`}
+                >
+                    <Home className="w-5 h-5" strokeWidth={2}/>
+                    <span>Dashboard</span>
+                </button>
+
               {menuGroups.map((group, idx) => (
                 <div key={idx}>
-                  <div className="text-xs font-semibold text-text-secondary uppercase px-4 pt-6 pb-2">
+                  <div className="text-xs font-semibold text-gray-500 uppercase px-4 pt-4 pb-2">
                     {group.title}
                   </div>
                   {group.items.map(item => (
@@ -158,31 +187,32 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                       key={item.path}
                       onClick={() => handleNavigation(item.path)}
                       disabled={item.disabled}
-                      className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl transition-all font-medium text-sm ${
-                        isActive(item.path)
-                          ? 'bg-primary/10 text-primary' 
+                      className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-lg transition-all font-medium text-sm mb-2 ${
+                        item.isPrimary
+                        ? 'bg-blue-500 text-white hover:bg-blue-600'
+                        : isActive(item.path)
+                          ? 'bg-blue-100 text-blue-600' 
                           : item.disabled 
-                          ? 'text-text-secondary/50 cursor-not-allowed' 
-                          : 'text-text-secondary hover:bg-background'
+                          ? 'text-gray-400 cursor-not-allowed' 
+                          : 'text-gray-600 hover:bg-gray-100'
                       }`}
                     >
                       <item.icon className="w-5 h-5" strokeWidth={2}/>
                       <span>{item.label}</span>
                     </button>
                   ))}
-                  {idx < menuGroups.length - 1 && <div className="border-t border-border my-2" />}
                 </div>
               ))}
               {isSuperAdmin && (
                 <div>
-                  <div className="border-t border-border my-2" />
+                  <div className="border-t border-gray-200 my-2" />
                   <button
                     onClick={() => handleNavigation(adminMenuItem.path)}
                     disabled={adminMenuItem.disabled}
-                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl transition-all font-medium text-sm ${
+                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-lg transition-all font-medium text-sm ${
                       isAdminActive()
-                        ? 'bg-primary/10 text-primary' 
-                        : 'text-text-secondary hover:bg-background'
+                        ? 'bg-blue-100 text-blue-600' 
+                        : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
                     <adminMenuItem.icon className="w-5 h-5" strokeWidth={2}/>
@@ -192,10 +222,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               )}
             </div>
 
-            <div className="border-t-2 border-border mt-4 pt-4">
+            <div className="border-t border-gray-200 mt-4 pt-4">
               <button
                 onClick={handleSignOut}
-                className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-text-secondary hover:bg-red-500/10 hover:text-red-600 transition-all font-medium text-sm"
+                className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-lg text-gray-600 hover:bg-red-500/10 hover:text-red-600 transition-all font-medium text-sm"
               >
                 <LogOut className="w-5 h-5" strokeWidth={2} />
                 <span>Выход</span>

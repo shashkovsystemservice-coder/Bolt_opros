@@ -7,7 +7,8 @@ import { Landing } from './pages/Landing';
 import { Auth } from './pages/Auth';
 import { ResetPassword } from './pages/ResetPassword';
 import { Dashboard, SurveyList } from './pages/Dashboard';
-import CreateSurvey from './pages/CreateSurvey';
+import CreateSurvey from './pages/CreateSurvey'; // ВОССТАНОВЛЕНО: Импорт оригинального редактора
+import CreateInstrumentPage from './pages/CreateInstrumentPage';
 import EditSurvey from './pages/EditSurvey';
 import Recipients from './pages/Recipients';
 import ContactsPage from './pages/Contacts';
@@ -62,9 +63,12 @@ function App() {
           </Route>
 
           {/* Защищенные маршруты для работы с опросами */}
-          <Route path="/survey/create" element={<ProtectedRoute><CreateSurvey /></ProtectedRoute>} />
-          <Route path="/create-survey-wizard" element={<ProtectedRoute><SurveyGeneratorWizard /></ProtectedRoute>} />
-
+          {/* ВОССТАНОВЛЕНО: Маршрут к вашему оригинальному редактору */}
+          <Route path="/survey/create" element={<ProtectedRoute><CreateSurvey /></ProtectedRoute>} /> 
+          
+          {/* Новые маршруты, добавленные в ходе предыдущих изменений */}
+          <Route path="/instruments/create" element={<ProtectedRoute><CreateInstrumentPage /></ProtectedRoute>} />
+          <Route path="/survey-generator-wizard" element={<ProtectedRoute><SurveyGeneratorWizard /></ProtectedRoute>} />
 
           {/* Отдельный маршрут для прохождения опроса (публичный) */}
           <Route path="/survey/:id" element={<SurveyForm />} />
