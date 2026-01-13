@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react'; // Импортируем useEffect
+import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, Loader2, X, Type } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- Типы данных ---
+// --- Типы данных (ОБНОВЛЕНО) ---
 export interface LocalSection {
   id: string;
   itemType: 'section';
@@ -14,7 +14,7 @@ export interface LocalQuestion {
   id: string;
   itemType: 'question';
   text: string;
-  type: 'text' | 'number' | 'email' | 'rating' | 'choice';
+  type: 'text' | 'choice' | 'multi_choice' | 'rating' | 'boolean' | 'numeric';
   required: boolean;
   options: string[];
 }
@@ -35,7 +35,7 @@ interface ManualSurveyModalProps {
   } | null;
 }
 
-// --- Компоненты-редакторы (без изменений) ---
+// --- Компоненты-редакторы ---
 const FormInput = ({ id, label, value, onChange, placeholder, as = 'input', rows = 3 }) => (
     <div>
         <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
@@ -77,12 +77,14 @@ const QuestionEditor = ({ question, qNumber, update, remove }) => {
                 <div className="w-full">
                     <input type="text" value={question.text} onChange={e => update(question.id, 'text', e.target.value)} placeholder={`Текст вопроса ${qNumber}`} className="w-full text-base bg-transparent focus:outline-none font-medium"/>
                     <div className="flex flex-col sm:flex-row gap-4 mt-3">
+                        {/* -- Выпадающий список типов (ОБНОВЛЕНО) -- */}
                         <select value={question.type} onChange={e => update(question.id, 'type', e.target.value)} className="h-9 w-full sm:w-48 px-2 border border-gray-300 rounded-md bg-white focus:outline-none text-sm">
-                            <option value="text">Текст</option>
-                            <option value="number">Число</option>
-                            <option value="email">Email</option>
-                            <option value="rating">Рейтинг (1-10)</option>
+                            <option value="text">Текстовый ответ</option>
                             <option value="choice">Один из списка</option>
+                            <option value="multi_choice">Несколько из списка</option>
+                            <option value="rating">Рейтинг</option>
+                            <option value="boolean">Да/Нет</option>
+                            <option value="numeric">Числовой ввод</option>
                         </select>
                         <div className="flex items-center gap-2">
                             <input id={`req-${question.id}`} type="checkbox" checked={question.required} onChange={e => update(question.id, 'required', e.target.checked)} className="h-4 w-4 rounded border-gray-300"/>
@@ -92,7 +94,8 @@ const QuestionEditor = ({ question, qNumber, update, remove }) => {
                 </div>
                 <button onClick={() => remove(question.id)} className="text-gray-400 hover:text-red-500 p-1 rounded-md flex-shrink-0"><Trash2 size={16} /></button>
             </div>
-            {question.type === 'choice' && (
+            {/* -- Редактор опций (ОБНОВЛЕНО) -- */}
+            {(question.type === 'choice' || question.type === 'multi_choice') && (
                 <div className="mt-4 pt-4 pl-4 border-t">
                     <div className="space-y-2">
                     {question.options.map((opt, i) => (
@@ -116,18 +119,20 @@ export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, on
   const [finalMessage, setFinalMessage] = useState('');
   const [items, setItems] = useState<SurveyItem[]>([]);
 
-  // --> ИСПРАВЛЕННАЯ ВЕРСИЯ useEffect
   useEffect(() => {
-    // Устанавливаем данные, только когда модалка открывается с новыми initialData
     if (initialData && isOpen) {
       setTitle(initialData.title || '');
       setDescription(initialData.description || '');
       setFinalMessage(initialData.finalMessage || 'Спасибо за участие в опросе!');
       setItems(initialData.items || []);
+    } else if (!isOpen) {
+        // Опционально: сброс при закрытии, если не сохранили
+        setTitle('');
+        setDescription('');
+        setFinalMessage('');
+        setItems([]);
     }
-    // Если initialData нет, это значит, что открыт пустой редактор, сбрасывать не нужно,
-    // так как начальные useState уже справились с этим.
-  }, [initialData, isOpen]); // Следим и за данными, и за моментом открытия
+  }, [initialData, isOpen]);
 
   const addItem = (type: 'question' | 'section') => {
     if (type === 'question') {
@@ -151,7 +156,7 @@ export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, on
     <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4" onClick={onClose}>
       <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <header className="p-5 border-b flex justify-between items-center">
-          <h2 className="text-lg font-semibold">{initialData ? 'Редактирование опроса' : 'Создание опроса вручную'}</h2>
+          <h2 className="text-lg font-semibold">{initialData?.title ? 'Импортированный опрос' : 'Создание опроса вручную'}</h2>
           <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-100"><X size={20}/></button>
         </header>
 
