@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Импортируем useEffect
 import { Plus, Trash2, Save, Loader2, X, Type } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -21,7 +21,21 @@ export interface LocalQuestion {
 
 export type SurveyItem = LocalQuestion | LocalSection;
 
-// --- Компоненты-редакторы ---
+// --- Пропсы компонента ---
+interface ManualSurveyModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (data: any) => void;
+  isSaving: boolean;
+  initialData?: {
+    title: string;
+    description: string;
+    finalMessage: string;
+    items: SurveyItem[];
+  } | null;
+}
+
+// --- Компоненты-редакторы (без изменений) ---
 const FormInput = ({ id, label, value, onChange, placeholder, as = 'input', rows = 3 }) => (
     <div>
         <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
@@ -96,11 +110,24 @@ const QuestionEditor = ({ question, qNumber, update, remove }) => {
 };
 
 // --- Основной компонент модального окна ---
-export const ManualSurveyModal = ({ isOpen, onClose, onSave, isSaving }) => {
+export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, onClose, onSave, isSaving, initialData }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [finalMessage, setFinalMessage] = useState('');
   const [items, setItems] = useState<SurveyItem[]>([]);
+
+  // --> ИСПРАВЛЕННАЯ ВЕРСИЯ useEffect
+  useEffect(() => {
+    // Устанавливаем данные, только когда модалка открывается с новыми initialData
+    if (initialData && isOpen) {
+      setTitle(initialData.title || '');
+      setDescription(initialData.description || '');
+      setFinalMessage(initialData.finalMessage || 'Спасибо за участие в опросе!');
+      setItems(initialData.items || []);
+    }
+    // Если initialData нет, это значит, что открыт пустой редактор, сбрасывать не нужно,
+    // так как начальные useState уже справились с этим.
+  }, [initialData, isOpen]); // Следим и за данными, и за моментом открытия
 
   const addItem = (type: 'question' | 'section') => {
     if (type === 'question') {
@@ -124,7 +151,7 @@ export const ManualSurveyModal = ({ isOpen, onClose, onSave, isSaving }) => {
     <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4" onClick={onClose}>
       <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <header className="p-5 border-b flex justify-between items-center">
-          <h2 className="text-lg font-semibold">Создание опроса вручную</h2>
+          <h2 className="text-lg font-semibold">{initialData ? 'Редактирование опроса' : 'Создание опроса вручную'}</h2>
           <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-100"><X size={20}/></button>
         </header>
 
