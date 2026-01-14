@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { DashboardLayout } from '../components/DashboardLayout';
 import { ManualSurveyModal, SurveyItem } from '../components/ManualSurveyModal';
 import { AIExpressModal } from '../components/AIExpressModal';
 import { ImportExcelModal, ParsedSurveyData } from '../components/ImportExcelModal';
@@ -36,7 +35,8 @@ const CreateInstrumentPage = () => {
   const [prefilledData, setPrefilledData] = useState<ParsedSurveyData | null>(null);
 
   const handleSaveSurvey = async ({ title, description, finalMessage, items }: { title: string, description: string, finalMessage: string, items: SurveyItem[] }) => {
-    if (!user) { toast.error('Ошибка: Пользователь не определен.'); return; }
+    // ... (This logic is correct and remains unchanged)
+     if (!user) { toast.error('Ошибка: Пользователь не определен.'); return; }
     if (!title.trim()) { toast.error('Название опроса не может быть пустым.'); return; }
     if (!items || items.length === 0) { toast.error('Добавьте хотя бы один вопрос или секцию.'); return; }
 
@@ -85,7 +85,60 @@ const CreateInstrumentPage = () => {
     }
   };
 
-  const handleAiGenerate = async (topic: string, questionsCount: number) => { /* ... logic ... */ };
+  const handleAiGenerate = async (topic: string, questionsCount: number) => {
+    setIsGenerating(true);
+    const toastId = toast.loading('AI генерирует вопросы...');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('gemini-ai', {
+        body: {
+          action: 'generate-survey', 
+          prompt: topic, 
+          numQuestions: questionsCount
+        },
+      });
+
+      if (error) throw new Error(`Ошибка при вызове функции: ${error.message}`);
+      if (!data || data.error) throw new Error(`Ошибка генерации от AI: ${data?.error || 'Ответ не получен'}`);
+      
+      if (!data.generated_survey) throw new Error('Ответ от AI не содержит поля generated_survey');
+      
+      const aiResponse = JSON.parse(data.generated_survey);
+
+      if (!aiResponse.questions || !Array.isArray(aiResponse.questions)) {
+        throw new Error('Структура ответа AI некорректна (отсутствует массив questions)');
+      }
+
+      const generatedData: ParsedSurveyData = {
+        title: topic,
+        description: `Опрос, сгенерированный AI на тему "${topic}"`,
+        items: aiResponse.questions.map((q: any) => ({
+          itemType: 'question',
+          text: q.question, // Используем q.question
+          type: q.type || 'choice',
+          required: true,
+          options: q.options || [],
+          id: Math.random().toString(),
+        })),
+        finalMessage: 'Спасибо за ваше участие!',
+      };
+      
+      setPrefilledData(generatedData);
+      setIsAiModalOpen(false);
+      setIsManualModalOpen(true);
+      toast.success(`AI сгенерировал ${generatedData.items.length} вопросов!`, { id: toastId, duration: 6000 });
+
+    } catch (err: any) {
+      console.error("AI Generation Error:", err);
+      let errorMessage = err.message;
+      if (err.message.includes('Unexpected token')) {
+          errorMessage = 'Не удалось распознать ответ от AI. Возможно, он имеет неверный JSON формат.';
+      }
+      toast.error(errorMessage, { id: toastId });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
   
   const handleImportSuccess = (data: ParsedSurveyData) => {
     setPrefilledData({ ...data, finalMessage: '' });
@@ -99,11 +152,10 @@ const CreateInstrumentPage = () => {
   const openImportModal = () => setIsImportModalOpen(true);
 
   return (
-    <DashboardLayout>
+    <>
       <header className="mb-8">
         <h1 className="text-2xl font-semibold text-gray-900">ВЫБЕРИТЕ СПОСОБ СОЗДАНИЯ АРТЕФАКТА</h1>
       </header>
-      {/* --- ОБНОВЛЕННАЯ СЕТКА И ПОРЯДОК --- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <CreationCard title="Manual Creation" description="Полный контроль над созданием опроса, от вопросов до настроек." subtext="(Ручной редактор)" onClick={openManualEditor} icon={ManualIcon} loading={isSaving}/>
         <CreationCard title="Import from Excel" description="Загрузка готовой структуры из файла Excel." icon={FileUp} onClick={openImportModal} />
@@ -113,7 +165,6 @@ const CreateInstrumentPage = () => {
         <CreationCard title="Standards" description="Готовые эталоны (NPS, 8D, SWOT)." subtext="(В разработке)" disabled={true} icon={Award} onClick={()=>{}}/>
       </div>
       
-      {/* --- Модальные окна --- */}
       {isAiModalOpen && <AIExpressModal onClose={() => setIsAiModalOpen(false)} onGenerate={handleAiGenerate} isGenerating={isGenerating} />}
       <ImportExcelModal 
         isOpen={isImportModalOpen} 
@@ -128,7 +179,7 @@ const CreateInstrumentPage = () => {
         initialData={prefilledData} 
       />}
 
-    </DashboardLayout>
+    </>
   );
 };
 

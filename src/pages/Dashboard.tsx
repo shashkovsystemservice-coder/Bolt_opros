@@ -1,9 +1,8 @@
 
 import { useEffect, useState, useCallback, Fragment } from 'react';
-import { useNavigate, Outlet } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { DashboardLayout } from '../components/DashboardLayout';
 import { toast } from 'sonner';
 import { Plus, Search, Users, Edit, Trash2, Archive, ArrowLeft, Loader2, MoreHorizontal, FileText } from 'lucide-react';
 import { Menu, Transition } from '@headlessui/react';
@@ -62,14 +61,6 @@ const EmptyState = ({ onClearSearch, hasSearch, message, onCreate }) => (
         }
     </div>
 );
-
-export function Dashboard() {
-  return (
-    <DashboardLayout>
-      <Outlet />
-    </DashboardLayout>
-  );
-}
 
 export function SurveyList() {
   const { user } = useAuth();

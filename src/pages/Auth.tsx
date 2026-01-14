@@ -55,7 +55,7 @@ export function Auth() {
     try {
       if (isSignIn) {
         await signIn(email, password);
-        navigate('/dashboard');
+        navigate('/instruments/create');
         toast.success('Добро пожаловать!');
       } else {
         await signUp(email, password, companyName);

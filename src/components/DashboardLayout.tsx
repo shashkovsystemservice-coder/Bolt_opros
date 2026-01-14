@@ -1,6 +1,6 @@
 
-import { ReactNode, useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   Settings, 
@@ -23,11 +23,7 @@ import { MobileBottomNav } from './MobileBottomNav';
 
 const SUPER_ADMIN_EMAIL = 'shashkov.systemservice@gmail.com';
 
-interface DashboardLayoutProps {
-  children: ReactNode;
-}
-
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -236,7 +232,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
         <main className="flex-1 min-h-[calc(100vh-4rem)]">
           <div className="max-w-7xl w-full px-4 sm:px-6 lg:px-8 py-6">
-            {children}
+            <Outlet />
            </div>
         </main>
       </div>

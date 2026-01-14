@@ -14,6 +14,7 @@ export function AIExpressModal({ onClose, onGenerate, isGenerating }: AIExpressM
   const [error, setError] = useState('');
 
   const handleGenerateClick = () => {
+    console.log('КЛИК СРАБОТАЛ'); // <--- ДОБАВЛЕНО ДЛЯ ДИАГНОСТИКИ
     setError('');
     if (!topic.trim()) {
       setError('Тема опроса не может быть пустой.');
