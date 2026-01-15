@@ -110,7 +110,7 @@ const CreateInstrumentPage = () => {
       }
 
       const generatedData: ParsedSurveyData = {
-        title: aiResponse.title || topic.replace(/^\$/, ''),
+        title: aiResponse.title ? aiResponse.title.replace(/^\$/, '') : topic.replace(/^\$/, ''),
         description: '',
         items: aiResponse.questions.map((q: any) => ({
           itemType: 'question',

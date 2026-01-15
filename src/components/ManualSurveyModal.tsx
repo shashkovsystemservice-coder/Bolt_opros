@@ -35,7 +35,7 @@ interface ManualSurveyModalProps {
   } | null;
 }
 
-// --- Компоненты-редакторы ---
+// --- Компоненты-редакторы -- -
 const FormInput = ({ id, label, value, onChange, placeholder, as = 'input', rows = 3 }) => (
     <div>
         <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
@@ -75,16 +75,14 @@ const QuestionEditor = ({ question, qNumber, update, remove }) => {
         <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="flex items-start gap-3">
                 <div className="w-full">
-                    <input type="text" value={question.text} onChange={e => update(question.id, 'text', e.target.value)} placeholder={`Текст вопроса ${qNumber}`} className="w-full text-base bg-transparent focus:outline-none font-medium"/>
+                    <input type="text" value={question.text} onChange={e => update(question.id, 'text', e.target.value)} placeholder="Например: Оцените уровень экспертности Петра Петровича в принятии решений" className="w-full text-base bg-transparent focus:outline-none font-medium"/>
                     <div className="flex flex-col sm:flex-row gap-4 mt-3">
                         {/* -- Выпадающий список типов (ОБНОВЛЕНО) -- */}
                         <select value={question.type} onChange={e => update(question.id, 'type', e.target.value)} className="h-9 w-full sm:w-48 px-2 border border-gray-300 rounded-md bg-white focus:outline-none text-sm">
-                            <option value="text">Текстовый ответ</option>
-                            <option value="choice">Один из списка</option>
-                            <option value="multi_choice">Несколько из списка</option>
-                            <option value="rating">Рейтинг</option>
-                            <option value="boolean">Да/Нет</option>
-                            <option value="numeric">Числовой ввод</option>
+                            <option value="text">Текст</option>
+                            <option value="numeric">Число</option>
+                            <option value="rating">Шкала (1-5)</option>
+                            <option value="multi_choice">Множественный выбор</option>
                         </select>
                         <div className="flex items-center gap-2">
                             <input id={`req-${question.id}`} type="checkbox" checked={question.required} onChange={e => update(question.id, 'required', e.target.checked)} className="h-4 w-4 rounded border-gray-300"/>
@@ -100,7 +98,7 @@ const QuestionEditor = ({ question, qNumber, update, remove }) => {
                     <div className="space-y-2">
                     {question.options.map((opt, i) => (
                         <div key={i} className="flex items-center gap-2">
-                            <input type="text" value={opt} onChange={e => updateOption(i, e.target.value)} placeholder={`Вариант ${i + 1}`} className="w-full h-8 px-2 border-b focus:outline-none bg-transparent text-sm"/>
+                            <input type="text" value={opt} onChange={e => updateOption(i, e.target.value)} placeholder="Введите варианты через точку с запятой. Пример: Да; Нет; Затрудняюсь ответить" className="w-full h-8 px-2 border-b focus:outline-none bg-transparent text-sm"/>
                             <button onClick={() => removeOption(i)} className="p-1 text-gray-400 hover:text-red-500 rounded-md"><Trash2 size={14} /></button>
                         </div>
                     ))}
@@ -163,7 +161,7 @@ export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, on
         <main className="p-6 space-y-6 overflow-y-auto">
           <div className="space-y-4">
             <FormInput id="title" label="Название опроса" value={title} onChange={e => setTitle(e.target.value)} placeholder="Напр., Ежегодный опрос вовлеченности" />
-            <FormInput id="description" label="Описание (опционально)" value={description} onChange={e => setDescription(e.target.value)} placeholder="Краткое пояснение для получателей" as="textarea" />
+            <FormInput id="description" label="Описание (опционально)" value={description} onChange={e => setDescription(e.target.value)} placeholder="Например: Исследование компетенций руководителя для ежегодного отчета" as="textarea" />
             <FormInput id="finalMessage" label="Финальное сообщение (опционально)" value={finalMessage} onChange={e => setFinalMessage(e.target.value)} placeholder="Спасибо за участие в опросе!" as="textarea" />
           </div>
           <div>

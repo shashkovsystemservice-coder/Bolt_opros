@@ -94,7 +94,7 @@ const SubmittedState = ({ survey, questions, answers, recipient }: { survey: Sur
                 <div class="container">
                     <div class="header">
                         <h1>${survey.title}</h1>
-                        <div class="logo">Survey Pro</div>
+                        <div class="logo">SurveyPro</div>
                     </div>
                     <div class="meta-info">
                         <div><strong>Респондент:</strong> ${respondentIdentifier}</div>
@@ -112,7 +112,7 @@ const SubmittedState = ({ survey, questions, answers, recipient }: { survey: Sur
                             `).join('')}
                         </tbody>
                     </table>
-                    <div class="footer">Создано с помощью Survey Pro</div>
+                    <div class="footer">Создано с помощью SurveyPro</div>
                 </div>
             </body>
             </html>`;
@@ -363,7 +363,7 @@ export function SurveyForm() {
       return (
           <div className="min-h-screen bg-background py-12 px-4 flex items-center justify-center">
             <div className="max-w-md w-full space-y-8">
-              <div className="text-center"><ClipboardList className="w-12 h-12 text-primary mx-auto mb-4" strokeWidth={1.5} /><h1 className="text-2xl font-semibold text-text-primary">{survey?.title}</h1>{survey?.description && <p className="text-text-secondary mt-2">{survey.description}</p>}</div>
+              <div className="text-center"><h1 className="text-2xl font-semibold text-text-primary">{survey?.title}</h1>{survey?.description && <p className="text-text-secondary mt-2">{survey.description}</p>}</div>
               <div className="bg-surface rounded-lg border border-border p-8"><h2 className="text-xl font-semibold text-center text-text-primary mb-6">Представьтесь, чтобы продолжить</h2><form onSubmit={handleIdentificationSubmit} className="space-y-4"><FormInput icon={<User size={18}/>} type="text" value={respondentInfo.name} onChange={(e) => setRespondentInfo({ ...respondentInfo, name: e.target.value })} placeholder="Ваше ФИО" required /><FormInput icon={<Mail size={18}/>} type="email" value={respondentInfo.email} onChange={(e) => setRespondentInfo({ ...respondentInfo, email: e.target.value })} placeholder="Ваш Email" /><FormInput icon={<Building size={18}/>} type="text" value={respondentInfo.company} onChange={(e) => setRespondentInfo({ ...respondentInfo, company: e.target.value })} placeholder="Название компании"/><div className="pt-2"><ActionButton variant="accent" type="submit" loading={isSubmitting}>{isSubmitting ? "Загрузка..." : "Начать опрос"}</ActionButton></div></form></div>
             </div>
           </div>
@@ -377,7 +377,7 @@ export function SurveyForm() {
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-3xl mx-auto">
-        <header className="bg-surface rounded-lg border border-border p-6 mb-6"><div className="flex items-center gap-4"><ClipboardList className="w-8 h-8 text-primary flex-shrink-0" strokeWidth={1.5} /><div><h1 className="text-2xl font-semibold text-text-primary">{survey?.title}</h1>{survey?.description && (<p className="text-text-secondary mt-1">{survey.description}</p>)}</div></div>{(recipient && !isPreview) && (<div className="mt-4 bg-primary/10 rounded-md p-3 text-sm text-primary/80">Опрос для: <strong>{recipient.contact_person || recipient.email}</strong></div>)}</header>
+        <header className="bg-surface rounded-lg border border-border p-6 mb-6"><div><h1 className="text-2xl font-semibold text-text-primary">{survey?.title}</h1>{survey?.description && (<p className="text-text-secondary mt-1">{survey.description}</p>)}</div>{(recipient && !isPreview) && (<div className="mt-4 bg-primary/10 rounded-md p-3 text-sm text-primary/80">Опрос для: <strong>{recipient.contact_person || recipient.email}</strong></div>)}</header>
         
         {isPreview && (<div className="border-l-4 border-primary bg-primary/10 text-primary/80 p-4 mb-6 rounded-r-md flex items-center gap-3"><Eye className="w-5 h-5"/><p className="text-sm font-medium">Режим предпросмотра. Отправка ответов отключена.</p></div>)}
 
