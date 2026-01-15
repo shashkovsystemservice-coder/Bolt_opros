@@ -92,8 +92,8 @@ const CreateInstrumentPage = () => {
     try {
       const { data, error } = await supabase.functions.invoke('gemini-ai', {
         body: {
-          action: 'generate-survey', 
-          prompt: topic, 
+          action: 'generate-survey',
+          prompt: topic,
           numQuestions: questionsCount
         },
       });
@@ -110,8 +110,8 @@ const CreateInstrumentPage = () => {
       }
 
       const generatedData: ParsedSurveyData = {
-        title: topic,
-        description: `Опрос, сгенерированный AI на тему "${topic}"`,
+        title: aiResponse.title || topic.replace(/^\$/, ''),
+        description: '',
         items: aiResponse.questions.map((q: any) => ({
           itemType: 'question',
           text: q.question, // Используем q.question
@@ -120,7 +120,7 @@ const CreateInstrumentPage = () => {
           options: q.options || [],
           id: Math.random().toString(),
         })),
-        finalMessage: 'Спасибо за ваше участие!',
+        finalMessage: aiResponse.finalMessage || 'Спасибо за ваше участие!',
       };
       
       setPrefilledData(generatedData);

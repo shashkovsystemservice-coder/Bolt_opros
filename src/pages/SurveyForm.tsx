@@ -67,7 +67,7 @@ const SubmittedState = ({ survey, questions, answers, recipient }: { survey: Sur
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Результаты опроса: ${survey.title}</title>
+                <title>${survey.title}</title>
                 <style>
                     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; color: #333; background-color: #fff; }
                     .container { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
@@ -167,7 +167,6 @@ const SubmittedState = ({ survey, questions, answers, recipient }: { survey: Sur
         
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
         a.href = url;
         a.download = `survey_results_${survey.unique_code}.csv`;
         document.body.appendChild(a);
@@ -181,8 +180,8 @@ const SubmittedState = ({ survey, questions, answers, recipient }: { survey: Sur
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
             <div className="bg-surface rounded-lg border border-border p-6 sm:p-8 max-w-lg w-full text-center">
                 <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-6" strokeWidth={1.5}/>
-                <h2 className="text-2xl font-semibold text-text-primary mb-2">Спасибо!</h2>
-                <p className="text-text-secondary mb-8">Ваши ответы на опрос "${survey.title}" успешно отправлены.</p>
+                <h2 className="text-2xl font-semibold text-text-primary mb-2">{survey.title}</h2>
+                <p className="text-text-secondary mb-8">{survey.completion_settings?.thank_you_message || 'Ваши ответы успешно отправлены!'}</p>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
                     <ActionButton onClick={handleDownloadHtml} variant='primary' className="text-xs px-2">
