@@ -329,20 +329,21 @@ export function SurveyForm() {
     const handleButtonChange = (val: string) => setAnswers({ ...answers, [q.id]: val });
 
     switch (type) {
-        case 'number':
+        case 'numeric':
             return <input type="number" value={value} onChange={handleChange} className="w-full h-10 px-3 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/80" placeholder="0" required={q.is_required} />;
         case 'email':
             return <input type="email" value={value} onChange={handleChange} className="w-full h-10 px-3 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/80" placeholder="email@example.com" required={q.is_required} />;
         
         case 'rating':
         case 'scale': // Legacy support
-            return <div className="flex flex-wrap gap-2 pt-2">{[...Array(10)].map((_, i) => i + 1).map(r => (<button key={r} type="button" onClick={() => handleButtonChange(String(r))} className={`w-10 h-10 rounded-md font-medium transition-all text-sm ${value === String(r) ? 'bg-primary text-on-primary scale-110' : 'bg-background border border-border hover:bg-surface'}`}>{r}</button>))}</div>;
+            return <div className="flex flex-wrap gap-2 pt-2">{[...Array(5)].map((_, i) => i + 1).map(r => (<button key={r} type="button" onClick={() => handleButtonChange(String(r))} className={`w-10 h-10 rounded-md font-medium transition-all text-sm ${value === String(r) ? 'bg-primary text-on-primary scale-110' : 'bg-background border border-border hover:bg-surface'}`}>{r}</button>))}</div>;
 
+        case 'multi_choice':
         case 'choice':
         case 'radio': // Legacy support
         case 'checkbox': // Legacy support
-            if (q.choice_options && q.choice_options.length > 0) {
-                return <div className="space-y-2 pt-1">{q.choice_options.map(opt => (<label key={opt} className={`flex items-center gap-3 p-3 border border-border rounded-md cursor-pointer hover:bg-surface transition-colors has-[:checked]:bg-primary/10 has-[:checked]:border-primary`}><input type="radio" name={q.id} value={opt} checked={value === opt} onChange={handleChange} className="w-4 h-4 text-primary border-gray-300 focus:ring-primary/50" required={q.is_required} /><span className="text-text-primary text-sm font-medium">{opt}</span></label>))}</div>;
+            if (q.options && q.options.length > 0) {
+                return <div className="space-y-2 pt-1">{q.options.map(opt => (<label key={opt} className={`flex items-center gap-3 p-3 border border-border rounded-md cursor-pointer hover:bg-surface transition-colors has-[:checked]:bg-primary/10 has-[:checked]:border-primary`}><input type="radio" name={q.id} value={opt} checked={value === opt} onChange={handleChange} className="w-4 h-4 text-primary border-gray-300 focus:ring-primary/50" required={q.is_required} /><span className="text-text-primary text-sm font-medium">{opt}</span></label>))}</div>;
             }
             return <FallbackTextarea value={value} onChange={handleChange} isRequired={q.is_required} />;
 

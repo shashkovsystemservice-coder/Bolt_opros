@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, Loader2, X, Type } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- Типы данных (ОБНОВЛЕНО) ---
+// --- Типы данных ---
 export interface LocalSection {
   id: string;
   itemType: 'section';
@@ -14,9 +14,9 @@ export interface LocalQuestion {
   id: string;
   itemType: 'question';
   text: string;
-  type: 'text' | 'choice' | 'multi_choice' | 'rating' | 'boolean' | 'numeric';
+  type: 'text' | 'choice' | 'multi_choice' | 'rating' | 'numeric';
   required: boolean;
-  options: string[];
+  options: string[] | string; // Может быть строкой или массивом
 }
 
 export type SurveyItem = LocalQuestion | LocalSection;
@@ -35,7 +35,7 @@ interface ManualSurveyModalProps {
   } | null;
 }
 
-// --- Компоненты-редакторы -- -
+// --- Вспомогательные компоненты ---
 const FormInput = ({ id, label, value, onChange, placeholder, as = 'input', rows = 3 }) => (
     <div>
         <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
@@ -63,26 +63,29 @@ const SectionEditor = ({ item, update, remove }) => (
 );
 
 const QuestionEditor = ({ question, qNumber, update, remove }) => {
-    const addOption = () => update(question.id, 'options', [...question.options, '']);
-    const updateOption = (optIndex, value) => {
-        const newOptions = [...question.options];
-        newOptions[optIndex] = value;
-        update(question.id, 'options', newOptions);
+
+    const placeholders = {
+        text: "Например: Опишите ваши впечатления от работы с Петром Петровичем",
+        rating: "Например: Оцените пунктуальность руководителя от 1 до 5",
+        choice: "Например: Какой отдел вы представляете? (Варианты: Маркетинг, IT, Продажи)",
+        multi_choice: "Например: Какие инструменты вы используете? (Варианты: Figma, Jira, Slack)",
+        numeric: "Например: Сколько лет вы работаете в компании?",
     };
-    const removeOption = (optIndex) => update(question.id, 'options', question.options.filter((_, i) => i !== optIndex));
+
+    const optionsPlaceholder = "Введите варианты через запятую. Пример: Да, Нет, Затрудняюсь ответить";
 
     return (
         <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="flex items-start gap-3">
                 <div className="w-full">
-                    <input type="text" value={question.text} onChange={e => update(question.id, 'text', e.target.value)} placeholder="Например: Оцените уровень экспертности Петра Петровича в принятии решений" className="w-full text-base bg-transparent focus:outline-none font-medium"/>
+                    <input type="text" value={question.text} onChange={e => update(question.id, 'text', e.target.value)} placeholder={placeholders[question.type] || placeholders.text} className="w-full text-base bg-transparent focus:outline-none font-medium"/>
                     <div className="flex flex-col sm:flex-row gap-4 mt-3">
-                        {/* -- Выпадающий список типов (ОБНОВЛЕНО) -- */}
                         <select value={question.type} onChange={e => update(question.id, 'type', e.target.value)} className="h-9 w-full sm:w-48 px-2 border border-gray-300 rounded-md bg-white focus:outline-none text-sm">
                             <option value="text">Текст</option>
                             <option value="numeric">Число</option>
                             <option value="rating">Шкала (1-5)</option>
-                            <option value="multi_choice">Множественный выбор</option>
+                            <option value="choice">Один вариант</option>
+                            <option value="multi_choice">Несколько вариантов</option>
                         </select>
                         <div className="flex items-center gap-2">
                             <input id={`req-${question.id}`} type="checkbox" checked={question.required} onChange={e => update(question.id, 'required', e.target.checked)} className="h-4 w-4 rounded border-gray-300"/>
@@ -92,18 +95,9 @@ const QuestionEditor = ({ question, qNumber, update, remove }) => {
                 </div>
                 <button onClick={() => remove(question.id)} className="text-gray-400 hover:text-red-500 p-1 rounded-md flex-shrink-0"><Trash2 size={16} /></button>
             </div>
-            {/* -- Редактор опций (ОБНОВЛЕНО) -- */}
             {(question.type === 'choice' || question.type === 'multi_choice') && (
                 <div className="mt-4 pt-4 pl-4 border-t">
-                    <div className="space-y-2">
-                    {question.options.map((opt, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                            <input type="text" value={opt} onChange={e => updateOption(i, e.target.value)} placeholder="Введите варианты через точку с запятой. Пример: Да; Нет; Затрудняюсь ответить" className="w-full h-8 px-2 border-b focus:outline-none bg-transparent text-sm"/>
-                            <button onClick={() => removeOption(i)} className="p-1 text-gray-400 hover:text-red-500 rounded-md"><Trash2 size={14} /></button>
-                        </div>
-                    ))}
-                    </div>
-                    <button onClick={addOption} className="text-sm font-medium text-blue-600 hover:text-blue-500 mt-3">+ Добавить вариант</button>
+                    <input type="text" value={Array.isArray(question.options) ? question.options.join(', ') : question.options} onChange={e => update(question.id, 'options', e.target.value)} placeholder={optionsPlaceholder} className="w-full h-8 px-2 border-b focus:outline-none bg-transparent text-sm"/>
                 </div>
             )}
         </motion.div>
@@ -124,7 +118,6 @@ export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, on
       setFinalMessage(initialData.finalMessage || 'Спасибо за участие в опросе!');
       setItems(initialData.items || []);
     } else if (!isOpen) {
-        // Опционально: сброс при закрытии, если не сохранили
         setTitle('');
         setDescription('');
         setFinalMessage('');
@@ -133,13 +126,10 @@ export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, on
   }, [initialData, isOpen]);
 
   const addItem = (type: 'question' | 'section') => {
-    if (type === 'question') {
-      const newQuestion: LocalQuestion = { id: crypto.randomUUID(), itemType: 'question', text: '', type: 'text', required: true, options: [] };
-      setItems([...items, newQuestion]);
-    } else {
-      const newSection: LocalSection = { id: crypto.randomUUID(), itemType: 'section', text: '' };
-      setItems([...items, newSection]);
-    }
+    const newItem: SurveyItem = type === 'question'
+      ? { id: crypto.randomUUID(), itemType: 'question', text: '', type: 'text', required: true, options: [] }
+      : { id: crypto.randomUUID(), itemType: 'section', text: '' };
+    setItems([...items, newItem]);
   };
 
   const removeItem = (id: string) => setItems(items.filter(item => item.id !== id));
@@ -147,8 +137,6 @@ export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, on
   const handleSave = () => onSave({ title, description, finalMessage, items });
 
   if (!isOpen) return null;
-
-  let questionCounter = 0;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4" onClick={onClose}>
@@ -168,14 +156,11 @@ export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, on
             <h3 className="text-md font-semibold mb-3">Структура опроса</h3>
             <div className="space-y-3">
                 <AnimatePresence>
-                {items.map(item => {
-                    if (item.itemType === 'section') {
-                        return <SectionEditor key={item.id} item={item} update={updateItem} remove={removeItem} />
-                    } else {
-                        questionCounter++;
-                        return <QuestionEditor key={item.id} question={item} qNumber={questionCounter} update={updateItem} remove={removeItem} />
-                    }
-                })}
+                {items.map((item, index) => (
+                    item.itemType === 'section'
+                        ? <SectionEditor key={item.id} item={item} update={updateItem} remove={removeItem} />
+                        : <QuestionEditor key={item.id} question={item} qNumber={index + 1} update={updateItem} remove={removeItem} />
+                ))}
                 </AnimatePresence>
                 {items.length === 0 && (
                     <div className="text-center py-8 border-2 border-dashed rounded-lg">

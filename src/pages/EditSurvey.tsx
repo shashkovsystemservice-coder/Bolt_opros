@@ -47,6 +47,7 @@ const EditSurvey = () => {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [finalMessage, setFinalMessage] = useState('');
   const [isInteractive, setIsInteractive] = useState(false);
   const [questions, setQuestions] = useState<LocalQuestion[]>([]);
   const [initialQuestions, setInitialQuestions] = useState<LocalQuestion[]>([]);
@@ -66,6 +67,7 @@ const EditSurvey = () => {
 
             setTitle(surveyData.title);
             setDescription(surveyData.description || '');
+            setFinalMessage(surveyData.completion_settings?.thank_you_message || 'Спасибо за участие!');
             setIsInteractive(surveyData.is_interactive || false);
 
             const loadedQuestions = (surveyData.question_templates || []).sort((a,b) => a.question_order - b.question_order).map(q => ({ id: crypto.randomUUID(), db_id: q.id, text: q.question_text, type: q.question_type, required: q.is_required, options: q.choice_options || [] }));
@@ -93,7 +95,7 @@ const EditSurvey = () => {
     setIsSaving(true);
 
     try {
-        const { error: templateError } = await supabase.from('survey_templates').update({ title, description, is_interactive: isInteractive }).eq('id', surveyId);
+        const { error: templateError } = await supabase.from('survey_templates').update({ title, description, is_interactive: isInteractive, completion_settings: { thank_you_message: finalMessage } }).eq('id', surveyId);
         if (templateError) throw templateError;
 
         const initialDbIds = new Set(initialQuestions.map(q => q.db_id).filter(Boolean));
@@ -150,6 +152,7 @@ const EditSurvey = () => {
                 <div className="md:col-span-2 space-y-4">
                      <FormInput id="title" label="Название опроса" value={title} onChange={e => setTitle(e.target.value)} placeholder="Напр., Ежегодный опрос вовлеченности" />
                      <FormInput id="description" label="Описание (опционально)" value={description} onChange={e => setDescription(e.target.value)} placeholder="Краткое пояснение для получателей" as="textarea" />
+                     <FormInput id="finalMessage" label="Финальное сообщение" value={finalMessage} onChange={e => setFinalMessage(e.target.value)} placeholder="Спасибо за участие!" as="textarea" />
                 </div>
             </div>
 
@@ -210,7 +213,7 @@ const QuestionEditor = ({ question, index, update, remove }) => {
                             <option value="text">Текст</option>
                             <option value="number">Число</option>
                             <option value="email">Email</option>
-                            <option value="rating">Рейтинг (1-10)</option>
+                            <option value="rating">Рейтинг (1-5)</option>
                             <option value="choice">Один из списка</option>
                         </select>
                         <div className="flex items-center gap-2">

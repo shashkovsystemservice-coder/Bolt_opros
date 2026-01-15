@@ -35,9 +35,9 @@ const CreateInstrumentPage = () => {
   const [prefilledData, setPrefilledData] = useState<ParsedSurveyData | null>(null);
 
   const handleSaveSurvey = async ({ title, description, finalMessage, items }: { title: string, description: string, finalMessage: string, items: SurveyItem[] }) => {
-    // ... (This logic is correct and remains unchanged)
-     if (!user) { toast.error('Ошибка: Пользователь не определен.'); return; }
-    if (!title.trim()) { toast.error('Название опроса не может быть пустым.'); return; }
+    if (!user) { toast.error('Ошибка: Пользователь не определен.'); return; }
+    const cleanedTitle = title.trim().replace(/^\$/, '');
+    if (!cleanedTitle) { toast.error('Название опроса не может быть пустым.'); return; }
     if (!items || items.length === 0) { toast.error('Добавьте хотя бы один вопрос или секцию.'); return; }
 
     setIsSaving(true);
@@ -56,7 +56,11 @@ const CreateInstrumentPage = () => {
       }
 
       const { data: survey, error: surveyError } = await supabase.from('survey_templates').insert([{
-        title, description, company_id: finalCompanyId, is_interactive: false, is_active: true,
+        title: cleanedTitle, 
+        description, 
+        company_id: finalCompanyId, 
+        is_interactive: false, 
+        is_active: true,
         unique_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
         completion_settings: { thank_you_message: finalMessage || "Спасибо за участие!" }
       }]).select('id').single();
@@ -64,7 +68,17 @@ const CreateInstrumentPage = () => {
       if (surveyError) throw surveyError;
       surveyId = survey.id;
 
-      const questionsToInsert = items.filter(item => item.itemType === 'question').map((item, index) => ({ survey_template_id: surveyId, question_text: item.text, question_type: item.type, is_required: item.required, question_order: index, options: (item.type === 'choice' || item.type === 'multi_choice') ? item.options : null }));
+      const questionsToInsert = items.filter(item => item.itemType === 'question').map((item: any, index) => ({
+          survey_template_id: surveyId, 
+          question_text: item.text, 
+          question_type: item.type, 
+          is_required: item.required, 
+          question_order: index, 
+          options: (item.type === 'choice' || item.type === 'multi_choice') 
+              ? (typeof item.options === 'string' ? item.options.split(',').map(o => o.trim()) : item.options) 
+              : null 
+      }));
+      
       const sectionsToInsert = items.filter(item => item.itemType === 'section').map((item, index) => ({ survey_template_id: surveyId, title: item.text, order: index }));
 
       const insertPromises = [];
@@ -114,7 +128,7 @@ const CreateInstrumentPage = () => {
         description: '',
         items: aiResponse.questions.map((q: any) => ({
           itemType: 'question',
-          text: q.question, // Используем q.question
+          text: q.question,
           type: q.type || 'choice',
           required: true,
           options: q.options || [],
