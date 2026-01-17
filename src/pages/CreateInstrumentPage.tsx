@@ -1,12 +1,15 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { ManualSurveyModal, SurveyItem } from '../components/ManualSurveyModal';
+import { ManualSurveyModal, SurveyItem, LocalQuestion, LocalSection } from '../components/ManualSurveyModal';
 import { AIExpressModal } from '../components/AIExpressModal';
 import { ImportExcelModal, ParsedSurveyData } from '../components/ImportExcelModal';
-import { Zap, Cog, Award, FileUp, FileSignature as ManualIcon, Loader2, FileText } from 'lucide-react';
+import { Wand2, Cog, Award, FileUp, FileSignature as ManualIcon, Loader2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { generateCode } from '../utils/generateCode';
+import { RatingOptions } from '../types/database';
 
 const CreationCard = ({ title, description, subtext, onClick, disabled = false, icon: Icon, loading = false }) => {
   const cardClasses = `bg-white border border-gray-200 rounded-lg p-6 flex flex-col items-start text-left h-full transition-all duration-200 ${
@@ -32,65 +35,65 @@ const CreateInstrumentPage = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [prefilledData, setPrefilledData] = useState<ParsedSurveyData | null>(null);
+  const [prefilledData, setPrefilledData] = useState<any | null>(null);
 
   const handleSaveSurvey = async ({ title, description, finalMessage, items }: { title: string, description: string, finalMessage: string, items: SurveyItem[] }) => {
     if (!user) { toast.error('Ошибка: Пользователь не определен.'); return; }
-    const cleanedTitle = title.trim().replace(/^\$/, '');
-    if (!cleanedTitle) { toast.error('Название опроса не может быть пустым.'); return; }
-    if (!items || items.length === 0) { toast.error('Добавьте хотя бы один вопрос или секцию.'); return; }
+    if (!title.trim()) { toast.error('Название опроса не может быть пустым.'); return; }
+    if (!items || items.filter(i => i.itemType === 'question').length === 0) { toast.error('Добавьте хотя бы один вопрос.'); return; }
 
     setIsSaving(true);
     const toastId = toast.loading('Сохранение опроса...');
     let surveyId: string | null = null;
     
     try {
-      const { data: company } = await supabase.from('companies').select('id').eq('id', user.id).single();
-      let finalCompanyId = company?.id;
-
-      if (!finalCompanyId) {
-        toast.info('Создаем профиль компании...');
-        const { data: newComp, error: newCompError } = await supabase.from('companies').insert([{ id: user.id, name: 'Моя компания' }]).select('id').single();
-        if (newCompError) throw newCompError;
-        finalCompanyId = newComp!.id;
-      }
-
       const { data: survey, error: surveyError } = await supabase.from('survey_templates').insert([{
-        title: cleanedTitle, 
+        title: title.trim(), 
         description, 
-        company_id: finalCompanyId, 
+        company_id: user.id, 
         is_interactive: false, 
         is_active: true,
-        unique_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
+        unique_code: generateCode(),
         completion_settings: { thank_you_message: finalMessage || "Спасибо за участие!" }
       }]).select('id').single();
 
       if (surveyError) throw surveyError;
       surveyId = survey.id;
 
-      const questionsToInsert = items.filter(item => item.itemType === 'question').map((item: any, index) => ({
-          survey_template_id: surveyId, 
-          question_text: item.text, 
-          question_type: item.type, 
-          is_required: item.required, 
-          question_order: index, 
-          options: (item.type === 'choice' || item.type === 'multi_choice') 
-              ? (typeof item.options === 'string' ? item.options.split(',').map(o => o.trim()) : item.options) 
-              : null 
-      }));
-      
-      const sectionsToInsert = items.filter(item => item.itemType === 'section').map((item, index) => ({ survey_template_id: surveyId, title: item.text, order: index }));
+      const questionsToInsert = items
+        .filter((item): item is LocalQuestion => item.itemType === 'question')
+        .map((item, index) => {
+            let optionsPayload: string[] | RatingOptions | null = null;
+            
+            if (item.type === 'choice' || item.type === 'multi_choice') {
+                 optionsPayload = typeof item.options === 'string' 
+                    ? item.options.split(/[,;\n]/).map(s => s.trim()).filter(Boolean) 
+                    : (Array.isArray(item.options) ? item.options : []);
+            } else if (item.type === 'rating') {
+                optionsPayload = {
+                    scale_max: item.rating_max || 5,
+                    label_min: item.rating_labels?.[0] || '',
+                    label_max: item.rating_labels?.[1] || ''
+                };
+            }
 
-      const insertPromises = [];
-      if (questionsToInsert.length > 0) insertPromises.push(supabase.from('question_templates').insert(questionsToInsert));
-      if (sectionsToInsert.length > 0) insertPromises.push(supabase.from('survey_sections').insert(sectionsToInsert));
+            return {
+                survey_template_id: surveyId,
+                question_text: item.text,
+                question_type: item.type,
+                is_required: item.required,
+                question_order: index,
+                options: optionsPayload,
+            };
+      });
 
-      const results = await Promise.all(insertPromises);
-      const anError = results.find(res => res.error);
-      if (anError) throw anError.error;
+      if (questionsToInsert.length > 0) {
+        const { error: qError } = await supabase.from('question_templates').insert(questionsToInsert);
+        if (qError) throw qError;
+      }
 
       toast.success('Опрос успешно сохранен!', { id: toastId });
-      setIsManualModalOpen(false); setPrefilledData(null); navigate('/dashboard/surveys');
+      setIsManualModalOpen(false); setPrefilledData(null); navigate('/dashboard');
     } catch (err: any) {
       if (surveyId) { await supabase.from('survey_templates').delete().eq('id', surveyId); }
       toast.error(`Ошибка сохранения: ${err.message}`, { id: toastId });
@@ -113,28 +116,38 @@ const CreateInstrumentPage = () => {
       });
 
       if (error) throw new Error(`Ошибка при вызове функции: ${error.message}`);
-      if (!data || data.error) throw new Error(`Ошибка генерации от AI: ${data?.error || 'Ответ не получен'}`);
+      if (data.error) throw new Error(`Ошибка генерации от AI: ${data.error}`);
       
-      if (!data.generated_survey) throw new Error('Ответ от AI не содержит поля generated_survey');
-      
-      const aiResponse = JSON.parse(data.generated_survey);
-
-      if (!aiResponse.questions || !Array.isArray(aiResponse.questions)) {
-        throw new Error('Структура ответа AI некорректна (отсутствует массив questions)');
+      const aiResponse = data.generated_survey; // Already an object
+      if (!aiResponse || !aiResponse.questions || !Array.isArray(aiResponse.questions)) {
+        throw new Error('Структура ответа AI некорректна');
       }
 
-      const generatedData: ParsedSurveyData = {
-        title: aiResponse.title ? aiResponse.title.replace(/^\$/, '') : topic.replace(/^\$/, ''),
-        description: '',
-        items: aiResponse.questions.map((q: any) => ({
-          itemType: 'question',
-          text: q.question,
-          type: q.type || 'choice',
-          required: true,
-          options: q.options || [],
-          id: Math.random().toString(),
-        })),
+      const generatedData = {
+        title: (aiResponse.title || topic).trim(),
+        description: aiResponse.description || '',
         finalMessage: aiResponse.finalMessage || 'Спасибо за ваше участие!',
+        items: aiResponse.questions.map((q: any) : LocalQuestion => {
+            const baseQuestion = {
+                id: crypto.randomUUID(),
+                itemType: 'question' as const,
+                text: q.text,
+                required: q.required !== undefined ? q.required : true,
+            };
+            
+            if (q.type === 'rating' && q.options && typeof q.options === 'object') {
+                return {
+                    ...baseQuestion,
+                    type: 'rating',
+                    options: q.options, // Pass the whole object
+                };
+            }
+             return {
+                ...baseQuestion,
+                type: q.type === 'rating' ? 'choice' : q.type, // Fallback if rating format is wrong
+                options: q.options || [],
+            };
+        }),
       };
       
       setPrefilledData(generatedData);
@@ -173,8 +186,7 @@ const CreateInstrumentPage = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <CreationCard title="Manual Creation" description="Полный контроль над созданием опроса, от вопросов до настроек." subtext="(Ручной редактор)" onClick={openManualEditor} icon={ManualIcon} loading={isSaving}/>
         <CreationCard title="Import from Excel" description="Загрузка готовой структуры из файла Excel." icon={FileUp} onClick={openImportModal} />
-        <CreationCard title="AI Express" description="Быстрая генерация по одной фразе." onClick={openAiExpress} icon={Zap} loading={isGenerating}/>
-        <CreationCard title="AI Express (Internal Source)" description="Создание опроса на основе вашего документа (PDF, Word, TXT)." subtext="(В разработке)" disabled={true} icon={FileText} onClick={()=>{}}/>
+        <CreationCard title="AI Express" description="Быстрая генерация по одной фразе." onClick={openAiExpress} icon={Wand2} loading={isGenerating}/>
         <CreationCard title="Expert Engine" description="Профессиональное проектирование." subtext="(В разработке)" disabled={true} icon={Cog} onClick={()=>{}}/>
         <CreationCard title="Standards" description="Готовые эталоны (NPS, 8D, SWOT)." subtext="(В разработке)" disabled={true} icon={Award} onClick={()=>{}}/>
       </div>

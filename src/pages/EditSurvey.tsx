@@ -1,45 +1,24 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Plus, Trash2, GripVertical, ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { RatingOptions, QuestionTemplate as DbQuestionTemplate } from '../types/database';
 
-// --- Interfaces & Types ---
+// --- Интерфейсы ---
 export interface LocalQuestion {
-  id: string;
+  id: string; // Внутренний ID для UI
+  db_id?: number; // Реальный ID из базы данных
   text: string;
   type: 'text' | 'number' | 'email' | 'rating' | 'choice';
   required: boolean;
-  options: string[];
-  db_id?: number;
+  options: string[] | RatingOptions | null;
+  rating_max: 3 | 5 | 10;
+  rating_labels: [string, string];
 }
 
-// --- Styled Components (Google AI Studio Style) ---
-const ActionButton = ({ onClick, children, variant = 'primary', size = 'md', disabled = false, loading = false }) => {
-    const baseClasses = "whitespace-nowrap inline-flex items-center justify-center font-medium text-sm rounded-md transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2";
-    const sizeClasses = { md: "h-9 px-4", sm: "h-8 px-3 text-xs" };
-    const variantClasses = {
-        solid: "bg-gray-800 text-white hover:bg-gray-700 focus:ring-gray-800",
-        primary: "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-400",
-    };
-    return <button onClick={onClick} disabled={disabled || loading} className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]}`}>{loading ? <Loader2 className="animate-spin h-4 w-4"/> : children}</button>;
-};
-
-const FormInput = ({ id, label, value, onChange, placeholder, as = 'input', rows = 3 }) => (
-    <div>
-        <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
-        {as === 'textarea' ? (
-            <textarea id={id} value={value} onChange={onChange} placeholder={placeholder} rows={rows} className="w-full p-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors" />
-        ) : (
-            <input type="text" id={id} value={value} onChange={onChange} placeholder={placeholder} className="w-full h-10 px-3 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors" />
-        )}
-    </div>
-);
-
-// --- Main Page Component ---
 const EditSurvey = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -48,199 +27,275 @@ const EditSurvey = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [finalMessage, setFinalMessage] = useState('');
-  const [isInteractive, setIsInteractive] = useState(false);
   const [questions, setQuestions] = useState<LocalQuestion[]>([]);
   const [initialQuestions, setInitialQuestions] = useState<LocalQuestion[]>([]);
-  
   const [isSaving, setIsSaving] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
+  // 1. Загрузка данных из базы
   useEffect(() => {
-    if (!surveyId || !user) {
-        setInitialLoading(false);
-        return;
-    }
+    if (!surveyId || !user) return;
+
     const fetchSurvey = async () => {
         try {
-            const { data: surveyData, error: surveyError } = await supabase.from('survey_templates').select('*, question_templates(*)').eq('id', surveyId).eq('company_id', user.id).single();
-            if (surveyError) throw new Error('Опрос не найден или у вас нет прав на его редактирование.');
+            const { data: survey, error } = await supabase
+                .from('survey_templates')
+                .select('*, question_templates(*)')
+                .eq('id', surveyId)
+                .single();
 
-            setTitle(surveyData.title);
-            setDescription(surveyData.description || '');
-            setFinalMessage(surveyData.completion_settings?.thank_you_message || 'Спасибо за участие!');
-            setIsInteractive(surveyData.is_interactive || false);
+            if (error) throw error;
 
-            const loadedQuestions = (surveyData.question_templates || []).sort((a,b) => a.question_order - b.question_order).map(q => ({ id: crypto.randomUUID(), db_id: q.id, text: q.question_text, type: q.question_type, required: q.is_required, options: q.choice_options || [] }));
+            setTitle(survey.title);
+            setDescription(survey.description || '');
+            setFinalMessage(survey.completion_settings?.thank_you_message || 'Спасибо за участие!');
+
+            const loadedQuestions = (survey.question_templates || [])
+                .sort((a, b) => a.question_order - b.question_order)
+                .map((q: DbQuestionTemplate) => {
+                    const localQ: LocalQuestion = {
+                        id: crypto.randomUUID(),
+                        db_id: q.id,
+                        text: q.question_text,
+                        type: q.question_type as any,
+                        required: q.is_required,
+                        options: q.options,
+                        rating_max: 5,
+                        rating_labels: ['', '']
+                    };
+
+                    // Корректно вытаскиваем настройки шкалы из JSONB
+                    if (q.question_type === 'rating' && q.options && typeof q.options === 'object' && 'scale_max' in q.options) {
+                        const opts = q.options as RatingOptions;
+                        localQ.rating_max = opts.scale_max as 3 | 5 | 10;
+                        localQ.rating_labels = [opts.label_min || '', opts.label_max || ''];
+                    }
+                    return localQ;
+                });
+
             setQuestions(loadedQuestions);
-            setInitialQuestions(loadedQuestions);
-        } catch(err: any) {
-            toast.error(err.message);
+            setInitialQuestions(JSON.parse(JSON.stringify(loadedQuestions)));
+        } catch (err: any) {
+            toast.error('Ошибка при загрузке: ' + err.message);
             navigate('/dashboard');
         } finally {
-            setInitialLoading(false);
+            setLoading(false);
         }
     };
+
     fetchSurvey();
   }, [surveyId, user, navigate]);
 
-  const addQuestion = () => setQuestions([...questions, { id: crypto.randomUUID(), text: '', type: 'text', required: true, options: [] }]);
-  const removeQuestion = (id: string) => setQuestions(questions.filter(q => q.id !== id));
-  const updateQuestion = (id: string, field: keyof LocalQuestion, value: any) => setQuestions(questions.map(q => (q.id === id ? { ...q, [field]: value } : q)));
+  const addQuestion = () => setQuestions([...questions, { 
+      id: crypto.randomUUID(), text: '', type: 'text', required: true, options: [], rating_max: 5, rating_labels: ['', ''] 
+  }]);
 
-  const handleSaveSurvey = async () => {
-    if (!title.trim()) { toast.error('Название опроса не может быть пустым.'); return; }
-    if (questions.length === 0) { toast.error('Добавьте хотя бы один вопрос.'); return; }
-    if (!surveyId) return;
+  const updateQuestion = (id: string, field: string, value: any) => {
+      setQuestions(prev => prev.map(q => q.id === id ? { ...q, [field]: value } : q));
+  };
 
+  const removeQuestion = (id: string) => setQuestions(prev => prev.filter(q => q.id !== id));
+
+  // 2. Логика сохранения
+  const handleSave = async () => {
+    if (!title.trim()) return toast.error('Название не может быть пустым');
     setIsSaving(true);
 
     try {
-        const { error: templateError } = await supabase.from('survey_templates').update({ title, description, is_interactive: isInteractive, completion_settings: { thank_you_message: finalMessage } }).eq('id', surveyId);
-        if (templateError) throw templateError;
+        // Обновляем заголовок и сообщение
+        await supabase.from('survey_templates').update({
+            title,
+            description,
+            completion_settings: { thank_you_message: finalMessage }
+        }).eq('id', surveyId);
 
-        const initialDbIds = new Set(initialQuestions.map(q => q.db_id).filter(Boolean));
-        const currentDbIds = new Set(questions.map(q => q.db_id).filter(Boolean));
+        // Удаляем вопросы, которые были убраны в редакторе
+        const currentDbIds = questions.map(q => q.db_id).filter(Boolean);
+        const toDelete = initialQuestions.map(q => q.db_id).filter(id => id && !currentDbIds.includes(id));
 
-        const questionsToInsert = questions.filter(q => !q.db_id).map((q, index) => ({ survey_template_id: surveyId, question_text: q.text, question_type: q.type, is_required: q.is_required, question_order: initialQuestions.length + index + 1, choice_options: q.type === 'choice' ? q.options : null }));
-        const questionsToUpdate = questions.filter(q => q.db_id && initialDbIds.has(q.db_id)).map((q, index) => ({ id: q.db_id, question_text: q.text, question_type: q.type, is_required: q.is_required, question_order: index + 1, choice_options: q.type === 'choice' ? q.options : null }));
-        const questionIdsToDelete = initialQuestions.filter(q => q.db_id && !currentDbIds.has(q.db_id)).map(q => q.db_id);
-
-        if (questionsToInsert.length > 0) {
-            const { error } = await supabase.from('question_templates').insert(questionsToInsert);
-            if (error) throw new Error(`Ошибка добавления вопросов: ${error.message}`);
+        if (toDelete.length > 0) {
+            await supabase.from('question_templates').delete().in('id', toDelete);
         }
-        if (questionsToUpdate.length > 0) {
-            for (const q of questionsToUpdate) {
-                const { error } = await supabase.from('question_templates').update({ question_text: q.question_text, question_type: q.type, is_required: q.is_required, question_order: q.question_order, choice_options: q.choice_options }).eq('id', q.id);
-                if (error) throw new Error(`Ошибка обновления вопроса (ID: ${q.id}): ${error.message}`);
+
+        // Сохраняем вопросы (обновляем старые или вставляем новые)
+        const upsertPromises = questions.map((q, index) => {
+            let optionsPayload = q.options;
+            if (q.type === 'rating') {
+                optionsPayload = {
+                    scale_max: q.rating_max,
+                    label_min: q.rating_labels[0],
+                    label_max: q.rating_labels[1]
+                };
             }
-        }
-        if (questionIdsToDelete.length > 0) {
-            const { error } = await supabase.from('question_templates').delete().in('id', questionIdsToDelete);
-            if (error) throw new Error(`Ошибка удаления вопросов: ${error.message}`);
-        }
 
-        toast.success('Опрос успешно обновлен!');
+            const record = {
+                survey_template_id: surveyId,
+                question_text: q.text,
+                question_type: q.type,
+                is_required: q.required,
+                question_order: index + 1,
+                options: optionsPayload
+            };
+
+            return q.db_id 
+                ? supabase.from('question_templates').update(record).eq('id', q.db_id)
+                : supabase.from('question_templates').insert(record);
+        });
+
+        await Promise.all(upsertPromises);
+        toast.success('Опрос успешно обновлен');
         navigate('/dashboard');
     } catch (err: any) {
-        toast.error(`Ошибка сохранения: ${err.message}`);
+        toast.error('Ошибка при сохранении: ' + err.message);
     } finally {
         setIsSaving(false);
     }
   };
 
-  if (initialLoading) return <div className="flex justify-center items-center py-20"><Loader2 className="animate-spin h-8 w-8 text-gray-400" /></div>;
+  if (loading) return <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-blue-500"/></div>;
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
-        <header className="mb-8">
-           <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors">
-                <ArrowLeft size={16}/> Назад ко всем опросам
+        <header className="flex justify-between items-center mb-8">
+            <Link to="/dashboard" className="flex items-center text-gray-500 hover:text-black transition-colors">
+                <ArrowLeft size={18} className="mr-2"/> К списку опросов
+            </Link>
+            <button 
+                onClick={handleSave} 
+                disabled={isSaving} 
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-md disabled:opacity-50"
+            >
+                {isSaving ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>}
+                Сохранить изменения
             </button>
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-            <h1 className="text-2xl font-semibold text-gray-900">Редактор опроса</h1>
-            <ActionButton onClick={handleSaveSurvey} variant="solid" loading={isSaving} disabled={questions.length === 0}><Save className="w-4 h-4 mr-2"/>Сохранить изменения</ActionButton>
-          </div>
         </header>
 
-        <div className="border-y border-gray-200 divide-y divide-gray-200">
-            <div className="grid md:grid-cols-3 gap-4 md:gap-8 py-8">
-                <div className="md:col-span-1">
-                    <h3 className="text-base font-semibold text-gray-800">Основная информация</h3>
-                    <p className="text-sm text-gray-500 mt-1">Название и описание вашего опроса.</p>
-                </div>
-                <div className="md:col-span-2 space-y-4">
-                     <FormInput id="title" label="Название опроса" value={title} onChange={e => setTitle(e.target.value)} placeholder="Напр., Ежегодный опрос вовлеченности" />
-                     <FormInput id="description" label="Описание (опционально)" value={description} onChange={e => setDescription(e.target.value)} placeholder="Краткое пояснение для получателей" as="textarea" />
-                     <FormInput id="finalMessage" label="Финальное сообщение" value={finalMessage} onChange={e => setFinalMessage(e.target.value)} placeholder="Спасибо за участие!" as="textarea" />
-                </div>
+        <div className="space-y-6 bg-white p-6 rounded-xl border shadow-sm mb-8">
+            <div className="space-y-4">
+                <input 
+                    value={title} 
+                    onChange={e => setTitle(e.target.value)} 
+                    className="text-2xl font-bold w-full focus:outline-none border-b border-transparent focus:border-blue-500 pb-1 transition-colors" 
+                    placeholder="Заголовок опроса"
+                />
+                <textarea 
+                    value={description} 
+                    onChange={e => setDescription(e.target.value)} 
+                    className="w-full focus:outline-none text-gray-600 resize-none" 
+                    placeholder="Описание опроса..." 
+                    rows={2}
+                />
             </div>
+            <div className="pt-4 border-t">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Финальное сообщение (после завершения)</label>
+                <input 
+                    value={finalMessage} 
+                    onChange={e => setFinalMessage(e.target.value)} 
+                    className="w-full mt-1 text-sm focus:outline-none bg-gray-50 p-2 rounded border border-transparent focus:border-gray-200 transition-colors" 
+                />
+            </div>
+        </div>
 
-             <div className="grid md:grid-cols-3 gap-4 md:gap-8 py-8">
-                <div className="md:col-span-1">
-                    <h3 className="text-base font-semibold text-gray-800">Настройки</h3>
-                    <p className="text-sm text-gray-500 mt-1">Дополнительные параметры проведения опроса.</p>
-                </div>
-                 <div className="md:col-span-2">
-                    <div className="flex items-start gap-4 p-4 rounded-md bg-white border border-gray-200">
-                        <input id="isInteractive" type="checkbox" checked={isInteractive} onChange={e => setIsInteractive(e.target.checked)} className="h-4 w-4 mt-1 rounded border-gray-300 text-gray-600 focus:ring-gray-500" />
-                        <div>
-                            <label htmlFor="isInteractive" className="font-medium text-gray-800">Интерактивный чат-режим</label>
-                            <p className="text-sm text-gray-500 mt-1">Вопросы будут задаваться по одному в формате диалога. Идеально для мобильных устройств.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-4 md:gap-8 py-8">
-                <div className="md:col-span-1">
-                     <h3 className="text-base font-semibold text-gray-800">Вопросы</h3>
-                    <p className="text-sm text-gray-500 mt-1">Создайте и настройте вопросы для вашего опроса.</p>
-                </div>
-                <div className="md:col-span-2 space-y-4">
-                    <AnimatePresence>
-                    {questions.map((q, index) => (
-                    <QuestionEditor key={q.id} question={q} index={index} update={updateQuestion} remove={removeQuestion} />
-                    ))}
-                    </AnimatePresence>
-                  <ActionButton onClick={addQuestion} variant='primary'><Plus size={16} className="mr-2"/>Добавить вопрос</ActionButton>
-                </div>
-            </div>
+        <div className="space-y-4">
+            <AnimatePresence>
+                {questions.map((q, idx) => (
+                    <QuestionEditor key={q.id} question={q} index={idx} update={updateQuestion} remove={removeQuestion} />
+                ))}
+            </AnimatePresence>
+            <button 
+                onClick={addQuestion} 
+                className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:text-blue-500 hover:border-blue-500 transition-all flex justify-center items-center font-medium"
+            >
+                <Plus size={20} className="mr-2"/> Добавить вопрос
+            </button>
         </div>
     </div>
   );
 };
 
-// --- Question Editor Component ---
+// --- Компонент редактора отдельного вопроса ---
 const QuestionEditor = ({ question, index, update, remove }) => {
-    const addOption = () => update(question.id, 'options', [...question.options, '']);
-    const updateOption = (optIndex, value) => {
-        const newOptions = [...question.options];
-        newOptions[optIndex] = value;
-        update(question.id, 'options', newOptions);
-    };
-    const removeOption = (optIndex) => update(question.id, 'options', question.options.filter((_, i) => i !== optIndex));
-
     return (
-        <motion.div layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.25, ease: 'easeInOut' }} className="bg-white p-5 rounded-lg border border-gray-200">
-            <div className="flex items-start gap-4">
-                <GripVertical className="w-5 h-5 text-gray-400 mt-2 cursor-grab flex-shrink-0"/>
-                <div className="w-full">
-                    <input type="text" value={question.text} onChange={e => update(question.id, 'text', e.target.value)} placeholder={`Текст вопроса ${index + 1}`} className="w-full text-base font-medium bg-transparent focus:outline-none focus:text-gray-800"/>
-                    
-                    <div className="flex flex-col sm:flex-row gap-4 mt-4">
-                        <select value={question.type} onChange={e => update(question.id, 'type', e.target.value)} className="h-9 w-full sm:w-48 px-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm">
-                            <option value="text">Текст</option>
-                            <option value="number">Число</option>
-                            <option value="email">Email</option>
-                            <option value="rating">Рейтинг (1-5)</option>
-                            <option value="choice">Один из списка</option>
-                        </select>
-                        <div className="flex items-center gap-2">
-                            <input id={`req-${question.id}`} type="checkbox" checked={question.required} onChange={e => update(question.id, 'required', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-gray-600 focus:ring-gray-500"/>
-                            <label htmlFor={`req-${question.id}`} className="text-sm font-medium text-gray-600">Обязательный</label>
-                        </div>
-                    </div>
-                </div>
-                <button onClick={() => remove(question.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-md"><Trash2 size={16} /></button>
+        <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-5 rounded-xl border shadow-sm flex gap-4 group">
+            <div className="flex flex-col items-center text-gray-300 group-hover:text-gray-400 transition-colors">
+                <GripVertical size={20} className="cursor-move"/>
+                <span className="text-xs font-bold mt-1">{index + 1}</span>
             </div>
-
-            {question.type === 'choice' && (
-                <div className="mt-4 pt-4 pl-9 border-t border-gray-200">
-                    <h3 className="text-sm font-medium text-gray-500 mb-3">Варианты ответа</h3>
-                    <div className="space-y-2">
-                    {question.options.map((opt, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                            <input type="text" value={opt} onChange={e => updateOption(i, e.target.value)} placeholder={`Вариант ${i + 1}`} className="w-full h-9 px-2 border-b border-gray-300 focus:outline-none focus:border-gray-500 bg-transparent text-sm"/>
-                            <button onClick={() => removeOption(i)} className="p-1 text-gray-400 hover:text-red-500 rounded-md"><Trash2 size={14} /></button>
-                        </div>
-                    ))}
-                    </div>
-                    <button onClick={addOption} className="text-sm font-semibold text-gray-600 hover:underline mt-4">+ Добавить вариант</button>
+            <div className="flex-grow space-y-4">
+                <input 
+                    value={question.text} 
+                    onChange={e => update(question.id, 'text', e.target.value)} 
+                    className="w-full font-semibold text-lg focus:outline-none placeholder:text-gray-200" 
+                    placeholder="Текст вопроса"
+                />
+                <div className="flex gap-4 items-center">
+                    <select 
+                        value={question.type} 
+                        onChange={e => update(question.id, 'type', e.target.value)} 
+                        className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50"
+                    >
+                        <option value="text">Текст</option>
+                        <option value="rating">Рейтинг (Шкала)</option>
+                        <option value="choice">Один вариант</option>
+                        <option value="number">Число</option>
+                    </select>
+                    <label className="flex items-center text-sm text-gray-600 cursor-pointer select-none">
+                        <input 
+                            type="checkbox" 
+                            checked={question.required} 
+                            onChange={e => update(question.id, 'required', e.target.checked)} 
+                            className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        /> 
+                        Обязательный
+                    </label>
                 </div>
-            )}
-        </motion.div>
-    )
-}
 
-export default EditSurvey; 
+                {/* Настройки для Рейтинга */}
+                {question.type === 'rating' && (
+                    <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100 flex flex-col sm:flex-row gap-4 items-end">
+                        <div className="w-full sm:w-auto">
+                            <label className="text-[10px] font-bold text-blue-400 uppercase mb-1 block">Шкала</label>
+                            <select 
+                                value={question.rating_max || 5} 
+                                onChange={e => update(question.id, 'rating_max', parseInt(e.target.value))} 
+                                className="w-full border border-blue-200 rounded-lg p-1.5 text-sm bg-white outline-none"
+                            >
+                                <option value={3}>1 — 3 балла</option>
+                                <option value={5}>1 — 5 баллов</option>
+                                <option value={10}>1 — 10 баллов</option>
+                            </select>
+                        </div>
+                        <div className="flex-grow flex gap-3 w-full">
+                            <div className="w-full">
+                                <label className="text-[10px] font-bold text-blue-400 uppercase mb-1 block">Метка min (1)</label>
+                                <input 
+                                    placeholder="Плохо" 
+                                    value={question.rating_labels[0]} 
+                                    onChange={e => update(question.id, 'rating_labels', [e.target.value, question.rating_labels[1]])} 
+                                    className="w-full border-b border-blue-200 bg-transparent text-sm py-1 focus:border-blue-500 outline-none transition-colors"
+                                />
+                            </div>
+                            <div className="w-full">
+                                <label className="text-[10px] font-bold text-blue-400 uppercase mb-1 block">Метка max ({question.rating_max})</label>
+                                <input 
+                                    placeholder="Отлично" 
+                                    value={question.rating_labels[1]} 
+                                    onChange={e => update(question.id, 'rating_labels', [question.rating_labels[0], e.target.value])} 
+                                    className="w-full border-b border-blue-200 bg-transparent text-sm py-1 focus:border-blue-500 outline-none transition-colors"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+            <button 
+                onClick={() => remove(question.id)} 
+                className="text-gray-300 hover:text-red-500 self-start transition-colors p-1"
+            >
+                <Trash2 size={20}/>
+            </button>
+        </motion.div>
+    );
+};
+
+export default EditSurvey;

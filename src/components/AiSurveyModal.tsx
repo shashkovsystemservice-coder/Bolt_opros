@@ -1,9 +1,8 @@
 
 import { useState } from 'react';
-import { X, Sparkles } from 'lucide-react';
-import { LocalQuestion } from '../pages/CreateSurvey';
-// Import the new AI service
-import { generateSurveyWithAI } from '../lib/aiService'; 
+import { X, Sparkles, Loader2 } from 'lucide-react';
+import { LocalQuestion } from '../types/survey-types';
+import { generateSurveyWithAI } from '../lib/aiService';
 
 interface AiSurveyModalProps {
   onClose: () => void;
@@ -36,18 +35,13 @@ export function AiSurveyModal({ onClose, onGenerate }: AiSurveyModalProps) {
     setError('');
 
     try {
-      // The component no longer knows HOW the survey is generated.
-      // It just calls our service and waits for the result.
       const generatedData = await generateSurveyWithAI(prompt.trim(), questionCount);
-
-      // Pass the data back to the parent component.
       onGenerate(
         generatedData.questions,
         generatedData.title,
-        isInteractive, // We still control this UI-specific option here
+        isInteractive,
         generatedData.description
       );
-
     } catch (err: any) {
       setError(err.message || 'Неизвестная ошибка при генерации опроса');
     } finally {
@@ -55,104 +49,63 @@ export function AiSurveyModal({ onClose, onGenerate }: AiSurveyModalProps) {
     }
   };
 
-
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl max-w-lg w-full">
-        <div className="p-6 border-b border-[#E8EAED] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#1A73E8]" strokeWidth={2} />
-            <h3 className="text-xl font-medium text-[#1F1F1F]">Создать с помощью AI</h3>
+    <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+        <header className="p-5 border-b flex justify-between items-center">
+           <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-violet-500" />
+            <h2 className="text-lg font-semibold">Сгенерировать с помощью AI</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-[#F8F9FA] rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-[#5F6368]" strokeWidth={2} />
-          </button>
-        </div>
+          <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-100"><X size={20}/></button>
+        </header>
 
-        <div className="p-6 space-y-5">
+        <main className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[#1F1F1F] mb-2">
-              Подробный промпт для AI *
-            </label>
+            <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 mb-1.5">Тема или задача опроса</label>
             <textarea
+              id="prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              className="w-full px-4 py-3 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors resize-none"
+              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
               rows={4}
-              placeholder="Опишите подробно, о чем должен быть опрос. Например: 'Создай опрос для IT-компании, чтобы оценить удовлетворенность сотрудников работой...'"
+              placeholder="Например: &#x27;Создай опрос для IT-компании, чтобы оценить удовлетворенность сотрудников работой, руководством и рабочими инструментами.&#x27;"
               disabled={loading}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1F1F1F] mb-2">
-              Количество вопросов *
-            </label>
+            <label htmlFor="questionCount" className="block text-sm font-medium text-gray-700 mb-1.5">Примерное количество вопросов</label>
             <input
+              id="questionCount"
               type="number"
               min="1"
               max="20"
               value={questionCount}
               onChange={(e) => setQuestionCount(parseInt(e.target.value) || 5)}
-              className="w-full h-12 px-4 border border-[#E8EAED] rounded-lg focus:outline-none focus:border-[#1A73E8] transition-colors"
+              className="w-full h-10 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
               disabled={loading}
             />
           </div>
 
-          <div className="p-4 bg-[#F8F9FA] rounded-xl space-y-3">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isInteractive}
-                onChange={(e) => setIsInteractive(e.target.checked)}
-                className="mt-0.5 w-4 h-4 text-[#1A73E8] rounded border-[#E8EAED] focus:ring-0 focus:ring-offset-0"
-                disabled={loading}
-              />
+          <div className="flex items-start gap-4 p-3 rounded-md bg-gray-50 border">
+              <input id="isInteractive" type="checkbox" checked={isInteractive} onChange={e => setIsInteractive(e.target.checked)} className="h-4 w-4 mt-1 rounded border-gray-300 text-violet-600 focus:ring-violet-500" disabled={loading}/>
               <div>
-                <div className="text-sm font-medium text-[#1F1F1F]">Интерактивный режим</div>
-                <div className="text-xs text-[#5F6368] mt-1">
-                  Опрос будет проходить в формате чата: AI задает вопросы по очереди.
-                </div>
+                  <label htmlFor="isInteractive" className="font-medium text-gray-800">Интерактивный чат-режим</label>
+                  <p className="text-sm text-gray-500 mt-1">Вопросы будут задаваться по одному в формате диалога. Идеально для мобильных устройств.</p>
               </div>
-            </label>
           </div>
 
-          {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
-              {error}
-            </div>
-          )}
-        </div>
+          {error && <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">{error}</div>}
+        </main>
 
-        <div className="p-6 border-t border-[#E8EAED] flex gap-3">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1 h-12 border border-[#E8EAED] text-[#1F1F1F] rounded-full font-medium hover:bg-[#F8F9FA] transition-colors disabled:opacity-50"
-          >
-            Отмена
+        <footer className="p-5 border-t flex justify-end gap-3 bg-gray-50">
+          <button onClick={onClose} disabled={loading} className="h-9 px-4 bg-white border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Отмена</button>
+          <button onClick={handleGenerate} disabled={loading} className="h-9 px-5 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-2">
+            {loading ? <Loader2 className="animate-spin h-4 w-4"/> : <Sparkles className="h-4 w-4"/>}
+            {loading ? 'Генерация...' : 'Сгенерировать'}
           </button>
-          <button
-            onClick={handleGenerate}
-            disabled={loading}
-            className="flex-1 h-12 bg-[#1A73E8] text-white rounded-full font-medium hover:bg-[#1557B0] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24"><path d="M12,4a8,8,0,0,1,8,8H12Z" fill="currentColor"></path></svg>
-                Генерация...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" strokeWidth={2} />
-                Создать
-              </>
-            )}
-          </button>
-        </div>
+        </footer>
       </div>
     </div>
   );

@@ -5,6 +5,12 @@ export interface Company {
   created_at: string;
 }
 
+export interface SystemSettings {
+  id: string;
+  setting_name: string;
+  setting_value: string;
+}
+
 export interface SurveyTemplate {
   id: string;
   company_id: string;
@@ -18,24 +24,33 @@ export interface SurveyTemplate {
   ai_generation_topic: string | null;
   created_at: string;
   updated_at: string;
+  completion_settings: {
+      thank_you_message: string;
+  } | null;
+}
+
+export type RatingOptions = {
+    scale_max: 3 | 5 | 10;
+    label_min: string;
+    label_max: string;
 }
 
 export interface QuestionTemplate {
   id: string;
   survey_template_id: string;
   question_text: string;
-  question_type: 'text' | 'number' | 'email' | 'rating' | 'choice';
+  question_type: 'text' | 'number' | 'email' | 'rating' | 'choice' | 'multi_choice';
   is_required: boolean;
   question_order: number;
-  choice_options: string[] | null;
+  // This field now stores either an array of strings for choices or a RatingOptions object for ratings.
+  options: string[] | RatingOptions | null;
 }
 
-// Возвращаем исходный интерфейс, соответствующий БД
 export interface Contact {
   id: string;
-  user_id: string; // <-- Правильное поле user_id
-  first_name: string | null; // <-- Правильное поле
-  last_name: string | null; // <-- Правильное поле
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
   company_name: string | null;
   email: string | null;
   phone: string | null;
