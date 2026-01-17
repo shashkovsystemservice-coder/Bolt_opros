@@ -131,8 +131,14 @@ export function SurveyForm() {
     setLoading(true);
     setError('');
     try {
-        const { data: brandData } = await supabase.from('system_settings').select('setting_value').eq('setting_name', 'brand_name').maybeSingle();
-        if (brandData?.setting_value) setBrandName(brandData.setting_value);
+        const { data: brandData } = await supabase
+            .from('system_settings')
+            .select('brand_name')
+            .single(); 
+            
+        if (brandData?.brand_name) {
+            setBrandName(brandData.brand_name);
+        }
         
         let surveyData: SurveyTemplate | null = null;
         if (recipientCode) {
@@ -152,7 +158,12 @@ export function SurveyForm() {
         setSurvey(surveyData);
         const { data: qData } = await supabase.from('question_templates').select('*').eq('survey_template_id', surveyData.id).order('question_order');
         setQuestions(qData || []);
-    } catch (err: any) { setError(err.message); } finally { setLoading(false); }
+    } catch (err: any) { 
+        console.error("Ошибка загрузки данных:", err);
+        setError(err.message); 
+    } finally { 
+        setLoading(false); 
+    }
   }, []);
 
   useEffect(() => {
@@ -199,7 +210,6 @@ export function SurveyForm() {
 
     if (q.question_type === 'rating') {
         const opts = q.options as RatingOptions;
-        // ФИКС: Безопасный доступ к настройкам шкалы
         const scaleMax = opts?.scale_max || 5;
         const scale = Array.from({ length: scaleMax }, (_, i) => i + 1);
         return (
