@@ -113,7 +113,7 @@ export function AdminSettings() {
     }
     setModelStatuses(prev => ({ ...prev, [modelName]: { status: 'checking' } }));
     try {
-        const { data, error } = await supabase.functions.invoke('gemini-ai', { body: { action: 'check-model-availability', data: { modelName } } });
+        const { data, error } = await supabase.functions.invoke('models-management', { body: { action: 'check-model-availability', data: { modelName } } });
         if (error || data.error) throw new Error(error?.message || data.error);
         setModelStatuses(prev => ({ ...prev, [modelName]: { status: 'available' }}));
     } catch (e) {
@@ -133,7 +133,7 @@ export function AdminSettings() {
     setIsDiscovering(true);
     toast.info("Запрос моделей у Google...");
     try {
-      const { data: functionData, error: functionError } = await supabase.functions.invoke('gemini-ai', { body: { action: 'discover-models' } });
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('models-management', { body: { action: 'discover-models' } });
       if (functionError || functionData.error) throw new Error(functionError?.message || functionData.error?.message || "Ошибка запроса");
 
       const discoveredModels = functionData.models || [];

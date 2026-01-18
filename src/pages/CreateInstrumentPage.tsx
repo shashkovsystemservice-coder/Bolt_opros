@@ -118,7 +118,7 @@ const CreateInstrumentPage = () => {
       if (error) throw new Error(`Ошибка при вызове функции: ${error.message}`);
       if (data.error) throw new Error(`Ошибка генерации от AI: ${data.error}`);
       
-      const aiResponse = data.generated_survey; // Already an object
+      const aiResponse = data.generated_survey;
       if (!aiResponse || !aiResponse.questions || !Array.isArray(aiResponse.questions)) {
         throw new Error('Структура ответа AI некорректна');
       }
@@ -126,27 +126,27 @@ const CreateInstrumentPage = () => {
       const generatedData = {
         title: (aiResponse.title || topic).trim(),
         description: aiResponse.description || '',
-        finalMessage: aiResponse.finalMessage || 'Спасибо за ваше участие!',
-        items: aiResponse.questions.map((q: any) : LocalQuestion => {
-            const baseQuestion = {
+        finalMessage: 'Спасибо за ваше участие!', // Default final message
+        items: aiResponse.questions.map((q: any): LocalQuestion => {
+            const baseQuestion: any = {
                 id: crypto.randomUUID(),
                 itemType: 'question' as const,
-                text: q.text,
+                text: q.question, // FIX: Use q.question from AI response
+                type: q.type,
                 required: q.required !== undefined ? q.required : true,
-            };
-            
-            if (q.type === 'rating' && q.options && typeof q.options === 'object') {
-                return {
-                    ...baseQuestion,
-                    type: 'rating',
-                    options: q.options, // Pass the whole object
-                };
-            }
-             return {
-                ...baseQuestion,
-                type: q.type === 'rating' ? 'choice' : q.type, // Fallback if rating format is wrong
                 options: q.options || [],
             };
+
+            if (q.type === 'rating') {
+                baseQuestion.rating_max = q.scale_max || 5;
+                // FIX: Convert labels object to a string array for rating_labels
+                baseQuestion.rating_labels = (q.labels && q.labels.min && q.labels.max)
+                    ? [q.labels.min, q.labels.max]
+                    : ['', ''];
+                baseQuestion.options = []; // Rating questions should not have string options
+            }
+
+            return baseQuestion as LocalQuestion;
         }),
       };
       
