@@ -15,7 +15,8 @@ import {
   Award, 
   Inbox, 
   PlusSquare, 
-  Home
+  Home,
+  Zap // Icon for Runs
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AdminPasswordModal } from './AdminPasswordModal';
@@ -24,7 +25,9 @@ import { MobileBottomNav } from './MobileBottomNav';
 const SUPER_ADMIN_EMAIL = 'shashkov.systemservice@gmail.com';
 
 export function DashboardLayout() {
-  const { user, signOut } = useAuth();
+  // <<< FIX FOR THE RACE CONDITION >>>
+  // We now use the 'loading' state from useAuth().
+  const { user, signOut, loading } = useAuth(); 
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -34,26 +37,38 @@ export function DashboardLayout() {
   const [pendingAdminPath, setPendingAdminPath] = useState('');
 
   useEffect(() => {
-    if (user) {
+    // This effect should only run when the user object is fully loaded and not loading.
+    if (user && !loading) {
       if (user.email === SUPER_ADMIN_EMAIL) {
         setIsSuperAdmin(true);
       }
 
-      supabase
-        .from('companies')
-        .select('name, is_super_admin')
-        .eq('id', user.id)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data) {
-            setCompanyName(data.name);
-            if (data.is_super_admin) {
-              setIsSuperAdmin(true);
+      const companyId = user.user_metadata?.company_id;
+
+      if (companyId) {
+        // Clear any previous warnings and fetch company name.
+        console.clear(); // Optional: clean up console from previous warnings
+        supabase
+          .from('companies')
+          .select('name, is_super_admin')
+          .eq('id', companyId) 
+          .maybeSingle()
+          .then(({ data, error }) => {
+            if (error) console.error("Error fetching company name:", error);
+            if (data) {
+              setCompanyName(data.name);
+              if (data.is_super_admin) {
+                setIsSuperAdmin(true);
+              }
             }
-          }
-        });
+          });
+      } else {
+          // This will now only be logged if the user is loaded and *still* has no company_id,
+          // which indicates a genuine data problem.
+          console.warn("User does not have a company_id in their metadata.");
+      }
     }
-  }, [user]);
+  }, [user, loading]); // Depend on 'loading' to re-run when loading is finished.
 
   const handleSignOut = async () => {
     await signOut();
@@ -82,19 +97,20 @@ export function DashboardLayout() {
       setMobileMenuOpen(false);
     }
   };
-
+  
   const menuGroups = [
     {
       title: 'DESIGN LAB (КОНСТРУКТОР)',
       items: [
-        { icon: PlusSquare, label: 'Новый опрос', path: '/instruments/create', disabled: false, isPrimary: true },
+        { icon: PlusSquare, label: 'Новый опрос', path: '/create-instrument', disabled: false, isPrimary: true },
         { icon: Folder, label: 'Blueprints', path: '/blueprints', disabled: true },
       ]
     },
     {
       title: 'REGISTRY (БИБЛИОТЕКА)',
       items: [
-        { icon: FileText, label: 'Surveys', path: '/dashboard', disabled: false },
+        { icon: Zap, label: 'Runs', path: '/runs', disabled: false },
+        { icon: FileText, label: 'Surveys (legacy)', path: '/surveys', disabled: false },
         { icon: CheckSquare, label: 'Checklists', path: '/checklists', disabled: true },
         { icon: Award, label: 'Standards', path: '/standards', disabled: true },
       ]
@@ -102,14 +118,14 @@ export function DashboardLayout() {
     {
       title: 'DATA HUB (ДАННЫЕ)',
       items: [
-        { icon: Inbox, label: 'Responses', path: '/dashboard/responses', disabled: false },
+        { icon: Inbox, label: 'Responses', path: '/responses', disabled: false },
         { icon: BarChart2, label: 'Reports', path: '/reports', disabled: true },
       ]
     },
     {
         title: 'УПРАВЛЕНИЕ',
         items: [
-          { icon: Settings, label: 'Настройки', path: '/dashboard/settings', disabled: false },
+          { icon: Settings, label: 'Настройки', path: '/settings', disabled: false },
         ]
       }
   ];
@@ -122,14 +138,20 @@ export function DashboardLayout() {
   };
 
   const isActive = (path: string) => {
-    const { pathname } = location;
-    if (path === '/dashboard') {
-      return pathname === '/dashboard' || pathname === '/';
-    }
-    return pathname.startsWith(path);
+    return location.pathname === path;
   };
   
   const isAdminActive = () => location.pathname.startsWith('/admin');
+
+  // While the auth context is loading (and potentially healing the user), 
+  // show a global loading indicator to prevent rendering children that depend on the user.
+  if (loading) {
+    return (
+      <div className="w-screen h-screen flex items-center justify-center">
+        <div className="text-xl font-semibold text-gray-700">Загрузка приложения...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -153,7 +175,7 @@ export function DashboardLayout() {
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <div className="text-sm font-medium text-gray-800">{companyName}</div>
+              <div className="text-sm font-medium text-gray-800">{companyName || 'No Company'}</div>
               <div className="text-xs text-gray-500">{user?.email}</div>
             </div>
           </div>
@@ -166,8 +188,12 @@ export function DashboardLayout() {
           <nav className="p-4 flex flex-col h-full">
             <div className="flex-grow">
                 <button
-                    disabled={true}
-                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-lg font-medium text-sm mb-4 text-gray-400 cursor-not-allowed`}
+                    onClick={() => handleNavigation('/dashboard')}
+                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-lg font-medium text-sm mb-4 ${
+                        isActive('/dashboard') 
+                        ? 'bg-blue-100 text-blue-600' 
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
                 >
                     <Home className="w-5 h-5" strokeWidth={2}/>
                     <span>Dashboard</span>

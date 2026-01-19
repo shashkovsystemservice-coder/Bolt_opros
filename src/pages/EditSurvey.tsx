@@ -1,16 +1,18 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Plus, Trash2, GripVertical, ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { Plus, Trash2, GripVertical, ArrowLeft, Save, Loader2, Rocket } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { RatingOptions, QuestionTemplate as DbQuestionTemplate } from '../types/database';
+import RunCreateModal from '../components/RunCreateModal'; // NEW
 
-// --- Интерфейсы ---
+// --- Interfaces ---
 export interface LocalQuestion {
-  id: string; // Внутренний ID для UI
-  db_id?: number; // Реальный ID из базы данных
+  id: string;
+  db_id?: number;
   text: string;
   type: 'text' | 'number' | 'email' | 'rating' | 'choice';
   required: boolean;
@@ -31,8 +33,8 @@ const EditSurvey = () => {
   const [initialQuestions, setInitialQuestions] = useState<LocalQuestion[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isRunModalOpen, setIsRunModalOpen] = useState(false); // NEW
 
-  // 1. Загрузка данных из базы
   useEffect(() => {
     if (!surveyId || !user) return;
 
@@ -55,7 +57,7 @@ const EditSurvey = () => {
                 .map((q: DbQuestionTemplate) => {
                     const localQ: LocalQuestion = {
                         id: crypto.randomUUID(),
-                        db_id: q.id,
+                        db_id: q.id as any,
                         text: q.question_text,
                         type: q.question_type as any,
                         required: q.is_required,
@@ -64,7 +66,6 @@ const EditSurvey = () => {
                         rating_labels: ['', '']
                     };
 
-                    // Корректно вытаскиваем настройки шкалы из JSONB
                     if (q.question_type === 'rating' && q.options && typeof q.options === 'object' && 'scale_max' in q.options) {
                         const opts = q.options as RatingOptions;
                         localQ.rating_max = opts.scale_max as 3 | 5 | 10;
@@ -96,20 +97,17 @@ const EditSurvey = () => {
 
   const removeQuestion = (id: string) => setQuestions(prev => prev.filter(q => q.id !== id));
 
-  // 2. Логика сохранения
   const handleSave = async () => {
     if (!title.trim()) return toast.error('Название не может быть пустым');
     setIsSaving(true);
 
     try {
-        // Обновляем заголовок и сообщение
         await supabase.from('survey_templates').update({
             title,
             description,
             completion_settings: { thank_you_message: finalMessage }
         }).eq('id', surveyId);
 
-        // Удаляем вопросы, которые были убраны в редакторе
         const currentDbIds = questions.map(q => q.db_id).filter(Boolean);
         const toDelete = initialQuestions.map(q => q.db_id).filter(id => id && !currentDbIds.includes(id));
 
@@ -117,7 +115,6 @@ const EditSurvey = () => {
             await supabase.from('question_templates').delete().in('id', toDelete);
         }
 
-        // Сохраняем вопросы (обновляем старые или вставляем новые)
         const upsertPromises = questions.map((q, index) => {
             let optionsPayload = q.options;
             if (q.type === 'rating') {
@@ -139,17 +136,22 @@ const EditSurvey = () => {
 
             return q.db_id 
                 ? supabase.from('question_templates').update(record).eq('id', q.db_id)
-                : supabase.from('question_templates').insert(record);
+                : supabase.from('question_templates').insert(record).select().single();
         });
 
         await Promise.all(upsertPromises);
         toast.success('Опрос успешно обновлен');
-        navigate('/dashboard');
     } catch (err: any) {
         toast.error('Ошибка при сохранении: ' + err.message);
     } finally {
         setIsSaving(false);
     }
+  };
+  
+  // NEW: Handle run creation callback
+  const handleRunCreated = (newRun: any) => {
+    toast.success(`Run "${newRun.name}" created successfully!`);
+    navigate(`/runs/${newRun.id}`);
   };
 
   if (loading) return <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-blue-500"/></div>;
@@ -160,16 +162,26 @@ const EditSurvey = () => {
             <Link to="/dashboard" className="flex items-center text-gray-500 hover:text-black transition-colors">
                 <ArrowLeft size={18} className="mr-2"/> К списку опросов
             </Link>
-            <button 
-                onClick={handleSave} 
-                disabled={isSaving} 
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-md disabled:opacity-50"
-            >
-                {isSaving ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>}
-                Сохранить изменения
-            </button>
+            <div className="flex items-center gap-2">
+                <button 
+                    onClick={() => setIsRunModalOpen(true)} 
+                    className="bg-green-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-green-600 transition-all shadow-md"
+                >
+                    <Rocket size={18}/>
+                    Запустить
+                </button>
+                <button 
+                    onClick={handleSave} 
+                    disabled={isSaving} 
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-md disabled:opacity-50"
+                >
+                    {isSaving ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>}
+                    Сохранить
+                </button>
+            </div>
         </header>
 
+        {/* ... rest of the form ... */}
         <div className="space-y-6 bg-white p-6 rounded-xl border shadow-sm mb-8">
             <div className="space-y-4">
                 <input 
@@ -209,12 +221,23 @@ const EditSurvey = () => {
                 <Plus size={20} className="mr-2"/> Добавить вопрос
             </button>
         </div>
+
+        {/* NEW: Run Creation Modal */}
+        {surveyId && user?.user_metadata.company_id && (
+            <RunCreateModal
+                isOpen={isRunModalOpen}
+                onClose={() => setIsRunModalOpen(false)}
+                surveyTemplateId={surveyId}
+                companyId={user.user_metadata.company_id}
+                onRunCreated={handleRunCreated}
+            />
+        )}
     </div>
   );
 };
 
-// --- Компонент редактора отдельного вопроса ---
 const QuestionEditor = ({ question, index, update, remove }) => {
+    // ... (no changes in this component)
     return (
         <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-5 rounded-xl border shadow-sm flex gap-4 group">
             <div className="flex flex-col items-center text-gray-300 group-hover:text-gray-400 transition-colors">
@@ -250,7 +273,6 @@ const QuestionEditor = ({ question, index, update, remove }) => {
                     </label>
                 </div>
 
-                {/* Настройки для Рейтинга */}
                 {question.type === 'rating' && (
                     <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100 flex flex-col sm:flex-row gap-4 items-end">
                         <div className="w-full sm:w-auto">

@@ -16,7 +16,7 @@ export interface SurveyTemplate {
   company_id: string;
   title: string;
   description: string | null;
-  survey_basis: string | null; 
+  survey_basis: string | null;
   unique_code: string;
   is_active: boolean;
   is_ai_generated: boolean;
@@ -27,6 +27,23 @@ export interface SurveyTemplate {
   completion_settings: {
       thank_you_message: string;
   } | null;
+}
+
+// UPDATED: Definition for a Survey Run to match the actual DB schema
+export interface SurveyRun {
+  id: string;
+  survey_template_id: string;
+  company_id: string;
+  name: string; // User-friendly name for the run
+  mode: 'public_link' | 'private_list' | 'mixed';
+  status: 'draft' | 'active' | 'paused' | 'closed';
+  target_n: number | null;
+  min_n_for_analysis: number | null;
+  open_at: string | null;
+  close_at: string | null;
+  public_token: string | null; // For public_link mode
+  created_at: string;
+  updated_at: string;
 }
 
 export type RatingOptions = {
@@ -42,7 +59,6 @@ export interface QuestionTemplate {
   question_type: 'text' | 'number' | 'email' | 'rating' | 'choice' | 'multi_choice';
   is_required: boolean;
   question_order: number;
-  // This field now stores either an array of strings for choices or a RatingOptions object for ratings.
   options: string[] | RatingOptions | null;
 }
 
@@ -59,12 +75,13 @@ export interface Contact {
 
 export interface SurveyRecipient {
   id: string;
+  run_id: string | null; // Link to a specific run
   survey_template_id: string;
   company_id: string;
   company_name: string | null;
   email: string | null;
   phone: string | null;
-  contact_person: string | null; 
+  contact_person: string | null;
   additional_info: string | null;
   recipient_code: string;
   sent_at: string | null;
@@ -78,6 +95,7 @@ export interface SurveyRecipient {
 export interface SurveySubmission {
   id: string;
   survey_template_id: string;
+  run_id: string | null; // Link to a specific run
   recipient_id: string | null;
   respondent_email: string;
   survey_title: string;
@@ -88,6 +106,7 @@ export interface SurveySubmission {
 export interface SubmissionAnswer {
   id: string;
   submission_id: string;
+  run_id: string | null; // Link to a specific run
   question_template_id: string | null;
   question_text: string;
   answer_text: string | null;

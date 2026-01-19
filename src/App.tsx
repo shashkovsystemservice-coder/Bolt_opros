@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
@@ -11,6 +12,7 @@ import EditSurvey from './pages/EditSurvey';
 import Recipients from './pages/Recipients';
 import ContactsPage from './pages/Contacts';
 import { SurveyForm } from './pages/SurveyForm';
+import { PublicSurveyPage } from './pages/PublicSurveyPage';
 import { Responses } from './pages/Responses';
 import { Settings } from './pages/Settings';
 import { AdminCompanies } from './pages/AdminCompanies';
@@ -22,40 +24,51 @@ import SurveyGeneratorWizard from './pages/SurveyGeneratorWizard';
 import { AdminLayout } from './components/AdminLayout';
 import { DashboardLayout } from './components/DashboardLayout';
 import { AllResponses } from './pages/AllResponses';
+import RunsListPage from './pages/RunsListPage';
+import RunDashboardPage from './pages/RunDashboardPage';
 
 function App() {
   return (
     <Router>
       <AuthProvider>
         <Routes>
-          {/* Публичные маршруты (БЕЗ МЕНЮ) */}
+          {/* PUBLIC ROUTES */}
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/survey/:id" element={<SurveyForm />} />
-          <Route path="/" element={<Navigate to="/instruments/create" replace />} />
+          <Route path="/r/:publicToken" element={<PublicSurveyPage />} />
+          
+          {/* Redirect from root to a default protected route */}
+          <Route path="/" element={<Navigate to="/runs" replace />} />
 
-          {/* Защищенные маршруты (ВНУТРИ МЕНЮ) */}
+          {/* PROTECTED ROUTES (wrapped in DashboardLayout) */}
           <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route path="/instruments/create" element={<CreateInstrumentPage />} />
-            <Route path="/dashboard" element={<Outlet />} >
-              <Route index element={<Navigate to="surveys" replace />} />
-              <Route path="surveys" element={<SurveyList />} />
-              <Route path="contacts" element={<ContactsPage />} />
-              <Route path="responses" element={<AllResponses />} />
-              <Route path="survey/:id/edit" element={<EditSurvey />} />
-              <Route path="survey/:id/recipients" element={<Recipients />} />
-              <Route path="survey/:id/responses" element={<Responses />} />
-              <Route path="settings" element={<Settings />} />
-            </Route>
-            <Route path="/survey/create" element={<CreateSurvey />} /> 
+            
+            {/* THIS WAS THE LOOP! Corrected to redirect to /runs which is the new main page */}
+            <Route path="/dashboard" element={<Navigate to="/runs" replace />} />
+
+            <Route path="/surveys" element={<SurveyList />} />
+            <Route path="/contacts" element={<ContactsPage />} />
+            <Route path="/responses" element={<AllResponses />} />
+
+            {/* Run management routes */}
+            <Route path="/runs" element={<RunsListPage />} />
+            <Route path="/runs/:id" element={<RunDashboardPage />} />
+
+            {/* Other survey-related routes */}
+            <Route path="/survey/create" element={<CreateSurvey />} />
+            <Route path="/survey/:id/edit" element={<EditSurvey />} />
+            <Route path="/survey/:id/recipients" element={<Recipients />} />
+            <Route path="/survey/:id/responses" element={<Responses />} />
+            <Route path="/settings" element={<Settings />} />
+            
+            {/* Legacy/Wizard routes */}
+            <Route path="/create-instrument" element={<CreateInstrumentPage />} />
             <Route path="/survey-generator-wizard" element={<SurveyGeneratorWizard />} />
           </Route>
           
-          {/* Маршруты для администратора */}
-          <Route
-            path="/admin"
-            element={<AdminRoute><AdminLayout /></AdminRoute>}
-          >
+          {/* ADMIN ROUTES */}
+          <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
             <Route index element={<Navigate to="companies" replace />} />
             <Route path="companies" element={<AdminCompanies />} />
             <Route path="stats" element={<AdminStats />} />
@@ -64,8 +77,8 @@ function App() {
             <Route path="settings" element={<AdminSettings />} />
           </Route>
           
-          {/* Перенаправление для всех остальных случаев */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Fallback redirect for any other unmatched route */}
+          <Route path="*" element={<Navigate to="/runs" replace />} />
         </Routes>
       </AuthProvider>
     </Router>

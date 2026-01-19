@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Plus, Search, Users, Edit, Trash2, Archive, ArrowLeft, Loader2, MoreHorizontal, FileText } from 'lucide-react';
 import { Menu, Transition } from '@headlessui/react';
 
-// ... (Components like SurveyDropdownMenu, SurveyCard, EmptyState remain unchanged) ...
+// Corrected Dropdown Menu with correct paths (no /dashboard prefix)
 const SurveyDropdownMenu = ({ survey, onNavigate, onArchive, onRestore, onDelete }) => (
   <Menu as="div" className="relative z-10">
     <Menu.Button className="p-1.5 text-gray-500 hover:text-gray-800 rounded-md hover:bg-gray-100 transition-colors">
@@ -18,8 +18,12 @@ const SurveyDropdownMenu = ({ survey, onNavigate, onArchive, onRestore, onDelete
         <div className="py-1">
           {survey.is_active ? (
             <>
-              <Menu.Item>{({ active }) => (<button onClick={() => onNavigate(`/dashboard/survey/${survey.id}/edit`)} className={`${active ? 'bg-gray-100' : ''} group flex w-full items-center rounded-md px-3 py-2 text-sm text-gray-700`}><Edit className="mr-3 h-4 w-4" /> Редактор</button>)}</Menu.Item>
-              <Menu.Item>{({ active }) => (<button onClick={() => onNavigate(`/dashboard/survey/${survey.id}/recipients`)} className={`${active ? 'bg-gray-100' : ''} group flex w-full items-center rounded-md px-3 py-2 text-sm text-gray-700`}><Users className="mr-3 h-4 w-4" /> Ссылки</button>)}</Menu.Item>
+              {/* Corrected path: /survey/:id/edit */}
+              <Menu.Item>{({ active }) => (<button onClick={() => onNavigate(`/survey/${survey.id}/edit`)} className={`${active ? 'bg-gray-100' : ''} group flex w-full items-center rounded-md px-3 py-2 text-sm text-gray-700`}><Edit className="mr-3 h-4 w-4" /> Редактировать</button>)}</Menu.Item>
+              
+              {/* Corrected path: /survey/:id/recipients */}
+              <Menu.Item>{({ active }) => (<button onClick={() => onNavigate(`/survey/${survey.id}/recipients`)} className={`${active ? 'bg-gray-100' : ''} group flex w-full items-center rounded-md px-3 py-2 text-sm text-gray-700`}><Users className="mr-3 h-4 w-4" /> Ссылки</button>)}</Menu.Item>
+              
               <Menu.Item>{({ active }) => (<button onClick={() => onArchive(survey.id)} className={`${active ? 'bg-gray-100' : ''} group flex w-full items-center rounded-md px-3 py-2 text-sm text-gray-700`}><Archive className="mr-3 h-4 w-4" /> Архивировать</button>)}</Menu.Item>
             </>
           ) : (
@@ -34,19 +38,18 @@ const SurveyDropdownMenu = ({ survey, onNavigate, onArchive, onRestore, onDelete
   </Menu>
 );
 
-const SurveyCard = ({ survey, onNavigate, onArchive, onRestore, onDelete }) => {
-    return (
-        <div className="bg-surface-primary border border-border-subtle rounded-lg p-4">
-            <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-semibold mb-1 break-words pr-2">{survey.title}</h3>
-                    <p className="text-sm text-text-secondary">Создан: {new Date(survey.created_at).toLocaleDateString('ru-RU')}</p>
-                </div>
-                <SurveyDropdownMenu survey={survey} onNavigate={onNavigate} onArchive={onArchive} onRestore={onRestore} onDelete={onDelete} />
+// Non-clickable Survey Card
+const SurveyCard = ({ survey, onNavigate, onArchive, onRestore, onDelete }) => (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex justify-between items-start">
+            <div className="flex-1 min-w-0">
+                <h3 className="text-base font-semibold text-gray-800 mb-1 break-words pr-2">{survey.title}</h3>
+                <p className="text-sm text-gray-500">Создан: {new Date(survey.created_at).toLocaleDateString('ru-RU')}</p>
             </div>
+            <SurveyDropdownMenu survey={survey} onNavigate={onNavigate} onArchive={onArchive} onRestore={onRestore} onDelete={onDelete} />
         </div>
-    );
-};
+    </div>
+);
 
 const EmptyState = ({ onClearSearch, hasSearch, message, onCreate }) => (
     <div className="text-center py-16 bg-white border border-gray-200 rounded-lg">
@@ -62,6 +65,7 @@ const EmptyState = ({ onClearSearch, hasSearch, message, onCreate }) => (
     </div>
 );
 
+// The component was renamed to SurveyList to reflect its purpose
 export function SurveyList() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -71,11 +75,11 @@ export function SurveyList() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const loadSurveys = useCallback(async () => {
-    if (!user) return;
+    if (!user?.user_metadata?.company_id) return;
     setLoading(true);
     try {
         let query = supabase.from('survey_templates').select('*');
-        query = query.eq('company_id', user.id);
+        query = query.eq('company_id', user.user_metadata.company_id);
         if (searchTerm) {
           query = query.ilike('title', `%${searchTerm}%`);
         }
@@ -126,6 +130,7 @@ export function SurveyList() {
   }
 
   return (
+    // This page is rendered at /surveys as defined in App.tsx
     <div>
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Мои опросы</h1>
@@ -140,8 +145,9 @@ export function SurveyList() {
                       className="w-full h-9 pl-9 pr-3 bg-white border border-gray-300 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
                   />
               </div>
-              <button onClick={() => navigate('/survey/create')} className="w-full sm:w-auto inline-flex items-center justify-center h-9 px-4 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600">
-                  <Plus size={16} className="mr-1.5"/>Контрольная кнопка
+              {/* This button correctly navigates to the survey creation page */}
+              <button onClick={() => navigate('/survey/create')} className="w-full sm:w-auto inline-flex items-center justify-center h-9 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90">
+                  <Plus size={16} className="mr-1.5"/>Создать опрос
               </button>
           </div>
       </div>
@@ -161,7 +167,7 @@ export function SurveyList() {
       ) : filteredSurveys.length === 0 ? (
         <EmptyState onClearSearch={() => setSearchTerm('')} hasSearch={!!searchTerm} message={getEmptyStateMessage()} onCreate={() => navigate('/survey/create')}/>
       ) : (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
            {filteredSurveys.map(survey => (
              <SurveyCard key={survey.id} survey={survey} onNavigate={navigate} onArchive={handleArchive} onRestore={handleRestore} onDelete={handleDelete} />
            ))}
@@ -178,7 +184,7 @@ const TabButton = ({ text, isActive, onClick }) => (
     className={`whitespace-nowrap py-2 px-4 border-b-2 font-medium text-sm transition-colors ${ 
       isActive 
         ? 'border-primary text-primary' 
-        : 'border-transparent text-text-secondary hover:border-gray-300 hover:text-text-primary'
+        : 'border-transparent text-text-secondary hover:border-gray-300 hover:text-text-primary' 
     }`}
   >
     {text}
