@@ -1,20 +1,28 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Sparkles, Loader2 } from 'lucide-react';
 
 interface AIExpressModalProps {
+  isOpen: boolean;
   onClose: () => void;
   onGenerate: (topic: string, questionsCount: number) => void;
   isGenerating: boolean;
 }
 
-export function AIExpressModal({ onClose, onGenerate, isGenerating }: AIExpressModalProps) {
+export function AIExpressModal({ isOpen, onClose, onGenerate, isGenerating }: AIExpressModalProps) {
   const [topic, setTopic] = useState('');
   const [questionsCount, setQuestionsCount] = useState(5);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    if (isOpen) {
+      setTopic('');
+      setQuestionsCount(5);
+      setError('');
+    }
+  }, [isOpen]);
+
   const handleGenerateClick = () => {
-    console.log('КЛИК СРАБОТАЛ'); // <--- ДОБАВЛЕНО ДЛЯ ДИАГНОСТИКИ
     setError('');
     if (!topic.trim()) {
       setError('Тема опроса не может быть пустой.');
@@ -26,6 +34,10 @@ export function AIExpressModal({ onClose, onGenerate, isGenerating }: AIExpressM
     }
     onGenerate(topic, questionsCount);
   };
+
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
