@@ -1,11 +1,12 @@
 
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Home, BarChart2, Users, Settings, Plus } from 'lucide-react';
+import { Home, BarChart2, Users, Settings, Plus, FileText } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const navItems = [
   { path: '/dashboard/surveys', icon: Home, label: 'Главная' },
   { path: '/dashboard/responses', icon: BarChart2, label: 'Ответы' },
+  { path: '/reports', icon: FileText, label: 'Отчеты' },
   { path: '/dashboard/contacts', icon: Users, label: 'Контакты' },
   { path: '/dashboard/settings', icon: Settings, label: 'Настройки' },
 ];

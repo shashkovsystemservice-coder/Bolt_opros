@@ -26,6 +26,8 @@ import { DashboardLayout } from './components/DashboardLayout';
 import { AllResponses } from './pages/AllResponses';
 import RunsListPage from './pages/RunsListPage';
 import RunDashboardPage from './pages/RunDashboardPage';
+import ReportsListPage from './pages/ReportsListPage';
+import CreateReportPage from './pages/CreateReportPage';
 
 function App() {
   return (
@@ -50,6 +52,8 @@ function App() {
             <Route path="/surveys" element={<SurveyList />} />
             <Route path="/contacts" element={<ContactsPage />} />
             <Route path="/responses" element={<AllResponses />} />
+            <Route path="/reports" element={<ReportsListPage />} />
+            <Route path="/reports/create" element={<CreateReportPage />} />
 
             {/* Run management routes */}
             <Route path="/runs" element={<RunsListPage />} />

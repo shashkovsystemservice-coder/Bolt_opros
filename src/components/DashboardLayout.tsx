@@ -103,6 +103,7 @@ export function DashboardLayout() {
       title: 'DESIGN LAB (КОНСТРУКТОР)',
       items: [
         { icon: PlusSquare, label: 'Новый опрос', path: '/create-instrument', disabled: false, isPrimary: true },
+        { icon: FileText, label: 'Новый отчет', path: '/reports/create', disabled: false },
         { icon: Folder, label: 'Blueprints', path: '/blueprints', disabled: true },
       ]
     },
@@ -119,7 +120,7 @@ export function DashboardLayout() {
       title: 'DATA HUB (ДАННЫЕ)',
       items: [
         { icon: Inbox, label: 'Responses', path: '/responses', disabled: false },
-        { icon: BarChart2, label: 'Reports', path: '/reports', disabled: true },
+        { icon: BarChart2, label: 'Отчёты (данные)', path: '/reports', disabled: false },
       ]
     },
     {
