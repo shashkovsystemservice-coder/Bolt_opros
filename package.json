@@ -13,7 +13,9 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
+    "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-switch": "^1.2.6",
     "@supabase/supabase-js": "^2.57.4",
     "@tailwindcss/forms": "^0.5.11",
     "@types/exceljs": "^0.5.3",

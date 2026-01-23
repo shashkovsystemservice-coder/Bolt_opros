@@ -27,7 +27,7 @@ const CreationCard = ({ title, description, subtext, onClick, disabled = false, 
   );
 };
 
-const CreateInstrumentPage = () => {
+const SelfDiagnosisCreatePage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -66,7 +66,7 @@ const CreateInstrumentPage = () => {
         is_active: true,
         unique_code: generateCode(),
         completion_settings: { thank_you_message: finalMessage || "Спасибо за участие!" },
-        survey_basis: survey_basis || 'manual',
+        survey_basis: 'self_diagnosis',
       }]).select('id').single();
 
       if (surveyError) throw surveyError;
@@ -98,8 +98,7 @@ const CreateInstrumentPage = () => {
       if (qError) throw qError;
 
       if (survey_basis === 'standard' && immutable_fields) {
-        const questionIds = insertedQuestions.map(q => q.id);
-        const { error: blueprintError } = await supabase.from('survey_blueprints').insert({ project_id: surveyId, immutable_fields: questionIds, canonical_blueprint });
+        const { error: blueprintError } = await supabase.from('survey_blueprints').insert({ project_id: surveyId, immutable_fields: immutable_fields, canonical_blueprint });
         if (blueprintError) throw blueprintError;
             
         const { error: metaError } = await supabase.from('survey_meta_params').insert({ project_id: surveyId, standardization: 1.0, use_validated_scale: true });
@@ -213,7 +212,7 @@ const CreateInstrumentPage = () => {
   return (
     <>
       <header className="mb-8">
-        <h1 className="text-2xl font-semibold text-gray-900">ВЫБЕРИТЕ СПОСОБ СОЗДАНИЯ АРТЕФАКТА</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">СОЗДАНИЕ ИНСТРУМЕНТА САМОДИАГНОСТИКИ</h1>
       </header>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <CreationCard title="Manual Creation" description="Полный контроль над созданием опроса." subtext="(Ручной редактор)" onClick={() => { setPrefilledData(null); setIsManualModalOpen(true); }} icon={ManualIcon} loading={isSaving}/>
@@ -231,4 +230,4 @@ const CreateInstrumentPage = () => {
   );
 };
 
-export default CreateInstrumentPage;
+export default SelfDiagnosisCreatePage;

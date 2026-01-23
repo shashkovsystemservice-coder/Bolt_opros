@@ -28,6 +28,8 @@ import RunsListPage from './pages/RunsListPage';
 import RunDashboardPage from './pages/RunDashboardPage';
 import ReportsListPage from './pages/ReportsListPage';
 import CreateReportPage from './pages/CreateReportPage';
+import SelfDiagnosisDashboard from './pages/SelfDiagnosisDashboard';
+import SelfDiagnosisCreatePage from './pages/SelfDiagnosisCreatePage';
 
 function App() {
   return (
@@ -58,6 +60,10 @@ function App() {
             {/* Run management routes */}
             <Route path="/runs" element={<RunsListPage />} />
             <Route path="/runs/:id" element={<RunDashboardPage />} />
+
+            {/* Self-diagnosis routes */}
+            <Route path="/self-diagnosis" element={<SelfDiagnosisDashboard />} />
+            <Route path="/self-diagnosis/create" element={<SelfDiagnosisCreatePage />} />
 
             {/* Other survey-related routes */}
             <Route path="/survey/create" element={<CreateSurvey />} />

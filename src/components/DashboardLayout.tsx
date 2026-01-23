@@ -16,7 +16,8 @@ import {
   Inbox, 
   PlusSquare, 
   Home,
-  Zap // Icon for Runs
+  Zap, // Icon for Runs
+  Activity // Icon for Self-diagnosis
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AdminPasswordModal } from './AdminPasswordModal';
@@ -103,6 +104,7 @@ export function DashboardLayout() {
       title: 'DESIGN LAB (КОНСТРУКТОР)',
       items: [
         { icon: PlusSquare, label: 'Новый опрос', path: '/create-instrument', disabled: false, isPrimary: true },
+        { icon: PlusSquare, label: 'Новая самодиагностика', path: '/self-diagnosis/create', disabled: false },
         { icon: FileText, label: 'Новый отчет', path: '/reports/create', disabled: false },
         { icon: Folder, label: 'Blueprints', path: '/blueprints', disabled: true },
       ]
@@ -111,6 +113,7 @@ export function DashboardLayout() {
       title: 'REGISTRY (БИБЛИОТЕКА)',
       items: [
         { icon: Zap, label: 'Runs', path: '/runs', disabled: false },
+        { icon: Activity, label: 'Самодиагностика', path: '/self-diagnosis', disabled: false },
         { icon: FileText, label: 'Surveys (legacy)', path: '/surveys', disabled: false },
         { icon: CheckSquare, label: 'Checklists', path: '/checklists', disabled: true },
         { icon: Award, label: 'Standards', path: '/standards', disabled: true },
@@ -260,7 +263,7 @@ export function DashboardLayout() {
         <main className="flex-1 min-h-[calc(100vh-4rem)]">
           <div className="max-w-7xl w-full px-4 sm:px-6 lg:px-8 py-6">
             <Outlet />
-           </div>
+          </div>
         </main>
       </div>
 
