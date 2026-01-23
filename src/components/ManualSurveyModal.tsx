@@ -44,40 +44,23 @@ export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, on
   const [finalMessage, setFinalMessage] = useState('Спасибо за участие!');
   const [items, setItems] = useState<SurveyItem[]>([]);
 
-  // Синхронизация данных при открытии (в т.ч. после AI генерации)
+  // --- Финальная, самая надежная версия useEffect ---
   useEffect(() => {
     if (initialData && isOpen) {
-        setTitle(initialData.title || '');
-        setDescription(initialData.description || '');
-        setFinalMessage(initialData.finalMessage || 'Спасибо за участие!');
-        
-        const mappedItems = initialData.items.map(item => {
-            // Если это вопрос типа рейтинг, проверяем вложенные опции
-            if (item.type === 'rating' || (item.itemType === 'question' && item.type === 'rating')) {
-                const opts = item.options && typeof item.options === 'object' ? (item.options as RatingOptions) : null;
-                return {
-                    ...item,
-                    id: item.id || crypto.randomUUID(),
-                    itemType: 'question',
-                    type: 'rating',
-                    rating_max: opts?.scale_max || item.rating_max || 5,
-                    rating_labels: [
-                        opts?.label_min || (item.rating_labels ? item.rating_labels[0] : ''),
-                        opts?.label_max || (item.rating_labels ? item.rating_labels[1] : '')
-                    ]
-                };
-            }
-            return { 
-                ...item, 
-                id: item.id || crypto.randomUUID(),
-                itemType: item.itemType || (item.text && !item.type ? 'section' : 'question') 
-            };
-        });
-        setItems(mappedItems);
+      setTitle(initialData.title || '');
+      setDescription(initialData.description || '');
+      setFinalMessage(initialData.finalMessage || 'Спасибо за участие!');
+      
+      // Этот код теперь просто принимает `items` как есть, доверяя, что ID стабильны.
+      // Никакой повторной генерации ID, никакой сложной логики.
+      setItems(initialData.items || []);
+      
     } else if (!isOpen) {
-        setTitle('');
-        setDescription('');
-        setItems([]);
+      // Сброс состояния при закрытии модального окна
+      setTitle('');
+      setDescription('');
+      setFinalMessage('Спасибо за участие!');
+      setItems([]);
     }
   }, [initialData, isOpen]);
 
