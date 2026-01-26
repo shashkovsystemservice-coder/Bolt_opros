@@ -2,27 +2,21 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, Loader2, X, Type, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RatingOptions, QuestionTemplate } from '../types/database';
+import { RatingOptions } from '../types/database';
+import { v4 as uuidv4 } from 'uuid';
 
-// --- Типы данных ---
-export interface LocalSection {
+// Unified item type for both questions and sections
+export interface SurveyItem {
   id: string;
-  itemType: 'section';
+  itemType: 'section' | 'question';
   text: string;
+  // Question-specific fields
+  type?: 'text' | 'choice' | 'multi_choice' | 'rating' | 'number';
+  required?: boolean;
+  options?: any; 
+  rating_max?: 3 | 5 | 10;
+  rating_labels?: [string, string];
 }
-
-export interface LocalQuestion {
-  id: string | number;
-  itemType: 'question';
-  text: string;
-  type: 'text' | 'choice' | 'multi_choice' | 'rating' | 'number';
-  required: boolean;
-  options: string[] | RatingOptions | string | null;
-  rating_max: 3 | 5 | 10;
-  rating_labels: [string, string];
-}
-
-export type SurveyItem = LocalQuestion | LocalSection;
 
 interface ManualSurveyModalProps {
   isOpen: boolean;
@@ -30,11 +24,12 @@ interface ManualSurveyModalProps {
   onSave: (data: any) => void;
   isSaving: boolean;
   initialData?: {
-    id?: string;
     title: string;
     description: string;
     finalMessage: string;
-    items: any[];
+    items: SurveyItem[];
+    survey_basis?: string;
+    canonical_blueprint?: any;
   } | null;
 }
 
@@ -44,19 +39,13 @@ export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, on
   const [finalMessage, setFinalMessage] = useState('Спасибо за участие!');
   const [items, setItems] = useState<SurveyItem[]>([]);
 
-  // --- Финальная, самая надежная версия useEffect ---
   useEffect(() => {
     if (initialData && isOpen) {
       setTitle(initialData.title || '');
       setDescription(initialData.description || '');
       setFinalMessage(initialData.finalMessage || 'Спасибо за участие!');
-      
-      // Этот код теперь просто принимает `items` как есть, доверяя, что ID стабильны.
-      // Никакой повторной генерации ID, никакой сложной логики.
       setItems(initialData.items || []);
-      
     } else if (!isOpen) {
-      // Сброс состояния при закрытии модального окна
       setTitle('');
       setDescription('');
       setFinalMessage('Спасибо за участие!');
@@ -66,20 +55,27 @@ export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, on
 
   const addItem = (type: 'question' | 'section') => {
     const newItem: SurveyItem = type === 'question'
-      ? { id: crypto.randomUUID(), itemType: 'question', text: '', type: 'text', required: true, options: [], rating_max: 5, rating_labels: ['', ''] }
-      : { id: crypto.randomUUID(), itemType: 'section', text: '' };
+      ? { id: uuidv4(), itemType: 'question', text: '', type: 'text', required: true, options: [], rating_max: 5, rating_labels: ['', ''] }
+      : { id: uuidv4(), itemType: 'section', text: '' };
     setItems([...items, newItem]);
   };
 
-  const updateItem = (id: string | number, field: string, value: any) => {
+  const updateItem = (id: string, field: string, value: any) => {
       setItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
 
-  const removeItem = (id: string | number) => setItems(prev => prev.filter(i => i.id !== id));
+  const removeItem = (id: string) => setItems(prev => prev.filter(i => i.id !== id));
 
   const handleSave = () => {
     if (!title.trim()) return;
-    onSave({ title, description, finalMessage, items });
+    onSave({ 
+        title, 
+        description, 
+        finalMessage, 
+        items, 
+        survey_basis: initialData?.survey_basis, 
+        canonical_blueprint: initialData?.canonical_blueprint 
+    });
   };
 
   if (!isOpen) return null;
@@ -102,7 +98,6 @@ export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, on
         </header>
 
         <main className="flex-grow overflow-y-auto p-6 space-y-8">
-          {/* Header Info */}
           <div className="space-y-4">
             <input 
                 value={title} 
@@ -123,22 +118,13 @@ export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, on
             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Вопросы и секции</h3>
             <AnimatePresence>
                 {items.map((item, idx) => (
-                    <div key={item.id}>
+                    <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                         {item.itemType === 'section' ? (
-                            <div className="flex items-center gap-3 bg-gray-100 p-3 rounded-lg border border-gray-200">
-                                <Type size={18} className="text-gray-400"/>
-                                <input 
-                                    value={item.text} 
-                                    onChange={e => updateItem(item.id, 'text', e.target.value)}
-                                    placeholder="Название новой секции"
-                                    className="bg-transparent font-bold w-full focus:outline-none"
-                                />
-                                <button onClick={() => removeItem(item.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={16}/></button>
-                            </div>
+                            <SectionEditor section={item} update={updateItem} remove={removeItem} />
                         ) : (
-                            <QuestionEditor question={item as LocalQuestion} index={idx} update={updateItem} remove={removeItem} />
+                            <QuestionEditor question={item as SurveyItem} index={idx} update={updateItem} remove={removeItem} />
                         )}
-                    </div>
+                    </motion.div>
                 ))}
             </AnimatePresence>
 
@@ -179,7 +165,19 @@ export const ManualSurveyModal: React.FC<ManualSurveyModalProps> = ({ isOpen, on
   );
 };
 
-// --- Внутренний компонент редактора вопроса ---
+const SectionEditor = ({ section, update, remove }) => (
+    <div className="flex items-center gap-3 bg-gray-100 p-3 rounded-lg border border-gray-200">
+        <Type size={18} className="text-gray-400 flex-shrink-0"/>
+        <input 
+            value={section.text} 
+            onChange={e => update(section.id, 'text', e.target.value)}
+            placeholder="Название новой секции"
+            className="bg-transparent font-bold w-full focus:outline-none text-lg"
+        />
+        <button onClick={() => remove(section.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+    </div>
+);
+
 const QuestionEditor = ({ question, index, update, remove }) => {
     const handleOptions = (val: string) => {
         const arr = val.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
@@ -187,11 +185,10 @@ const QuestionEditor = ({ question, index, update, remove }) => {
     };
 
     return (
-        <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative group">
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative group">
             <div className="flex gap-4">
                 <div className="flex flex-col items-center gap-2 mt-1">
                     <GripVertical className="text-gray-300 cursor-move" size={20}/>
-                    <span className="text-xs font-bold text-gray-300">{index + 1}</span>
                 </div>
                 <div className="flex-grow space-y-4">
                     <input 
@@ -225,7 +222,6 @@ const QuestionEditor = ({ question, index, update, remove }) => {
                         </label>
                     </div>
 
-                    {/* Настройки рейтинга */}
                     {question.type === 'rating' && (
                         <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 flex flex-wrap gap-6 items-end">
                             <div className="space-y-1">
@@ -262,7 +258,6 @@ const QuestionEditor = ({ question, index, update, remove }) => {
                         </div>
                     )}
 
-                    {/* Настройки вариантов */}
                     {(question.type === 'choice' || question.type === 'multi_choice') && (
                         <div className="mt-4">
                              <textarea 
@@ -279,6 +274,6 @@ const QuestionEditor = ({ question, index, update, remove }) => {
             <button onClick={() => remove(question.id)} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
                 <Trash2 size={18} />
             </button>
-        </motion.div>
+        </div>
     );
 };

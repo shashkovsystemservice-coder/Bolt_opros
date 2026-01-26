@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { RatingOptions, QuestionTemplate as DbQuestionTemplate } from '../types/database';
 import RunCreateModal from '../components/RunCreateModal';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface LocalQuestion {
   id: string;
@@ -24,8 +25,9 @@ export interface LocalQuestion {
 const EditSurvey = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { id: surveyId } = useParams<{ id: string }>();
-
+  const { id: surveyIdParam } = useParams<{ id: string }>();
+  
+  const [surveyUuid, setSurveyUuid] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [finalMessage, setFinalMessage] = useState('');
@@ -37,26 +39,43 @@ const EditSurvey = () => {
   const [immutableQuestionIds, setImmutableQuestionIds] = useState<number[]>([]);
 
   useEffect(() => {
-    if (!surveyId || !user) return;
+    if (!surveyIdParam || !user) return;
 
     const fetchSurvey = async () => {
+        console.log("--- DEBUG: Загрузка опроса ---");
+        console.log("ID из URL:", surveyIdParam);
+
         try {
+            const orQuery = `id.eq.${surveyIdParam},unique_code.eq.${surveyIdParam}`;
+            console.log("Сформированный запрос .or():", orQuery);
+
             const { data: survey, error } = await supabase
                 .from('survey_templates')
                 .select('*, question_templates(*)')
-                .eq('id', surveyId)
+                .or(orQuery)
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                console.error("Ошибка от Supabase:", error);
+                if (error.code === 'PGRST116') { 
+                    toast.error('Найдено несколько опросов. Уточните ID.');
+                } else {
+                    throw error;
+                }
+                return;
+            }
+            
+            console.log("Загруженные данные опроса:", survey);
+            setSurveyUuid(survey.id); 
 
             const { data: blueprint, error: blueprintError } = await supabase
                 .from('survey_blueprints')
                 .select('immutable_fields')
-                .eq('project_id', surveyId)
+                .eq('project_id', survey.id)
                 .maybeSingle();
 
             if (blueprintError) {
-                console.error("Blueprint loading error:", blueprintError.message);
+                console.error("Ошибка загрузки blueprint:", blueprintError.message);
             }
 
             const immutableIds = blueprint?.immutable_fields || [];
@@ -70,7 +89,7 @@ const EditSurvey = () => {
                 .sort((a, b) => a.question_order - b.question_order)
                 .map((q: DbQuestionTemplate) => {
                     const localQ: LocalQuestion = {
-                        id: crypto.randomUUID(),
+                        id: uuidv4(),
                         db_id: q.id as any,
                         text: q.question_text,
                         type: q.question_type as any,
@@ -92,18 +111,21 @@ const EditSurvey = () => {
             setQuestions(loadedQuestions);
             setInitialQuestions(JSON.parse(JSON.stringify(loadedQuestions)));
         } catch (err: any) {
-            toast.error('Ошибка при загрузке: ' + err.message);
+            toast.error(`Ошибка при загрузке: ${err.message}`);
             navigate('/dashboard');
         } finally {
             setLoading(false);
+            console.log("--- DEBUG: Загрузка завершена ---");
         }
     };
 
     fetchSurvey();
-  }, [surveyId, user, navigate]);
+  }, [surveyIdParam, user, navigate]);
+
+  // ... (остальной код без изменений)
 
   const addQuestion = () => setQuestions([...questions, { 
-      id: crypto.randomUUID(), text: '', type: 'text', required: true, options: [], rating_max: 5, rating_labels: ['', ''], is_standard: false 
+      id: uuidv4(), text: '', type: 'text', required: true, options: [], rating_max: 5, rating_labels: ['', ''], is_standard: false 
   }]);
 
   const updateQuestion = (id: string, field: string, value: any) => {
@@ -121,6 +143,7 @@ const EditSurvey = () => {
 
   const handleSave = async () => {
     if (!title.trim()) return toast.error('Название не может быть пустым');
+    if (!surveyUuid) { toast.error('Ошибка: ID опроса не определен.'); return; }
     setIsSaving(true);
 
     try {
@@ -128,7 +151,7 @@ const EditSurvey = () => {
             title,
             description,
             completion_settings: { thank_you_message: finalMessage }
-        }).eq('id', surveyId);
+        }).eq('id', surveyUuid);
 
         const currentDbIds = questions.map(q => q.db_id).filter(Boolean);
         const toDelete = initialQuestions.filter(q => q.db_id && !currentDbIds.includes(q.db_id) && !q.is_standard);
@@ -145,7 +168,7 @@ const EditSurvey = () => {
                 optionsPayload = { scale_max: q.rating_max, label_min: q.rating_labels[0], label_max: q.rating_labels[1] };
             }
 
-            const record = { survey_template_id: surveyId, question_text: q.text, question_type: q.type, is_required: q.required, question_order: index + 1, options: optionsPayload };
+            const record = { survey_template_id: surveyUuid, question_text: q.text, question_type: q.type, is_required: q.required, question_order: index + 1, options: optionsPayload };
 
             return q.db_id 
                 ? supabase.from('question_templates').update(record).eq('id', q.db_id)
@@ -153,13 +176,13 @@ const EditSurvey = () => {
         });
 
         await Promise.all(upsertPromises.filter(Boolean));
-        const updatedQuestions = await supabase.from('question_templates').select('*').eq('survey_template_id', surveyId);
-        if(updatedQuestions.data) {
-            const loadedQuestions = (updatedQuestions.data || [])
+        const { data: updatedQuestions } = await supabase.from('question_templates').select('*').eq('survey_template_id', surveyUuid);
+        if(updatedQuestions) {
+            const loadedQuestions = (updatedQuestions || [])
                 .sort((a, b) => a.question_order - b.question_order)
                 .map((q: DbQuestionTemplate) => {
                     const localQ: LocalQuestion = {
-                        id: crypto.randomUUID(),
+                        id: uuidv4(),
                         db_id: q.id as any,
                         text: q.question_text,
                         type: q.question_type as any,
@@ -236,8 +259,8 @@ const EditSurvey = () => {
             </button>
         </div>
 
-        {surveyId && user?.user_metadata.company_id && (
-            <RunCreateModal isOpen={isRunModalOpen} onClose={() => setIsRunModalOpen(false)} surveyTemplateId={surveyId} companyId={user.user_metadata.company_id} onRunCreated={handleRunCreated}/>
+        {surveyUuid && user?.user_metadata.company_id && (
+            <RunCreateModal isOpen={isRunModalOpen} onClose={() => setIsRunModalOpen(false)} surveyTemplateId={surveyUuid} companyId={user.user_metadata.company_id} onRunCreated={handleRunCreated}/>
         )}
     </div>
   );
@@ -250,7 +273,7 @@ const QuestionEditor = ({ question, index, update, remove, isImmutable }) => {
     };
 
     return (
-        <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`bg-white p-5 rounded-xl border shadow-sm flex gap-4 group ${isImmutable ? 'bg-gray-50' : ''}`}>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`bg-white p-5 rounded-xl border shadow-sm flex gap-4 group ${isImmutable ? 'bg-gray-50' : ''}`}>
             <div className="flex flex-col items-center text-gray-300 group-hover:text-gray-400 transition-colors pt-1">
                  {isImmutable ? (
                      <div title="Методологический стандарт"><Lock size={20} className="text-gray-400" /></div>

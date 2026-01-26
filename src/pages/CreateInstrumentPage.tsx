@@ -3,13 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { ManualSurveyModal, LocalQuestion } from '../components/ManualSurveyModal';
+import { ManualSurveyModal, SurveyItem } from '../components/ManualSurveyModal'; // Using the unified SurveyItem type
 import { AIExpressModal } from '../components/AIExpressModal';
 import { ImportExcelModal, ParsedSurveyData } from '../components/ImportExcelModal';
 import StandardsCatalogModal from '../components/StandardsCatalogModal';
 import { Wand2, Cog, Award, FileUp, FileSignature as ManualIcon, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateCode } from '../utils/generateCode';
+import { normalizeSurveyItems } from '../utils/surveyNormalizer'; // The new universal normalizer
 
 const CreationCard = ({ title, description, subtext, onClick, disabled = false, icon: Icon, loading = false }) => {
   const cardClasses = `bg-white border border-gray-200 rounded-lg p-6 flex flex-col items-start text-left h-full transition-all duration-200 ${
@@ -44,6 +45,7 @@ const CreateInstrumentPage = () => {
   const [prefilledData, setPrefilledData] = useState<any | null>(null);
 
   useEffect(() => {
+    // Reset state on location change
     setIsAiModalOpen(false);
     setIsStandardsModalOpen(false);
     setIsManualModalOpen(false);
@@ -75,62 +77,31 @@ const CreateInstrumentPage = () => {
       if (surveyError) throw surveyError;
       surveyId = survey.id;
 
-      const localQuestions = items.filter((item): item is LocalQuestion => item.itemType === 'question');
-      const questionPayloads = localQuestions.map((item, index) => {
-          let optionsPayload: any = {};
-          if (item.type === 'choice' || item.type === 'multi_choice') {
-                optionsPayload = Array.isArray(item.options) ? item.options : [];
-          } else if (item.type === 'rating') {
-              optionsPayload = { 
-                scale_max: item.rating_max || 5, 
-                label_min: item.rating_labels?.[0] || '', 
-                label_max: item.rating_labels?.[1] || '' 
-              };
-          }
+      const questionItems = items.filter((item): item is SurveyItem => item.itemType === 'question');
+      const questionPayloads = questionItems.map((item, index) => ({
+          survey_template_id: surveyId,
+          question_text: item.text,
+          question_type: item.type,
+          is_required: item.required,
+          question_order: index, // Simplified order
+          options: item.options, // Options are now standardized
+          is_standard: item.is_standard ?? false,
+      }));
 
-          if(item.weight !== undefined) {
-            optionsPayload.weight = item.weight;
-          }
-          if(item.section_id) {
-            optionsPayload.section_id = item.section_id;
-            optionsPayload.section_name = item.section_name;
-          }
-
-          return { ...item, survey_template_id: surveyId, question_order: index, options: optionsPayload };
-      });
-
-      const { data: insertedQuestions, error: qError } = await supabase.from('question_templates').insert(
-        questionPayloads.map(q => ({ 
-          survey_template_id: q.survey_template_id, 
-          question_text: q.text, 
-          question_type: q.type, 
-          is_required: q.required, 
-          question_order: q.question_order, 
-          options: q.options,
-          is_standard: q.is_standard ?? false,
-        }))
-      ).select('id');
-      
+      const { data: insertedQuestions, error: qError } = await supabase.from('question_templates').insert(questionPayloads).select('id');
       if (qError) throw qError;
 
       const isStandardBased = survey_basis === 'standard' || survey_basis === 'self_diagnosis';
       if (isStandardBased && canonical_blueprint) {
         const questionIds = insertedQuestions.map(q => q.id);
-        const { error: blueprintError } = await supabase.from('survey_blueprints').insert({
-             project_id: surveyId, 
-             immutable_fields: survey_basis === 'self_diagnosis' ? questionIds : [], 
-             canonical_blueprint 
-            });
+        const { error: blueprintError } = await supabase.from('survey_blueprints').insert({ project_id: surveyId, immutable_fields: questionIds, canonical_blueprint });
         if (blueprintError) throw blueprintError;
-            
-        const { error: metaError } = await supabase.from('survey_meta_params').insert({ project_id: surveyId, standardization: 1.0, use_validated_scale: true });
-        if (metaError) throw metaError;
       }
 
       toast.success('Шаблон успешно сохранен!', { id: toastId });
       setIsManualModalOpen(false); 
       setPrefilledData(null); 
-      navigate(`/surveys/${surveyId}/edit`);
+      navigate(`/surveys/${surveyId}`); // Navigate to the clean URL
 
     } catch (err: any) {
       console.error("Save Survey Error:", err);
@@ -143,66 +114,30 @@ const CreateInstrumentPage = () => {
     }
   };
 
-  // --- Исправленная логика с созданием СТАБИЛЬНЫХ ID ---
-  const handleSelectStandard = (standard, isStrictMode) => {
+  const handleSelectStandard = (standard) => {
     try {
-      const sections = standard.canonical_blueprint?.sections || [];
-      
-      if (sections.length === 0) {
-          toast.error('Ошибка: В этой методике не найдено разделов.');
-          return;
-      }
-  
-      const items = sections.flatMap((section, sectionIndex) => {
-        const sectionId = `section-${sectionIndex}`;
-        const sectionHeader = {
-          id: sectionId,
-          itemType: 'section' as const,
-          text: section.title || 'Раздел без названия',
-        };
-  
-        const sectionQuestions = (section.questions || []).map((q: any, questionIndex: number): LocalQuestion => {
-          const questionId = `${sectionId}-question-${questionIndex}`;
-          const baseQuestion: any = {
-              id: questionId,
-              itemType: 'question' as const,
-              text: q.text,
-              type: q.type,
-              required: q.required !== undefined ? q.required : true,
-              options: q.options || [],
-              is_standard: true, 
-              weight: q.weight ?? 1.0, 
-              section_id: section.id, // Legacy ID from blueprint if available
-              section_name: section.name, // Legacy name from blueprint if available
-          };
-
-          if (q.type === 'rating') {
-              const opts = (typeof q.options === 'object' && q.options !== null) ? q.options : {};
-              baseQuestion.rating_max = q.scale_max || opts.scale_max || 5;
-              baseQuestion.rating_labels = q.scale_labels || [opts.label_min || 'Низкий', opts.label_max || 'Высокий'];
-              baseQuestion.options = []; // Очищаем, чтобы избежать путаницы
-          }
-          return baseQuestion;
-        });
-
-        return [sectionHeader, ...sectionQuestions];
-      });
-
-      if (items.filter(i => i.itemType === 'question').length === 0) {
-        toast.error('Ошибка: В разделах этой методики не найдено ни одного вопроса.');
+      const rawData = standard.canonical_blueprint;
+      if (!rawData) {
+        toast.error('Ошибка: В этой методике отсутствует структура (canonical_blueprint).');
         return;
       }
-  
+
+      const normalizedItems = normalizeSurveyItems(rawData);
+
+      if (normalizedItems.filter(i => i.itemType === 'question').length === 0) {
+        toast.error('Ошибка: В данной методике не найдено ни одного вопроса после обработки.');
+        return;
+      }
+
       const generatedData = {
-          title: standard.name,
-          description: standard.description,
-          // Временно используем статическое сообщение, пока оно не будет в базе
-          finalMessage: 'Спасибо за ваше участие!',
-          survey_basis: standard.category === 'self_diagnosis' ? 'self_diagnosis' : 'standard',
-          canonical_blueprint: standard.canonical_blueprint,
-          items,
+        title: standard.name,
+        description: standard.description,
+        finalMessage: 'Спасибо за ваше участие!',
+        survey_basis: standard.category === 'self_diagnosis' ? 'self_diagnosis' : 'standard',
+        canonical_blueprint: standard.canonical_blueprint,
+        items: normalizedItems,
       };
-  
+
       setPrefilledData(generatedData);
       setIsStandardsModalOpen(false);
       setTimeout(() => setIsManualModalOpen(true), 100);
@@ -212,7 +147,7 @@ const CreateInstrumentPage = () => {
       toast.error('Произошла ошибка при обработке стандарта.');
       console.error(error);
     }
-   };
+  };
 
   const handleAiGenerate = async (topic: string, questionsCount: number) => {
     setIsGenerating(true);
@@ -226,20 +161,15 @@ const CreateInstrumentPage = () => {
       const aiResponse = data.generated_survey;
       if (!aiResponse || !aiResponse.questions || !Array.isArray(aiResponse.questions)) { throw new Error('Структура ответа AI некорректна'); }
 
+      const rawQuestions = aiResponse.questions.map(q => ({ question_text: q.question, question_type: q.type, is_required: q.required, options: q.options }));
+      const normalizedItems = normalizeSurveyItems(rawQuestions);
+
       const generatedData = {
         title: (aiResponse.title || topic).trim(),
         description: aiResponse.description || '',
         finalMessage: 'Спасибо за ваше участие!',
         survey_basis: 'ai_express',
-        items: aiResponse.questions.map((q: any, index: number): LocalQuestion => {
-            const baseQuestion: any = { id: `ai-q-${index}`, itemType: 'question' as const, text: q.question, type: q.type, required: q.required !== undefined ? q.required : true, options: q.options || [] };
-            if (q.type === 'rating') {
-                baseQuestion.rating_max = q.scale_max || 5;
-                baseQuestion.rating_labels = (q.labels && q.labels.min && q.labels.max) ? [q.labels.min, q.labels.max] : ['', ''];
-                baseQuestion.options = [];
-            }
-            return baseQuestion as LocalQuestion;
-        }),
+        items: normalizedItems,
       };
       
       setPrefilledData(generatedData);
@@ -256,10 +186,11 @@ const CreateInstrumentPage = () => {
   };
   
   const handleImportSuccess = (data: ParsedSurveyData) => {
-    setPrefilledData({ ...data, finalMessage: 'Спасибо за участие!', survey_basis: 'import_excel' });
+    const normalizedItems = normalizeSurveyItems(data.items as any[]);
+    setPrefilledData({ ...data, items: normalizedItems, finalMessage: 'Спасибо за участие!', survey_basis: 'import_excel' });
     setIsImportModalOpen(false);
     setTimeout(() => setIsManualModalOpen(true), 100);
-    toast.success(`Импортировано! Проверьте ${data.items.length} вопросов и сохраните опрос.`);
+    toast.success(`Импортировано! Проверьте ${normalizedItems.length} элементов и сохраните опрос.`);
   };
 
   return (
