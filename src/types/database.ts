@@ -5,6 +5,14 @@ export interface Company {
   created_at: string;
 }
 
+export interface Participant {
+  id: string;
+  first_name: string; // Обновлено
+  email: string | null;
+  company_name?: string; // Обновлено
+  created_at: string;
+}
+
 export interface SystemSettings {
   id: string;
   setting_name: string;
@@ -29,19 +37,18 @@ export interface SurveyTemplate {
   } | null;
 }
 
-// UPDATED: Definition for a Survey Run to match the actual DB schema
 export interface SurveyRun {
   id: string;
   survey_template_id: string;
   company_id: string;
-  name: string; // User-friendly name for the run
+  name: string;
   mode: 'public_link' | 'private_list' | 'mixed';
   status: 'draft' | 'active' | 'paused' | 'closed';
   target_n: number | null;
   min_n_for_analysis: number | null;
   open_at: string | null;
   close_at: string | null;
-  public_token: string | null; // For public_link mode
+  public_token: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -56,7 +63,7 @@ export interface QuestionTemplate {
   id: string;
   survey_template_id: string;
   question_text: string;
-  question_type: 'text' | 'number' | 'email' | 'rating' | 'choice' | 'multi_choice';
+  question_type: 'text' | 'number' | 'email' | 'rating' | 'choice' | 'multi_choice' | 'section';
   is_required: boolean;
   question_order: number;
   options: string[] | RatingOptions | null;
@@ -75,7 +82,7 @@ export interface Contact {
 
 export interface SurveyRecipient {
   id: string;
-  run_id: string | null; // Link to a specific run
+  run_id: string | null;
   survey_template_id: string;
   company_id: string;
   company_name: string | null;
@@ -95,9 +102,11 @@ export interface SurveyRecipient {
 export interface SurveySubmission {
   id: string;
   survey_template_id: string;
-  run_id: string | null; // Link to a specific run
-  recipient_id: string | null;
-  respondent_email: string;
+  run_id: string | null;
+  participant_id: string | null; 
+  respondent_name: string | null; 
+  respondent_email: string | null; 
+  respondent_company: string | null; 
   survey_title: string;
   survey_description: string | null;
   submitted_at: string;
@@ -106,7 +115,7 @@ export interface SurveySubmission {
 export interface SubmissionAnswer {
   id: string;
   submission_id: string;
-  run_id: string | null; // Link to a specific run
+  run_id: string | null;
   question_template_id: string | null;
   question_text: string;
   answer_text: string | null;

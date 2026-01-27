@@ -1,16 +1,23 @@
+
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { SurveyTemplate, QuestionTemplate, RatingOptions } from '../types/database';
+import { SurveyTemplate, QuestionTemplate } from '../types/database';
 import { CheckCircle2, Loader2, FileText, Table, UserCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import { generateSurveyFormPdf, handleExportExcel } from '../lib/pdfExport';
 
 // --- Компонент формы данных респондента ---
 const ParticipantInfoForm: React.FC<{ onSubmit: (data: any) => void, survey: any }> = ({ onSubmit, survey }) => {
   const [formData, setFormData] = useState({ name: '', company: '', email: '' });
+
+  const handleStart = () => {
+    if (!formData.name) {
+      toast.error('Пожалуйста, укажите ваше имя.');
+      return;
+    }
+    onSubmit(formData);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -19,13 +26,13 @@ const ParticipantInfoForm: React.FC<{ onSubmit: (data: any) => void, survey: any
         <h2 className="text-2xl font-bold text-center mb-2">{survey?.title}</h2>
         <p className="text-gray-500 text-center mb-6">Пожалуйста, представьтесь для начала прохождения</p>
         <div className="space-y-4">
-          <input type="text" placeholder="Ваше имя" className="w-full p-3 border rounded-lg" 
+          <input type="text" placeholder="Ваше имя *" className="w-full p-3 border rounded-lg" 
             onChange={e => setFormData({...formData, name: e.target.value})} required />
           <input type="text" placeholder="Компания" className="w-full p-3 border rounded-lg" 
             onChange={e => setFormData({...formData, company: e.target.value})} />
           <input type="email" placeholder="Email" className="w-full p-3 border rounded-lg" 
-            onChange={e => setFormData({...formData, email: e.target.value})} required />
-          <button onClick={() => onSubmit(formData)} className="w-full bg-primary text-white p-3 rounded-lg font-bold hover:bg-primary/90">
+            onChange={e => setFormData({...formData, email: e.target.value})} />
+          <button onClick={handleStart} className="w-full bg-primary text-white p-3 rounded-lg font-bold hover:bg-primary/90">
             Начать опрос
           </button>
         </div>
@@ -35,23 +42,7 @@ const ParticipantInfoForm: React.FC<{ onSubmit: (data: any) => void, survey: any
 };
 
 // --- Компонент экрана завершения с экспортом ---
-const SubmittedState: React.FC<{ survey: any, questions: any[], answers: any }> = ({ survey, questions, answers }) => {
-  
-  const downloadPDF = () => {
-    const doc = new jsPDF();
-    doc.text(`Отчет: ${survey?.title}`, 10, 10);
-    const data = questions.filter(q => q.question_type !== 'section').map((q, i) => [i + 1, q.question_text, answers[q.id] || '—']);
-    (doc as any).autoTable({ head: [['#', 'Вопрос', 'Ответ']], body: data, startY: 20 });
-    doc.save(`survey_results_${survey?.unique_code}.pdf`);
-  };
-
-  const downloadExcel = () => {
-    const data = questions.filter(q => q.question_type !== 'section').map((q, i) => ({ '#': i + 1, 'Вопрос': q.question_text, 'Ответ': answers[q.id] || '—' }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Answers");
-    XLSX.writeFile(wb, `survey_results_${survey?.unique_code}.xlsx`);
-  };
+const SubmittedState: React.FC<{ survey: any, questions: any[], answers: any, participant: any }> = ({ survey, questions, answers, participant }) => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -60,10 +51,10 @@ const SubmittedState: React.FC<{ survey: any, questions: any[], answers: any }> 
         <h2 className="text-2xl font-bold mb-2">Спасибо за участие!</h2>
         <p className="text-gray-500 mb-8">{survey?.completion_settings?.thank_you_message || 'Ваши ответы сохранены'}</p>
         <div className="grid grid-cols-2 gap-4">
-          <button onClick={downloadPDF} className="flex items-center justify-center gap-2 p-3 border rounded-xl hover:bg-gray-50 font-medium">
+          <button onClick={() => generateSurveyFormPdf(survey, questions, answers, participant)} className="flex items-center justify-center gap-2 p-3 border rounded-xl hover:bg-gray-50 font-medium">
             <FileText size={18} /> PDF
           </button>
-          <button onClick={downloadExcel} className="flex items-center justify-center gap-2 p-3 border rounded-xl hover:bg-gray-50 font-medium">
+          <button onClick={() => handleExportExcel(survey, questions, answers)} className="flex items-center justify-center gap-2 p-3 border rounded-xl hover:bg-gray-50 font-medium">
             <Table size={18} /> Excel
           </button>
         </div>
@@ -74,9 +65,10 @@ const SubmittedState: React.FC<{ survey: any, questions: any[], answers: any }> 
 
 export function SurveyForm({ runId: propRunId, surveyTemplateId }: { runId?: string, surveyTemplateId?: string }) {
   const { id: urlId } = useParams<{ id: string }>();
-  const [survey, setSurvey] = useState<any>(null);
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [survey, setSurvey] = useState<SurveyTemplate | null>(null);
+  const [questions, setQuestions] = useState<QuestionTemplate[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [participant, setParticipant] = useState({ name: '', email: '', company: '' });
   const [isInfoSubmitted, setIsInfoSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -106,36 +98,79 @@ export function SurveyForm({ runId: propRunId, surveyTemplateId }: { runId?: str
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const handleInfoSubmit = (data: any) => {
+    setParticipant(data);
+    setIsInfoSubmitted(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const { data: sub, error: sErr } = await supabase.from('survey_submissions').insert({
-        survey_template_id: survey.id,
-        run_id: propRunId || null,
-        survey_title: survey.title
-      }).select().single();
-      
-      if (sErr) throw sErr;
+        let participantId: string | null = null;
 
-      const ansPayload = questions.filter(q => q.question_type !== 'section').map(q => ({
-        submission_id: sub.id,
-        question_template_id: q.id,
-        question_text: q.question_text,
-        answer_text: answers[q.id] || null
-      }));
+        if (participant.email && participant.email.trim() !== '') {
+            const { data: pData, error: pError } = await supabase
+                .from('participants')
+                .upsert({ 
+                    email: participant.email, 
+                    first_name: participant.name, 
+                    company_name: participant.company,
+                    company_id: survey!.company_id
+                }, { onConflict: 'email' })
+                .select()
+                .single();
+            if (pError) throw pError;
+            participantId = pData.id;
+        } else {
+            const { data: pData, error: pError } = await supabase
+                .from('participants')
+                .insert({ 
+                    first_name: participant.name, 
+                    company_name: participant.company,
+                    email: null,
+                    company_id: survey!.company_id
+                })
+                .select()
+                .single();
+            if (pError) throw pError;
+            participantId = pData.id;
+        }
 
-      await supabase.from('submission_answers').insert(ansPayload);
-      setSubmitted(true);
-    } catch (e: any) { toast.error(e.message); }
+        const { data: sub, error: sErr } = await supabase.from('survey_submissions').insert({
+            survey_template_id: survey!.id,
+            participant_id: participantId,
+            respondent_name: participant.name,
+            respondent_email: participant.email || null,
+            respondent_company: participant.company || null,
+            survey_title: survey!.title,
+            run_id: propRunId || null,
+        }).select().single();
+        
+        if (sErr) throw sErr;
+
+        const ansPayload = questions.filter(q => q.question_type !== 'section').map(q => ({
+            submission_id: sub.id,
+            question_template_id: q.id,
+            question_text: q.question_text,
+            answer_text: answers[q.id] || null
+        }));
+
+        await supabase.from('submission_answers').insert(ansPayload);
+        setSubmitted(true);
+        toast.success('Опрос успешно пройден!');
+    } catch (e: any) { 
+        console.error("Submit Error:", e);
+        toast.error(e.message);
+    }
     finally { setIsSubmitting(false); }
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
   if (!isInfoSubmitted && survey?.survey_basis !== 'self_diagnosis') {
-    return <ParticipantInfoForm survey={survey} onSubmit={() => setIsInfoSubmitted(true)} />;
+    return <ParticipantInfoForm survey={survey} onSubmit={handleInfoSubmit} />;
   }
-  if (submitted) return <SubmittedState survey={survey} questions={questions} answers={answers} />;
+  if (submitted) return <SubmittedState survey={survey} questions={questions} answers={answers} participant={participant} />;
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -147,7 +182,6 @@ export function SurveyForm({ runId: propRunId, surveyTemplateId }: { runId?: str
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {questions.map((q, idx) => {
-            // Исправление обрыва списка: проверяем, не раздел ли это
             if (q.question_type === 'section') {
               return (
                 <div key={q.id} className="pt-8 pb-4 border-b-2 border-primary/20">
@@ -161,7 +195,6 @@ export function SurveyForm({ runId: propRunId, surveyTemplateId }: { runId?: str
                 <label className="block text-lg font-medium mb-6 text-gray-800">
                   <span className="text-primary font-bold mr-2">{idx + 1}.</span> {q.question_text}
                 </label>
-                {/* Здесь логика рендеринга инпутов как в твоем коде */}
                 {q.question_type === 'rating' ? (
                   <div className="flex gap-2">
                     {[1, 2, 3, 4, 5].map(num => (
